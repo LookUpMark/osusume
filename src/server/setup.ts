@@ -190,6 +190,14 @@ export function llmAuthHeaders(): Record<string, string> {
   return {};
 }
 
+/** oMLX probes authenticate whenever a key exists — NOT only when the config
+ *  already says backend "omlx": during the wizard the config is still empty and
+ *  a keyless probe gets a 401, making a live server look unreachable. */
+export function omlxAuthHeaders(): Record<string, string> {
+  const key = readOmlxKey();
+  return key ? { authorization: `Bearer ${key}` } : {};
+}
+
 interface RunResult {
   code: number | null;
   stdout: string;
@@ -355,6 +363,7 @@ export function getJob(): SetupJob {
 
 const OMLX_DOWNLOADABLE = {
   "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit": 8.6,
+  "prism-ml/Ternary-Bonsai-27B-mlx-2bit": 7.9, // v1 — kept as an explicit alternative
   "prism-ml/Ternary-Bonsai-8B-mlx-2bit": 2.16,
 } as const;
 const GB = 2 ** 30;
@@ -578,7 +587,7 @@ async function run(): Promise<void> {
     const modelVisible = async (): Promise<boolean> => {
       try {
         const res = await fetch(`${base}/models`, {
-          headers: llmAuthHeaders(),
+          headers: omlxAuthHeaders(),
           signal: AbortSignal.timeout(3000),
         });
         if (!res.ok) return false;
@@ -592,9 +601,9 @@ async function run(): Promise<void> {
       }
     };
 
-    if (!(await httpOk(`${base}/models`, 2000, llmAuthHeaders()))) {
+    if (!(await httpOk(`${base}/models`, 2000, omlxAuthHeaders()))) {
       spawnServe();
-      for (let i = 0; i < 60 && !(await httpOk(`${base}/models`, 2000, llmAuthHeaders())); i++) {
+      for (let i = 0; i < 60 && !(await httpOk(`${base}/models`, 2000, omlxAuthHeaders())); i++) {
         await sleep(2000);
       }
     }
@@ -605,11 +614,11 @@ async function run(): Promise<void> {
       if (owned?.kind === "omlx") {
         killOmlxTree(owned.child); // whole group: the old server must free the port
         owned = null;
-        for (let i = 0; i < 30 && (await httpOk(`${base}/models`, 1000, llmAuthHeaders())); i++) {
+        for (let i = 0; i < 30 && (await httpOk(`${base}/models`, 1000, omlxAuthHeaders())); i++) {
           await sleep(1000);
         }
         spawnServe();
-        for (let i = 0; i < 60 && !(await httpOk(`${base}/models`, 2000, llmAuthHeaders())); i++) {
+        for (let i = 0; i < 60 && !(await httpOk(`${base}/models`, 2000, omlxAuthHeaders())); i++) {
           await sleep(2000);
         }
       } else {
@@ -720,7 +729,7 @@ setupRoutes.get("/status", async (c) => {
   const hw = detectHardware();
   const lms = resolveLms();
   const omlx = resolveOmlx();
-  const omlxUp = omlx != null && (await httpOk(`${OMLX_BASE}/models`, 1000, llmAuthHeaders()));
+  const omlxUp = omlx != null && (await httpOk(`${OMLX_BASE}/models`, 1000, omlxAuthHeaders()));
   const [models, omlxModelsList, serverUp] = await Promise.all([
     jobActive() ? [] : downloadedModels(lms),
     omlx != null ? omlxModels(omlxUp) : Promise.resolve([]),
@@ -741,7 +750,12 @@ setupRoutes.get("/status", async (c) => {
     hardware: hw,
     suggested: suggestModel(hw),
     lms: { installed: lms != null, path: null, serverUp },
-    omlx: { installed: omlx != null, serverUp: omlxUp, models: omlxModelsList },
+    omlx: {
+      installed: omlx != null,
+      serverUp: omlxUp,
+      models: omlxModelsList,
+      downloadable: Object.entries(OMLX_DOWNLOADABLE).map(([model, sizeGb]) => ({ model, sizeGb })),
+    },
     downloadedModels: models,
     job,
     llm: { state: reportedLlmState(serverUp && modelServed) },

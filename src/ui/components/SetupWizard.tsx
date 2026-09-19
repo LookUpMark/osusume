@@ -96,6 +96,15 @@ export function SetupWizard(props: {
 
   const jobBusy = status.job.state === "downloading" || status.job.state === "installing-cli";
 
+  // a finished oMLX download becomes the selected model: the radio list comes
+  // from the server's boot-time scan and won't show the new pack until a restart
+  useEffect(() => {
+    const jm = status.job.model;
+    if (status.job.state === "done" && jm && backend === "omlx") {
+      setModel((cur) => (cur === jm ? cur : jm));
+    }
+  }, [status.job.state, status.job.model, backend]);
+
   // job finished (or model already on disk) → auto-complete the setup once.
   // Strict ownership: only a "done" for THIS model auto-finishes — install-cli
   // jobs close with model:null and must never mark the setup complete, and an
@@ -211,6 +220,31 @@ export function SetupWizard(props: {
                     </button>
                   </div>
                 )}
+                {status.omlx.downloadable
+                  .filter(
+                    (d) =>
+                      d.model !== mlx?.model &&
+                      !status.omlx.models.some((m) => m === d.model || m === (d.model.split("/").pop() ?? "")),
+                  )
+                  .map((d) => (
+                    <div className="model-card" key={d.model}>
+                      <span>
+                        <strong>{d.model}</strong> ({d.sizeGb} GB)
+                      </span>
+                      <button className="btn-primary"
+                        disabled={jobBusy || busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          await postSetup("omlx-download", { model: d.model }).catch(() => undefined);
+                          setBusy(false);
+                        }}
+                      >
+                        {status.job.model === d.model && status.job.state === "downloading"
+                          ? `${Math.round(((status.job.bytesDone ?? 0) / (status.job.totalBytes || 1)) * 100)}%`
+                          : tr(lang, "download")}
+                      </button>
+                    </div>
+                  ))}
                 {status.job.state === "downloading" && status.job.totalBytes ? (
                   <>
                     <div className="progress" aria-hidden="true">

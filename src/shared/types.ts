@@ -120,7 +120,7 @@ export interface SetupStatus {
     mlxLms: { model: string; sizeGb: number } | null;
   };
   lms: { installed: boolean; path: string | null; serverUp: boolean };
-  omlx: { installed: boolean; serverUp: boolean; models: string[] };
+  omlx: { installed: boolean; serverUp: boolean; models: string[]; downloadable: { model: string; sizeGb: number }[] };
   downloadedModels: string[];
   job: {
     state: "idle" | "installing-cli" | "downloading" | "done" | "error";
