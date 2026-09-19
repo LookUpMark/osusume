@@ -9,11 +9,22 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [msgs, busy]);
+
+  // waiting feedback: seconds next to the dots — a slow model is "working", a
+  // dead server is visibly stuck instead of an eternal spinner
+  useEffect(() => {
+    if (!busy) return;
+    const t0 = Date.now();
+    setElapsed(0);
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [busy]);
 
   // a new search is a new conversation — never keep turns about the old result
   useEffect(() => {
@@ -62,6 +73,7 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
             <span className="dots" aria-hidden="true">
               <span /><span /><span />
             </span>
+            {tr(lang, "chatThinking")} · {tr(lang, "secsShort", { s: elapsed })}
           </div>
         )}
         {err && (

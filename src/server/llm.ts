@@ -14,8 +14,10 @@ export class LlmError extends Error {}
 
 // bumped when the prompt voice changes — old cached explanations must not resurface
 const PROMPT_VERSION = "v2-expert-1";
-const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS ?? 4000);
-const LLM_RETRY_TOKENS = Number(process.env.LLM_RETRY_TOKENS ?? 16000);
+// thinking OFF makes a full explanation ~150 tokens: budget for a batch, not
+// for reasoning (the old 4000/16000 let Bonsai burn minutes of reasoning at 23 tok/s)
+const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS ?? 1200);
+const LLM_RETRY_TOKENS = Number(process.env.LLM_RETRY_TOKENS ?? 4000);
 
 /** True when the failure was a token-budget truncation: thinking models spend
  *  the whole budget reasoning before the JSON — one bigger-budget retry wins. */
@@ -63,21 +65,38 @@ export async function resolveServedModel(): Promise<string> {
   return want;
 }
 
+/** Server down / socket error are plain TypeErrors — type them so /api/chat
+ *  answers 503 llm_unavailable (honest, fast) instead of a generic 500. */
 export async function llmChat(messages: { role: string; content: string }[], model: string, maxTokens = LLM_MAX_TOKENS): Promise<string> {
-  const res = await fetch(`${llmBaseUrl()}/chat/completions`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...llmAuthHeaders() },
-    body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
-    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${llmBaseUrl()}/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...llmAuthHeaders() },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.3,
+        max_tokens: maxTokens,
+        // Qwen3-family hard switch (Bonsai included): unknown fields are dropped
+        // by servers that don't support it. Verified live: without it the model
+        // spends the whole budget in invisible reasoning (~3 min per call).
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
+  } catch (e) {
+    throw new LlmError(`LLM unreachable (${(e as Error).message})`);
+  }
   if (!res.ok) throw new LlmError(`LLM HTTP ${res.status}`);
   const json = (await res.json()) as {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
   };
   const choice = json.choices?.[0];
   if (choice?.finish_reason === "length") throw new LlmError("LLM output truncated (finish_reason=length)");
-  const content = choice?.message?.content ?? "";
-  if (content.trim().length === 0) throw new LlmError("LLM returned empty content");
+  // templates without the kwarg may still reason inline — strip what we can
+  const content = (choice?.message?.content ?? "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  if (content.length === 0) throw new LlmError("LLM returned empty content");
   return content;
 }
 

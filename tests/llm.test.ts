@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { MediaLite, ScoredReco, TasteProfile } from "../src/shared/types.ts";
-import { explainRecos, llmHealth, parseExplanations } from "../src/server/llm.ts";
+import { explainRecos, llmChat, llmHealth, LlmError, parseExplanations } from "../src/server/llm.ts";
 import { llmModel } from "../src/server/config.ts";
 
 // explainRecos reads LLM_BASE_URL per call — each test points it at its fake server
@@ -125,6 +125,43 @@ test("explainRecos: unreachable LLM degrades to deterministic fallbacks without 
   } finally {
     if (prevBase === undefined) delete process.env.LLM_BASE_URL;
     else process.env.LLM_BASE_URL = prevBase;
+  }
+});
+
+test("llmChat: thinking disabled at the source, think blocks stripped, budget default", async () => {
+  await withFakeLLM(
+    () => "<think>let me reason at length…</think>[{\"id\":30,\"why\":\"ok\"}]",
+    async (url) => {
+      let body: any;
+      const orig = globalThis.fetch;
+      // capture the request body
+      globalThis.fetch = (async (input: any, init?: any) => {
+        body = JSON.parse(init.body);
+        return orig(input, init);
+      }) as typeof fetch;
+      try {
+        process.env.LLM_BASE_URL = url;
+        const out = await llmChat([{ role: "user", content: "hi" }], "m");
+        assert.equal(out, '[{"id":30,"why":"ok"}]');
+        assert.equal(body.chat_template_kwargs?.enable_thinking, false);
+        assert.equal(body.max_tokens, 1200); // explanation-sized, not reasoning-sized
+      } finally {
+        globalThis.fetch = orig;
+        delete process.env.LLM_BASE_URL;
+      }
+    },
+  );
+});
+
+test("llmChat: server down throws LlmError ('unreachable'), not a bare TypeError", async () => {
+  process.env.LLM_BASE_URL = "http://127.0.0.1:59999/v1"; // nothing listens here
+  try {
+    await assert.rejects(
+      llmChat([{ role: "user", content: "hi" }], "m"),
+      (e: unknown) => e instanceof LlmError && e.message.includes("unreachable"),
+    );
+  } finally {
+    delete process.env.LLM_BASE_URL;
   }
 });
 

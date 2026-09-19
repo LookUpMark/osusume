@@ -40,6 +40,15 @@ export function DetailDialog(props: {
   const lang = props.lang;
   const description = clean(m.description);
   const [writing, setWriting] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // seconds next to the dots while the local model writes (see ChatPanel)
+  useEffect(() => {
+    if (!writing) return;
+    setElapsed(0);
+    const iv = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, [writing]);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -143,7 +152,7 @@ export function DetailDialog(props: {
               <span className="dots" aria-hidden="true">
                 <span /><span /><span />
               </span>
-              {tr(lang, "llmWriting")}
+              {tr(lang, "llmWriting")} · {tr(lang, "secsShort", { s: elapsed })}
             </p>
           )}
           <div className="dlg-foot">

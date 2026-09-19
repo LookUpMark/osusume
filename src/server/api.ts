@@ -107,7 +107,9 @@ api.post("/explain", async (c) => {
   const lang = LANGS.has(body?.lang ?? "") ? (body!.lang as Lang) : "en";
   if (!USERNAME_RE.test(username) || ids.size === 0) return c.json({ error: "invalid_request" }, 400);
   return withLocalFallback(c, async () => {
-    const { recos, profile } = await getRecommendation(username, lang);
+    // stale-tolerant like /chat: the dialog explains a result the UI already
+    // shows — recomputing the whole list mid-open is seconds of dead wait
+    const { recos, profile } = await getRecommendation(username, lang, { staleOk: true });
     const subset = recos.filter((r) => ids.has(r.media.id));
     const explanations = await explainRecos(subset, profile, lang, username);
     return c.json({

@@ -559,7 +559,9 @@ export function ensureLlmServer(force = false): void {
 async function run(): Promise<void> {
   const cfg = readConfigFile();
   const base = cfg.baseUrl ?? LMSTUDIO_BASE;
-  if (await httpOk(`${base}/models`, 2000, llmAuthHeaders())) {
+  // generous probe: a server busy generating answers /models slowly — a miss
+  // here spawns a second backend on the same port
+  if (await httpOk(`${base}/models`, 4000, llmAuthHeaders())) {
     backendState = "up";
     return;
   }
@@ -610,7 +612,7 @@ async function run(): Promise<void> {
       }
     };
 
-    if (!(await httpOk(`${base}/models`, 2000, omlxAuthHeaders()))) {
+    if (!(await httpOk(`${base}/models`, 4000, omlxAuthHeaders()))) {
       spawnServe();
       for (let i = 0; i < 60 && !(await httpOk(`${base}/models`, 2000, omlxAuthHeaders())); i++) {
         await sleep(2000);
@@ -618,7 +620,9 @@ async function run(): Promise<void> {
     }
     // oMLX scans models only at boot: a model downloaded while it was running
     // is invisible until a restart — rescan and restart when needed
-    if (!(await modelVisible())) {
+    // (one retry first: a busy server generating answers /models slowly, and
+    // killing it mid-generation is exactly the bug we don't want)
+    if (!(await modelVisible()) && !(await (async () => { await sleep(5000); return modelVisible(); })())) {
       log(`oMLX non vede ${cfg.model} — riavvio del server per rescan`);
       if (owned?.kind === "omlx") {
         killOmlxTree(owned.child); // whole group: the old server must free the port

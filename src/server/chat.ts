@@ -77,6 +77,6 @@ export async function chatReply(
     return await llmChat(messages, model);
   } catch (e) {
     if (!isTruncation(e)) throw e;
-    return llmChat(messages, model, 12000); // thinking models: one bigger-budget retry
+    return llmChat(messages, model, 4000); // safety net — thinking is off at the source
   }
 }
