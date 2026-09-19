@@ -28,13 +28,10 @@ export function SetupWizard(props: {
   );
   const pollReq = useRef(0);
 
-  // Reopen after an app update: config already valid — acknowledge the version
-  // marker once so the wizard doesn't come back on every launch.
-  const reopened = props.initial.setupDone;
-  useEffect(() => {
-    if (reopened) void postSetup("ack").catch(() => undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Reopen after an app update: the version marker is acknowledged only when the
+  // user deliberately leaves the wizard — closing the app earlier keeps it coming
+  // back (an ack at mount could be lost to a quick close and lose the wizard forever).
+
 
   // poll while the wizard is open: job progress + backend state (drop stale responses)
   useEffect(() => {
@@ -50,9 +47,7 @@ export function SetupWizard(props: {
   }, []);
 
   // step derives from server truth: the download job IS the progress screen
-  const downloaded = status.downloadedModels.some(
-    (m) => m.includes(model) || model.includes(m),
-  );
+  const downloaded = status.downloadedModels.includes(model);
   const step = status.setupDone
     ? 3
     : status.job.state === "downloading" || status.job.state === "installing-cli"
@@ -60,6 +55,18 @@ export function SetupWizard(props: {
       : downloaded
         ? 2
         : 1;
+
+  // recommended MLX variant for this machine, matched against what the oMLX
+  // server reports (it serves bare names, the catalogue uses org/repo ids)
+  const mlx = status.suggested.mlx;
+  const mlxLeaf = mlx ? (mlx.model.split("/").pop() ?? mlx.model) : null;
+  const mlxPresent = !!mlx && status.omlx.models.some((m) => m === mlx.model || m === mlxLeaf);
+
+  async function done() {
+    // persist the version marker only on a deliberate exit (never at mount)
+    if (props.initial.setupDone) void postSetup("ack").catch(() => undefined);
+    props.onDone();
+  }
 
   async function finish(body: object) {
     setBusy(true);
@@ -89,13 +96,17 @@ export function SetupWizard(props: {
 
   const jobBusy = status.job.state === "downloading" || status.job.state === "installing-cli";
 
-  // job finished (or model already on disk) → auto-complete the setup once
+  // job finished (or model already on disk) → auto-complete the setup once.
+  // Strict ownership: only a "done" for THIS model auto-finishes — install-cli
+  // jobs close with model:null and must never mark the setup complete, and an
+  // oMLX download must finish with backend "omlx", not the lmstudio fallthrough.
   const finishedRef = useRef(false);
-  const modelDone = status.job.state === "done" || (downloaded && status.job.state === "idle");
+  const jobDoneThisModel = status.job.state === "done" && status.job.model === model;
+  const modelDone = jobDoneThisModel || (status.job.state === "idle" && downloaded);
   useEffect(() => {
     if (finishedRef.current || busy || status.setupDone || !modelDone) return;
     finishedRef.current = true;
-    void finish({ model });
+    void finish(backend === "omlx" ? { backend: "omlx", model } : { model });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelDone, status.setupDone, busy]);
 
@@ -181,20 +192,20 @@ export function SetupWizard(props: {
                     </label>
                   ))}
                 </div>
-                {!status.omlx.models.some((m) => m.includes("Bonsai-27B")) && (
+                {mlx && !mlxPresent && (
                   <div className="model-card">
                     <span>
-                      {tr(lang, "recModel")}: <strong>prism-ml/Ternary-Bonsai-27B-mlx-2bit</strong> (7.9 GB)
+                      {tr(lang, "recModel")}: <strong>{mlx.model}</strong> ({mlx.sizeGb} GB)
                     </span>
                     <button className="btn-primary"
                       disabled={jobBusy || busy}
                       onClick={async () => {
                         setBusy(true);
-                        await postSetup("omlx-download", { model: "prism-ml/Ternary-Bonsai-27B-mlx-2bit" }).catch(() => undefined);
+                        await postSetup("omlx-download", { model: mlx.model }).catch(() => undefined);
                         setBusy(false);
                       }}
                     >
-                      {status.job.model?.includes("Bonsai-27B") && status.job.state === "downloading"
+                      {status.job.model === mlx.model && status.job.state === "downloading"
                         ? `${Math.round(((status.job.bytesDone ?? 0) / (status.job.totalBytes || 1)) * 100)}%`
                         : tr(lang, "download")}
                     </button>
@@ -226,13 +237,13 @@ export function SetupWizard(props: {
                 {tr(lang, "recModel")}: <strong>{model}</strong>{" "}
                 ({status.suggested.sizeGb} GB)
               </span>
-              {status.suggested.mlx && (
+              {status.suggested.mlxLms && (
                 <label className="mlx-opt">
                   <input
                     type="checkbox"
                     checked={model.includes("-mlx")}
                     onChange={(e) =>
-                      setModel(e.target.checked ? status.suggested.mlx!.model : status.suggested.model)
+                      setModel(e.target.checked ? status.suggested.mlxLms!.model : status.suggested.model)
                     }
                   />
                   {tr(lang, "mlxOpt")}
@@ -282,14 +293,14 @@ export function SetupWizard(props: {
         {step === 2 && (
           <>
             <p className="loading">
-              {tr(lang, "downloading")} <strong>{model}</strong>
+              {tr(lang, "downloading")} <strong>{status.job.model ?? model}</strong>
             </p>
             <div className="progress" aria-hidden="true">
               <span />
             </div>
             {status.job.logTail && <pre className="joblog">{status.job.logTail}</pre>}
             <div className="action-row">
-              <button disabled={busy} onClick={() => finish({ model })}>
+              <button disabled={busy} onClick={() => finish(backend === "omlx" ? { backend: "omlx", model } : { model })}>
                 {tr(lang, "skipDownload")}
               </button>
             </div>
@@ -307,7 +318,7 @@ export function SetupWizard(props: {
                   : tr(lang, "llmOffNote")}
             </p>
             <div className="action-row">
-              <button className="btn-primary" disabled={busy} onClick={props.onDone}>
+              <button className="btn-primary" disabled={busy} onClick={done}>
                 {tr(lang, "startUsing")}
               </button>
             </div>

@@ -213,6 +213,17 @@ export function App() {
   };
   const filtersActive = gemsOnly || format !== "all" || genre !== "all";
 
+  if (setup === null) {
+    // status fetch in flight: minimal splash — never the full shell, or the
+    // wizard decision would "flash" the app before appearing
+    return (
+      <main className="setup-error" aria-busy="true">
+        <h1>{tr(lang, "appName")}</h1>
+        <p className="loading">{tr(lang, "booting")}</p>
+      </main>
+    );
+  }
+
   if (setup === "error") {
     return (
       <main className="setup-error">
@@ -541,7 +552,12 @@ export function App() {
                   type="button"
                   className="linklike"
                   onClick={() => {
-                    postSetup("reset").then(() => window.location.reload()).catch(() => undefined);
+                    // reopen the wizard in place: no full page reload (it rebooted
+                    // every probe and took seconds) — the status fetch gates the render
+                    postSetup("reset")
+                      .then(() => fetchSetupStatus())
+                      .then((s) => setSetup(s))
+                      .catch(() => setSetup("error"));
                   }}
                 >
                   {tr(lang, "rerunSetup")}

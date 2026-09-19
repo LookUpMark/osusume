@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Explanation, Lang, ScoredReco, TasteProfile } from "../shared/types.ts";
-import { CACHE_DIR, CACHE_TTL_EXPL_MS, llmBaseUrl, llmModel, LLM_TIMEOUT_MS } from "./config.ts";
-import { llmAuthHeaders } from "./setup.ts";
+import { CACHE_DIR, CACHE_TTL_EXPL_MS, configuredLlmModel, llmBaseUrl, llmModel, LLM_TIMEOUT_MS } from "./config.ts";
+import { llmAuthHeaders, logLlm } from "./setup.ts";
 
 const EXPL_DIR = join(CACHE_DIR, "expl");
 
@@ -13,7 +13,14 @@ export async function llmHealth(): Promise<boolean> {
       headers: llmAuthHeaders(),
       signal: AbortSignal.timeout(2000),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    // a 200 on /models says nothing about OUR model: a chip that goes green
+    // while every chat 404s is worse than an honest "off"
+    const want = configuredLlmModel();
+    if (!want) return true; // no explicit model configured — reachable is all we know
+    const j = (await res.json()) as { data?: { id?: string }[] };
+    const leaf = want.split("/").pop();
+    return (j.data ?? []).some((m) => m.id === want || m.id === leaf);
   } catch {
     return false;
   }
@@ -164,14 +171,21 @@ export async function explainRecos(
     // ponytail: batches of max 10 — small local models degrade past that
     for (let i = 0; i < pending.length; i += 10) {
       const batch = pending.slice(i, i + 10);
-      const raw = await llmChat([
-        {
-          role: "system",
-          content:
-            "You output only valid JSON. If you reason first, keep it under 100 words — the reply must end with the JSON array.",
-        },
-        { role: "user", content: buildPrompt(batch, profile, lang) },
-      ]);
+      let raw: string;
+      try {
+        raw = await llmChat([
+          {
+            role: "system",
+            content:
+              "You output only valid JSON. If you reason first, keep it under 100 words — the reply must end with the JSON array.",
+          },
+          { role: "user", content: buildPrompt(batch, profile, lang) },
+        ]);
+      } catch (e) {
+        // log the failure — silent fallbacks made "why is there no LLM text?" undebuggable
+        logLlm(`explain: LLM error (${(e as Error).message}) per model=${llmModel()} — prose deterministiche in uso`);
+        break;
+      }
       for (const e of parseExplanations(raw)) {
         const reco = batch.find((r) => r.media.id === e.id);
         const text = e.why.trim();
@@ -184,8 +198,9 @@ export async function explainRecos(
       }
     }
     if (fresh.size > 0) await cacheSet(key, { ...(cached ?? {}), ...Object.fromEntries(fresh) });
-  } catch {
-    // LLM unreachable/slow — deterministic fallbacks already in place
+  } catch (e) {
+    // LLM unreachable/slow — deterministic fallbacks already in place, but leave a trace
+    logLlm(`explain: fallito (${(e as Error).message}) — prose deterministiche in uso`);
   }
   return out;
 }

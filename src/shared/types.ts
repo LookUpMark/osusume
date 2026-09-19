@@ -111,7 +111,14 @@ export interface SetupStatus {
   needsSetup: boolean;
   customEnv: boolean;
   hardware: SetupHardware;
-  suggested: { model: string; sizeGb: number; mlx: { model: string; sizeGb: number } | null };
+  suggested: {
+    model: string;
+    sizeGb: number;
+    /** MLX pack for the oMLX backend */
+    mlx: { model: string; sizeGb: number } | null;
+    /** MLX variant loadable via lms/LM Studio (null when none exists, e.g. 27B Bonsai-2) */
+    mlxLms: { model: string; sizeGb: number } | null;
+  };
   lms: { installed: boolean; path: string | null; serverUp: boolean };
   omlx: { installed: boolean; serverUp: boolean; models: string[] };
   downloadedModels: string[];

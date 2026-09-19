@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { MediaLite, ScoredReco, TasteProfile } from "../src/shared/types.ts";
-import { explainRecos, parseExplanations } from "../src/server/llm.ts";
+import { explainRecos, llmHealth, parseExplanations } from "../src/server/llm.ts";
 import { llmModel } from "../src/server/config.ts";
 
 // explainRecos reads LLM_BASE_URL per call — each test points it at its fake server
@@ -136,4 +136,36 @@ test("parseExplanations: prose-wrapped, fenced, truncated and garbage input", ()
   assert.deepEqual(parseExplanations('[{"id":"abc","why":"e"}]'), []);
   assert.deepEqual(parseExplanations("no array here at all"), []);
   assert.deepEqual(parseExplanations("[unclosed"), []);
+});
+
+test("llmHealth: 200 on /models is not 'up' unless the configured model is served", async () => {
+  const prevBase = process.env.LLM_BASE_URL;
+  const prevModel = process.env.LLM_MODEL;
+  const server: Server = createServer((req, res) => {
+    if ((req.url ?? "").includes("/models")) {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ data: [{ id: "altro-modello" }] }));
+    } else {
+      res.statusCode = 404;
+      res.end("{}");
+    }
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
+  try {
+    process.env.LLM_BASE_URL = url;
+    process.env.LLM_MODEL = "prism-ml/Ternary-Bonsai-2-27B-gguf";
+    assert.equal(await llmHealth(), false, "missing model → honest off (never a phantom green chip)");
+    process.env.LLM_MODEL = "altro-modello";
+    assert.equal(await llmHealth(), true, "model served → up");
+    process.env.LLM_MODEL = "org/altro-modello";
+    assert.equal(await llmHealth(), true, "org-prefixed config tolerated against bare server id");
+  } finally {
+    if (prevBase === undefined) delete process.env.LLM_BASE_URL;
+    else process.env.LLM_BASE_URL = prevBase;
+    if (prevModel === undefined) delete process.env.LLM_MODEL;
+    else process.env.LLM_MODEL = prevModel;
+    server.closeAllConnections();
+    server.close();
+  }
 });
