@@ -70,7 +70,7 @@ On first launch a **setup wizard** appears: it detects your hardware (chip, RAM)
 
 - Skip the wizard anytime: the app works fully without an LLM (deterministic explanations).
 - Prefer your own endpoint (Ollama, LM Studio GUI, llama.cpp server…)? Set `LLM_BASE_URL` in `.env` (see `.env.example`) — the wizard stays out of the way.
-- Ternary (2-bit) Apple MLX variants of Bonsai are selectable in the wizard, with a caveat: it requires the PrismML fork of MLX (not merged upstream yet) — the command is shown, not automated.
+- Ternary (2-bit) Apple MLX variants of Bonsai are selectable in the wizard. On Apple Silicon with [oMLX](https://github.com/PrismML-Eng) the wizard offers **[Ternary-Bonsai-2-27B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-mlx-2bit)** (8.6 GB, downloaded straight into oMLX). The LM Studio MLX checkbox stays on the 8B v1 pack: Bonsai-2 packings (GGUF and MLX) require the PrismML runtimes and are **not loadable by LM Studio/llama.cpp/MLX upstream**.
 - To redo the wizard: `rm data/config.json`.
 
 Language: English by default, Italiano via the toggle (covers UI strings and explanation language).

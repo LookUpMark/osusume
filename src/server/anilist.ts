@@ -158,8 +158,7 @@ async function gql<T>(query: string, variables: object, ttlMs: number): Promise<
       } catch {
         if (attempt < 3) {
           await sleep(1000 * 2 ** attempt);
-          attempt++;
-          continue;
+          continue; // the for-loop increments attempt — an extra ++ here shorted this path by one retry
         }
         throw new AniListError(`AniList HTTP ${res.status} (non-JSON body)`, res.status);
       }

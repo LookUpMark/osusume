@@ -43,7 +43,9 @@ export function analyzeFranchises(
       const p = prequelOf.get(cur);
       if (p == null || visited.has(p)) break; // end of chain / cycle guard
       const upstream = chainMemo.get(p);
-      if (upstream) {
+      // a PREQUEL cycle would inject `id` into its own chain — skip memoized
+      // chains that contain us (the normal branch below already truncates on visited)
+      if (upstream && !upstream.includes(id)) {
         // p + upstream's predecessors, predecessor-first like the loop below
         chain.push(p, ...[...upstream].reverse());
         break;

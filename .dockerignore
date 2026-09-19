@@ -1,7 +1,6 @@
 node_modules/
 dist/
 data/
-fixtures/
 docs/
 .github/
 .git/

@@ -4,15 +4,16 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-// must run BEFORE the server modules import config.ts
-if (process.env.ANILIST_FIXTURES) {
-  console.error("ANILIST_FIXTURES must be unset to record real fixtures");
-  process.exit(1);
-}
-
 const { fetchUserList, fetchRecommendations } = await import("../src/server/anilist.ts");
 const { fetchCandidates } = await import("../src/server/candidates.ts");
 const { buildProfile, entrySentiment } = await import("../src/server/profile.ts");
+// check AFTER the imports: config.ts auto-loads .env, so process.env alone lies
+// about what the server modules will actually see
+const { ANILIST_FIXTURES } = await import("../src/server/config.ts");
+if (ANILIST_FIXTURES) {
+  console.error("ANILIST_FIXTURES must be unset to record real fixtures");
+  process.exit(1);
+}
 
 const username = process.argv[2];
 if (!username) {

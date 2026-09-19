@@ -58,7 +58,9 @@ async function start(): Promise<void> {
       // the .app bundle is read-only (App Translocation): all runtime data goes
       // to ~/Library/Application Support/<productName>/
       ALR_DATA_DIR: app.getPath("userData"),
-      APP_VERSION: app.getVersion(),
+      // version marker only when packaged: in dev-electron a version bump must
+      // not reopen the wizard on every `pnpm app`
+      ...(app.isPackaged ? { APP_VERSION: app.getVersion() } : {}),
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
