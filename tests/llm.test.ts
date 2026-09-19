@@ -55,8 +55,13 @@ async function withFakeLLM(
     let data = "";
     req.on("data", (c) => (data += c));
     req.on("end", () => {
-      hits.count++;
       res.setHeader("content-type", "application/json");
+      // model resolution probe — serve the configured model id as an OpenAI list
+      if ((req.url ?? "").includes("/models")) {
+        res.end(JSON.stringify({ data: [{ id: llmModel() }] }));
+        return;
+      }
+      hits.count++;
       res.end(JSON.stringify({ choices: [{ message: { content: handler(JSON.parse(data), hits) } }] }));
     });
   });
@@ -168,4 +173,19 @@ test("llmHealth: 200 on /models is not 'up' unless the configured model is serve
     server.closeAllConnections();
     server.close();
   }
+});
+
+test("chat: system prompt is grounded in the visible result", async () => {
+  const { buildChatSystem } = await import("../src/server/chat.ts");
+  const result = {
+    profile,
+    recos: [reco(1), reco(2)],
+    avoided: [],
+  } as unknown as Parameters<typeof buildChatSystem>[0];
+  const sys = buildChatSystem(result, "en");
+  assert.ok(sys.includes("m1") && sys.includes("m2"), "titles present");
+  assert.ok(sys.includes("deterministic why for 1"), "match reasons included");
+  assert.ok(sys.includes("English"), "language directive present");
+  const it = buildChatSystem(result, "it");
+  assert.ok(it.includes("Italian"), "language follows the requested lang");
 });

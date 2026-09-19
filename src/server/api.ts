@@ -10,6 +10,7 @@ import {
   setLocalMode,
 } from "./config.ts";
 import { explainRecos, llmHealth } from "./llm.ts";
+import { chatReply } from "./chat.ts";
 import { getProfile, getRecommendation } from "./recommend.ts";
 import { ensureLlmServer, llmBackendState, setupRoutes } from "./setup.ts";
 import { appUpdateStatus } from "./update.ts";
@@ -113,6 +114,37 @@ api.post("/explain", async (c) => {
       explanations: [...explanations.entries()].map(([id, e]) => ({ id, ...e })),
     });
   });
+});
+
+// Natural-language chat about the current result. The context (recommendations,
+// profile, avoid list) is rebuilt server-side — the client only sends the conversation.
+api.post("/chat", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as
+    | { username?: string; lang?: Lang; messages?: { role?: string; content?: string }[] }
+    | null;
+  const username = body?.username ?? "";
+  const lang = LANGS.has(body?.lang ?? "") ? (body!.lang as Lang) : "en";
+  if (!USERNAME_RE.test(username)) return c.json({ error: "invalid_username" }, 400);
+  const history = (body?.messages ?? [])
+    .filter(
+      (m): m is { role: "user" | "assistant"; content: string } =>
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string" &&
+        m.content.length > 0 &&
+        m.content.length <= 4000,
+    )
+    .slice(-12);
+  if (history.length === 0 || history[history.length - 1]!.role !== "user") {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  try {
+    const result = await getRecommendation(username, lang); // cached in-memory (10 min)
+    const reply = await chatReply(result, lang, history);
+    return c.json({ reply });
+  } catch (e) {
+    if ((e as Error).message?.startsWith("LLM HTTP")) return c.json({ error: "llm_unavailable" }, 503);
+    return errorResponse(c, e);
+  }
 });
 
 function errorResponse(c: { json: (x: object, status: number) => Response }, e: unknown): Response {

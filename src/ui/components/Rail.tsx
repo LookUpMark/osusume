@@ -13,6 +13,12 @@ const ICONS: Record<View, ReactElement> = {
       <path d="M3 9h18M9.5 9 12 20 14.5 9M7 4l2.5 5M17 4l-2.5 5" />
     </>
   ),
+  chat: (
+    <>
+      <path d="M21 12a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.6-.3-3.7-.8L3.5 21l1.3-4.6A8.5 8.5 0 1 1 21 12z" />
+      <path d="M8.5 10.5h7M8.5 14h4.5" />
+    </>
+  ),
   profile: (
     <>
       <circle cx="12" cy="8" r="4" />
@@ -47,7 +53,7 @@ export function Rail(props: {
   onLang: () => void;
 }) {
   const { lang } = props;
-  const items: View[] = ["home", "recos", "gems", "profile", "avoid", "settings"];
+  const items: View[] = ["home", "recos", "gems", "chat", "profile", "avoid", "settings"];
   return (
     <aside className="sidebar" data-od-id="sidebar">
       <div className="brand">

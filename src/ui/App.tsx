@@ -15,6 +15,7 @@ import {
 } from "./api.ts";
 import { AvoidList } from "./components/AvoidList.tsx";
 import { Carousel } from "./components/Carousel.tsx";
+import { ChatPanel } from "./components/ChatPanel.tsx";
 import { DetailDialog } from "./components/DetailDialog.tsx";
 import { Hero } from "./components/Hero.tsx";
 import { MediaCard } from "./components/MediaCard.tsx";
@@ -26,7 +27,7 @@ import type { View } from "./views.ts";
 
 type SortKey = "final" | "gem" | "affinity";
 
-const VIEW_ORDER: View[] = ["home", "recos", "gems", "profile", "avoid", "settings"];
+const VIEW_ORDER: View[] = ["home", "recos", "gems", "chat", "profile", "avoid", "settings"];
 const gemRank = (r: ScoredReco): number =>
   r.badges.includes("HIDDEN_GEM")
     ? r.breakdown.affinity - r.media.popularity / 1_000_000
@@ -50,6 +51,7 @@ export function App() {
   const [username, setUsername] = useState("");
   const [result, setResult] = useState<RecoResult | null>(null);
   const [whySource, setWhySource] = useState<Record<number, "llm" | "local">>({});
+  const [explaining, setExplaining] = useState(false);
   const [sort, setSort] = useState<SortKey>("final");
   const [gemsOnly, setGemsOnly] = useState(false);
   const [format, setFormat] = useState("all");
@@ -147,6 +149,7 @@ export function App() {
       setResult(r);
       setPhase("recos");
       // upgrade deterministic whys with LLM narrations, in the background
+      setExplaining(true);
       fetchExplain(username, r.recos.slice(0, 10).map((x) => x.media.id), lang)
         .then((ex) => {
           const byId = new Map(ex.explanations.map((x) => [x.id, x]));
@@ -163,7 +166,8 @@ export function App() {
               : cur,
           );
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => setExplaining(false));
     } catch (e) {
       setError(errorMessage(e));
       setPhase("idle");
@@ -454,6 +458,17 @@ export function App() {
             )}
           </section>
 
+          {/* ── CHAT ── */}
+          <section className="view" id="view-chat" data-od-id="view-chat" aria-label={tr(lang, "chatTitle")} hidden={view !== "chat"}>
+            <div className="sec-head" style={{ marginTop: 0 }}>
+              <div>
+                <h2>{tr(lang, "chatTitle")}</h2>
+                <p>{tr(lang, "chatSub")}</p>
+              </div>
+            </div>
+            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} />
+          </section>
+
           {/* ── PROFILO ── */}
           <section className="view" id="view-profile" data-od-id="view-profile" aria-label={tr(lang, "navProfile")} hidden={view !== "profile"}>
             {result ? (
@@ -578,6 +593,7 @@ export function App() {
           reco={dialog}
           lang={lang}
           whySource={whySource[dialog.media.id] ?? "local"}
+          explaining={explaining}
           onClose={() => setDialog(null)}
           onSimilar={() => {
             setDialog(null);

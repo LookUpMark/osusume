@@ -26,11 +26,32 @@ export async function llmHealth(): Promise<boolean> {
   }
 }
 
-async function llmChat(messages: { role: string; content: string }[]): Promise<string> {
+/** Servers rename models: oMLX serves bare names while the config may hold an
+ *  org/repo id (404 on every chat otherwise). Resolve once per call round. */
+export async function resolveServedModel(): Promise<string> {
+  const want = llmModel();
+  try {
+    const res = await fetch(`${llmBaseUrl()}/models`, {
+      headers: llmAuthHeaders(),
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return want;
+    const j = (await res.json()) as { data?: { id?: string }[] };
+    const ids = (j.data ?? []).map((m) => m.id ?? "");
+    const leaf = want.split("/").pop();
+    if (ids.includes(want)) return want;
+    if (leaf != null && ids.includes(leaf)) return leaf;
+  } catch {
+    /* unreachable — keep the configured id, the chat error will surface */
+  }
+  return want;
+}
+
+export async function llmChat(messages: { role: string; content: string }[], model: string): Promise<string> {
   const res = await fetch(`${llmBaseUrl()}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", ...llmAuthHeaders() },
-    body: JSON.stringify({ model: llmModel(), messages, temperature: 0.3, max_tokens: 4000 }),
+    body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 4000 }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
@@ -168,6 +189,7 @@ export async function explainRecos(
   if (pending.length === 0) return out;
 
   try {
+    const model = await resolveServedModel();
     // ponytail: batches of max 10 — small local models degrade past that
     for (let i = 0; i < pending.length; i += 10) {
       const batch = pending.slice(i, i + 10);
@@ -180,7 +202,7 @@ export async function explainRecos(
               "You output only valid JSON. If you reason first, keep it under 100 words — the reply must end with the JSON array.",
           },
           { role: "user", content: buildPrompt(batch, profile, lang) },
-        ]);
+        ], model);
       } catch (e) {
         // log the failure — silent fallbacks made "why is there no LLM text?" undebuggable
         logLlm(`explain: LLM error (${(e as Error).message}) per model=${llmModel()} — prose deterministiche in uso`);

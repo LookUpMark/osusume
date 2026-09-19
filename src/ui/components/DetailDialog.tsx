@@ -28,6 +28,7 @@ export function DetailDialog(props: {
   reco: ScoredReco;
   lang: Lang;
   whySource: "llm" | "local";
+  explaining?: boolean;
   onClose: () => void;
   onSimilar: () => void;
 }) {
@@ -82,9 +83,7 @@ export function DetailDialog(props: {
               </p>
             </div>
             <button ref={closeRef} className="dlg-close" type="button" onClick={props.onClose} aria-label={tr(lang, "closeDialog")}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
+              ✕
             </button>
           </div>
           <div className="chips">
@@ -112,6 +111,14 @@ export function DetailDialog(props: {
             <span className={`llm-dot${props.whySource === "llm" ? " on" : ""}`} aria-hidden="true" />
             {tr(lang, props.whySource === "llm" ? "whySrcLlm" : "whySrcLocal")}
           </p>
+          {props.explaining && props.whySource !== "llm" && (
+            <p className="src llm-writing" role="status">
+              <span className="dots" aria-hidden="true">
+                <span /><span /><span />
+              </span>
+              {tr(lang, "llmWriting")}
+            </p>
+          )}
           <div className="dlg-foot">
             {m.siteUrl && (
               <a className="btn btn-primary" href={m.siteUrl} target="_blank" rel="noreferrer">

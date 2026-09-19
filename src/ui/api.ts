@@ -60,6 +60,15 @@ export const fetchExplain = (
     body: JSON.stringify({ username, ids, lang }),
   }).then(json);
 
+export type ChatMsg = { role: "user" | "assistant"; content: string };
+
+export const postChat = (username: string, lang: Lang, messages: ChatMsg[]): Promise<{ reply: string }> =>
+  fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username, lang, messages }),
+  }).then(json);
+
 const isSetupStatus = (b: unknown): b is SetupStatus =>
   !!b && typeof b === "object" &&
   typeof (b as SetupStatus).setupDone === "boolean" &&
