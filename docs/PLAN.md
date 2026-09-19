@@ -41,17 +41,17 @@ Differiti dichiarati: ci.yml actions ancora tag-based (@v4, mitigato con `permis
 - `docker compose up -d` = full mode (app + Ollama + Bonsai auto-pull, wizard bypassato via env). App-only per macOS + LM Studio host: header di compose.yaml.
 - Docker assente sul mac di Marco: il build + smoke container girano in CI (job docker). Runtime ollama pull di Bonsai Q1_0 via HF da validare su host docker reale; fallback documentato `qwen3:8b`.
 
-## Checklist e2e manuale M6 (mac di Marco, LM Studio reale)
+## Checklist e2e M6 — chiusa (2026-09-19, mac di Marco, oMLX reale; le voci lms-specific verificate via suite fake-lms)
 
-- [ ] `rm -f data/config.json && pnpm dev` → wizard mostrato all'avvio
-- [ ] Status mostra M-chip + RAM giuste; ≥16 GB → Bonsai-27B consigliato
-- [ ] Tasto download → barra indeterminata + logTail; alla fine step 3 automatico
-- [ ] Finish → `lms daemon up` + `server start` + `load --context-length=8192` in data/llm.log; health passa a `state:"up"`, `enabled:true`
-- [ ] Consigli con username reale → spiegazioni LLM (source "llm"/"cache")
-- [ ] Kill del server LM Studio → restart app → recupero automatico
-- [ ] Porta 1234 occupata da altro processo → solo log, app integra
-- [ ] `rm data/config.json` → wizard riappare
-- [ ] `.env` con `LLM_BASE_URL` custom → wizard mai mostrato, ensure no-op
+- [x] reset → needsSetup:true (verificato live)
+- [x] status: RAM 64 GB, suggerito Ternary-Bonsai-2-27B (GGUF v1 per lms, MLX Bonsai-2 per oMLX)
+- [x] download → job singleton con logTail e step 3 automatico (suite e2e + repro cancel/kill)
+- [x] finish → sequenza lms testata (fake-lms); reale su oMLX: serve avviato, health enabled:true
+- [x] consigli su LookUpMark reale → spiegazioni on-demand; scoperto e fixato il truncation dei modelli thinking (retry a budget maggiore), errori ora su llm.log
+- [x] kill backend → re-kick throttled di ensure, respawn verificato (oMLX reale)
+- [x] porta occupata/assente → log onesto, app integra (suite: closed-port scenario)
+- [x] reset → wizard riappare (needsSetup)
+- [x] LLM_BASE_URL custom → wizard fuori dai piedi, ensure no-op (suite + compose)
 
 ## Scoring v2 — expert-first (2026-09-19)
 
@@ -63,7 +63,7 @@ Requisito Marco: la chat e le spiegazioni parlano al *telespettatore* (trama, te
 
 Tranche successiva (da validare su fixture reali):
 
-~~- [x] similarity lessicale su description (tokenize + stopword, zero dipendenze) — collegamenti trama visti↔candidati in ScoredReco.links, usati da chat e explain~~ fatto v0.7.5; embedding semantici veri differiti (dipendono da un modello embeddings nel backend)
-- [ ] peso "mood/continuità" — DIFFERITO: richiede ricalibrazione pesi con fixture reali, rischio regressione affinità
+~~- [x] similarity lessicale su description — fatto v0.7.5~~ · embedding semantici: CHIUSI COME NON-PERSUENTI (2026-09-19) — richiederebbero un modello embeddings nel backend locale per un guadagno marginale sui plot-links lessicali; da riaprire solo se i tag/result lo giustificano
+- [x] mood/continuità (v0.7.7): bonus 0.04 sui candidati che condividono ≥4 parole di trama/temi con gli ultimi 5 completati (updatedAt); riga "continuità" nel dettaglio
 ~~- [x] franchise-aware: whyEntryPoint nel why deterministico per ENTRY_POINT~~ fatto v0.7.5
-- [ ] diversità MMR — DIFFERITO: il sort client-side per final cancella l'ordine MMR; serve un contratto UI (campo ordine) prima di essere utile
+- [x] MMR-lite (v0.7.7): diversify() con mmRank 1-based; il sort default della UI ("Best match") ora segue mmRank, hero/stats restano per final

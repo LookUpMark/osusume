@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ListEntry, MediaLite, TasteProfile } from "../src/shared/types.ts";
+import type { ListEntry, MediaLite, ScoredReco, TasteProfile } from "../src/shared/types.ts";
 import { analyzeFranchises, type FranchiseInfo } from "../src/server/franchise.ts";
-import { affinityOf, buildSeenCorpus, dedupeFranchises, deterministicWhy, deterministicWhyNot, gemScoreOf, isGem, popNorm, qualityOf, scoreAll, textLinks, tokenize } from "../src/server/scoring.ts";
+import { affinityOf, buildSeenCorpus, dedupeFranchises, deterministicWhy, deterministicWhyNot, diversify, gemScoreOf, isGem, popNorm, qualityOf, scoreAll, textLinks, tokenize } from "../src/server/scoring.ts";
 
 const media = (id: number, over: Partial<MediaLite> = {}): MediaLite => ({
   id,
@@ -333,4 +333,42 @@ test("scoring v2: PREQUEL cycle never self-references (pin f4-1)", () => {
     assert.notEqual(f.entryPointId, id, `franchise ${id} must not be its own entry point`);
     assert.notEqual(f.kind, "EXCLUDED", "a two-node seen cycle is not dropped material");
   }
+});
+
+test("scoring v2: MMR diversity pushes twins apart and assigns mmRank", () => {
+  const twin = (id: number, final: number): ScoredReco => ({
+    media: { ...media(id), studio: "Bones", genres: ["Action", "Comedy"] },
+    final,
+    breakdown: { affinity: final * 0.6, quality: final * 0.3, community: 0 },
+    badges: [],
+    rootId: null,
+    groupSize: 1,
+    why: `why ${id}`,
+  });
+  const other = (id: number, final: number): ScoredReco => ({
+    media: { ...media(id), studio: "Kyoto Animation", genres: ["Slice of Life"] },
+    final,
+    breakdown: { affinity: final * 0.6, quality: final * 0.3, community: 0 },
+    badges: [],
+    rootId: null,
+    groupSize: 1,
+    why: `why ${id}`,
+  });
+  const out = diversify([twin(1, 0.90), twin(2, 0.88), other(3, 0.87)]);
+  assert.deepEqual(out.map((r) => r.media.id), [1, 3, 2], "twin #2 moves below the dissimilar title");
+  assert.deepEqual(out.map((r) => r.mmRank), [1, 2, 3], "mmRank is the diversified position");
+});
+
+test("scoring v2: mood bonus lifts the final score and lands in the breakdown", () => {
+  const profile: TasteProfile = {
+    userName: "u", meanScore: 70, scoredCount: 5, confidence: "ok",
+    counts: { CURRENT: 0, PLANNING: 0, COMPLETED: 5, DROPPED: 0, PAUSED: 0, REPEATING: 0 },
+    loved: [], disliked: [], hash: "h",
+  };
+  const cands = [media(7)];
+  const plain = scoreAll(cands, profile, new Map(), new Map(), "en");
+  const boosted = scoreAll(cands, profile, new Map(), new Map(), "en", new Map([[7, 0.04]]));
+  assert.ok(boosted[0]!.final > plain[0]!.final, "mood bonus lifts final");
+  assert.equal(boosted[0]!.breakdown.mood, 0.04);
+  assert.equal(plain[0]!.breakdown.mood ?? 0, 0);
 });

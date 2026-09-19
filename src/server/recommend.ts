@@ -3,7 +3,7 @@ import { fetchCandidates } from "./candidates.ts";
 import { fetchMediaByIds, fetchRecommendations, fetchUserList } from "./anilist.ts";
 import { buildProfile, entrySentiment } from "./profile.ts";
 import { analyzeFranchises } from "./franchise.ts";
-import { buildSeenCorpus, dedupeFranchises, deterministicWhyNot, scoreAll, textLinks } from "./scoring.ts";
+import { buildSeenCorpus, dedupeFranchises, deterministicWhyNot, diversify, scoreAll, textLinks, tokenize } from "./scoring.ts";
 import { WEIGHTS, localModeOn } from "./config.ts";
 
 // in-memory result cache: profile+pool are the expensive part; explain() reuses it
@@ -121,16 +121,38 @@ async function recommendFor(
     }
   }
 
+  // mood continuity (scoring v2): the last 5 completed titles shape what feels
+  // like a natural "next watch" — small bonus on candidates sharing their vocabulary
+  const recent = [...entries]
+    .filter((e) => e.status === "COMPLETED" && (e.updatedAt ?? 0) > 0)
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+    .slice(0, 5);
+  const mood = new Map<number, number>();
+  if (recent.length > 0) {
+    const moodTexts = recent.map((e) => {
+      const m = mediaById.get(e.mediaId);
+      return tokenize(`${m?.description ?? ""} ${m?.title ?? ""}`);
+    });
+    for (const c of candidates) {
+      if (franchise.get(c.id)?.kind === "EXCLUDED") continue;
+      const themes = c.tags.filter((t) => t.rank >= 60 && !t.isSpoiler).map((t) => t.name).join(" ");
+      const tok = tokenize(`${c.description ?? ""} ${themes}`);
+      const shared = [...tok].filter((w) => moodTexts.some((t) => t.has(w))).length;
+      if (shared >= 4) mood.set(c.id, WEIGHTS.mood);
+    }
+  }
+
   const scored = scoreAll(
     candidates.filter((c) => franchise.get(c.id)?.kind !== "EXCLUDED"),
     profile,
     community,
     franchise,
     lang,
+    mood,
   );
-  // one dedupe pass: canonical roots (franchise.ts min-id) keep groups stable,
-  // and an entry point's own root already equals its superseded sequel's root
-  const withGroups = dedupeFranchises(scored).slice(0, 50);
+  // dedupe (canonical roots keep groups stable) then MMR-diversify: mmRank drives
+  // the default order so near-duplicates don't stack at the top of the list
+  const withGroups = diversify(dedupeFranchises(scored)).slice(0, 50);
 
   // plot-text links (scoring v2): connect each recommendation to positively-rated
   // watched titles through shared plot vocabulary — grounds LLM chat/explanations

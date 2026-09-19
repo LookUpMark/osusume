@@ -185,7 +185,7 @@ export function App() {
     const sorted = [...list];
     if (sort === "gem") sorted.sort((a, b) => gemRank(b) - gemRank(a));
     else if (sort === "affinity") sorted.sort((a, b) => b.breakdown.affinity - a.breakdown.affinity);
-    else sorted.sort((a, b) => b.final - a.final);
+    else sorted.sort((a, b) => (a.mmRank ?? 1e6) - (b.mmRank ?? 1e6)); // server's diversified default order
     return sorted;
   }, [result, gemsOnly, format, genre, sort]);
 

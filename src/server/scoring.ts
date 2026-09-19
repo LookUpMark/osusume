@@ -161,12 +161,14 @@ export function scoreAll(
   community: Map<number, number>,
   franchise: Map<number, FranchiseInfo>,
   lang: Lang,
+  mood: Map<number, number> = new Map(),
 ): ScoredReco[] {
   const out: ScoredReco[] = [];
   for (const m of candidates) {
     const { affinity01 } = affinityOf(m, p);
     const quality = qualityOf(m);
     const comm = Math.min(WEIGHTS.communityCap, community.get(m.id) ?? 0);
+    const moodBonus = mood.get(m.id) ?? 0;
     const f = franchise.get(m.id);
     const badges: Badge[] = [];
     if (f?.kind === "NEXT_STEP") badges.push("NEXT_STEP");
@@ -179,6 +181,7 @@ export function scoreAll(
       WEIGHTS.affinity * affinity01 +
         WEIGHTS.quality * quality +
         comm +
+        moodBonus +
         (badges.includes("NEXT_STEP") ? WEIGHTS.franchiseBonus : 0),
       0,
       1.1,
@@ -186,7 +189,7 @@ export function scoreAll(
     out.push({
       media: m,
       final,
-      breakdown: { affinity: affinity01, quality, community: comm },
+      breakdown: { affinity: affinity01, quality, community: comm, mood: moodBonus },
       badges,
       rootId: f?.kind === "STANDALONE" ? null : (f?.rootId ?? null),
       groupSize: 1,
@@ -194,6 +197,42 @@ export function scoreAll(
     });
   }
   out.sort((a, b) => b.final - a.final);
+  return out;
+}
+
+/** Genre jaccard + same-studio: what "looks like a twin" means here. */
+function pairSim(a: MediaLite, b: MediaLite): number {
+  const ga = new Set(a.genres);
+  const gb = new Set(b.genres);
+  let inter = 0;
+  for (const g of ga) if (gb.has(g)) inter++;
+  const union = new Set([...ga, ...gb]).size || 1;
+  return (inter / union) * 0.5 + (a.studio != null && a.studio === b.studio ? 0.5 : 0);
+}
+
+/** MMR-lite over the final list: pushes near-duplicates apart so the default
+ *  order doesn't stack five twins of the same studio. λ is small — only strong
+ *  neighbours move. Sets mmRank (1-based) consumed by the UI's default sort. */
+export function diversify(recos: ScoredReco[], lambda = 0.15): ScoredReco[] {
+  const pool = [...recos];
+  const out: ScoredReco[] = [];
+  while (pool.length > 0) {
+    let bestIdx = 0;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i]!;
+      const sim = out.reduce((mx, s) => Math.max(mx, pairSim(c.media, s.media)), 0);
+      const score = c.final - lambda * sim;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+    out.push(pool.splice(bestIdx, 1)[0]!);
+  }
+  out.forEach((r, i) => {
+    r.mmRank = i + 1;
+  });
   return out;
 }
 

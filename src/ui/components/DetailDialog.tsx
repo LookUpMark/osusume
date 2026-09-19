@@ -129,6 +129,9 @@ export function DetailDialog(props: {
             <BrkRow k={tr(lang, "kAffinity")} cls="taste" v={r.breakdown.affinity} />
             <BrkRow k={tr(lang, "kQuality")} cls="quality" v={r.breakdown.quality} />
             <BrkRow k={tr(lang, "kCommunity")} cls="community" v={r.breakdown.community / 0.1} />
+            {(r.breakdown.mood ?? 0) > 0.0001 && (
+              <BrkRow k={tr(lang, "kMood")} cls="taste" v={r.breakdown.mood!} />
+            )}
           </div>
           {description && <p className="why">{description}</p>}
           <p className="src">

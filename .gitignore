@@ -1,9 +1,10 @@
-node_modules/
-dist/
+.env
+*.log
 data/cache/
 data/config.json
 data/llm.log
-.env
-*.log
 dist-electron/
+dist/
+fixtures-real/
+node_modules/
 release/

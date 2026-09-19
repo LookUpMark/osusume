@@ -1,5 +1,5 @@
 import type { Lang, RecoResult } from "../shared/types.ts";
-import { cleanText, llmChat, resolveServedModel } from "./llm.ts";
+import { cleanText, isTruncation, llmChat, resolveServedModel } from "./llm.ts";
 import { lovedOverlap } from "./scoring.ts";
 
 const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
@@ -72,5 +72,11 @@ export async function chatReply(
   history: { role: "user" | "assistant"; content: string }[],
 ): Promise<string> {
   const model = await resolveServedModel();
-  return llmChat([{ role: "system", content: buildChatSystem(result, lang) }, ...history], model);
+  const messages = [{ role: "system" as const, content: buildChatSystem(result, lang) }, ...history];
+  try {
+    return await llmChat(messages, model);
+  } catch (e) {
+    if (!isTruncation(e)) throw e;
+    return llmChat(messages, model, 12000); // thinking models: one bigger-budget retry
+  }
 }

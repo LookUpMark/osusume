@@ -14,6 +14,14 @@ export class LlmError extends Error {}
 
 // bumped when the prompt voice changes — old cached explanations must not resurface
 const PROMPT_VERSION = "v2-expert-1";
+const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS ?? 4000);
+const LLM_RETRY_TOKENS = Number(process.env.LLM_RETRY_TOKENS ?? 16000);
+
+/** True when the failure was a token-budget truncation: thinking models spend
+ *  the whole budget reasoning before the JSON — one bigger-budget retry wins. */
+export function isTruncation(e: unknown): boolean {
+  return e instanceof LlmError && e.message.includes("truncated");
+}
 
 export async function llmHealth(): Promise<boolean> {
   try {
@@ -55,11 +63,11 @@ export async function resolveServedModel(): Promise<string> {
   return want;
 }
 
-export async function llmChat(messages: { role: string; content: string }[], model: string): Promise<string> {
+export async function llmChat(messages: { role: string; content: string }[], model: string, maxTokens = LLM_MAX_TOKENS): Promise<string> {
   const res = await fetch(`${llmBaseUrl()}/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json", ...llmAuthHeaders() },
-    body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 4000 }),
+    body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new LlmError(`LLM HTTP ${res.status}`);
@@ -239,14 +247,22 @@ export async function explainRecos(
       const batch = pending.slice(i, i + 10);
       let raw: string;
       try {
-        raw = await llmChat([
+        const chat = [
           {
-            role: "system",
+            role: "system" as const,
             content:
-              "You output only valid JSON. If you reason first, keep it under 100 words — the reply must end with the JSON array.",
+              "You output only valid JSON. Do not explain your reasoning — the reply must be ONLY the JSON array.",
           },
-          { role: "user", content: buildPrompt(batch, profile, lang) },
-        ], model);
+          { role: "user" as const, content: buildPrompt(batch, profile, lang) },
+        ];
+        try {
+          raw = await llmChat(chat, model);
+        } catch (e) {
+          if (!isTruncation(e)) throw e;
+          // thinking models burn the default budget reasoning: one retry with
+          // a big budget — the explanation is per-title and cached for a week
+          raw = await llmChat(chat, model, LLM_RETRY_TOKENS);
+        }
       } catch (e) {
         // log the failure — silent fallbacks made "why is there no LLM text?" undebuggable
         logLlm(`explain: LLM error (${(e as Error).message}) per model=${llmModel()} — prose deterministiche in uso`);

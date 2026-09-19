@@ -14,6 +14,8 @@ export interface ListEntry {
   /** Normalized 0-100 (0 = unscored). */
   score: number;
   repeat: number;
+  /** Unix seconds of last list update (mood recency) — 0 in old fixtures. */
+  updatedAt?: number;
   title: string;
 }
 
@@ -75,13 +77,15 @@ export interface ScoredReco {
   media: MediaLite;
   /** 0..1.1, display x100. */
   final: number;
-  breakdown: { affinity: number; quality: number; community: number };
+  breakdown: { affinity: number; quality: number; community: number; mood?: number };
   badges: Badge[];
   rootId: number | null;
   groupSize: number;
   why: string;
   /** Plot-text links to positively-rated watched titles (scoring v2, set in recommend). */
   links?: { title: string; shared: string[] }[];
+  /** Default-order position (MMR-diversified, 1-based) — the recos list sorts by it. */
+  mmRank?: number;
 }
 
 export interface WhyNot {

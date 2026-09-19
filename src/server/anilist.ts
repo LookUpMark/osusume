@@ -45,6 +45,7 @@ query ($userName: String, $chunk: Int) {
         status
         score(format: POINT_100)
         repeat
+        updatedAt
         media { ${MEDIA_FIELDS} }
       }
     }
@@ -246,7 +247,7 @@ export async function fetchUserList(userName: string): Promise<UserList> {
         hasNextChunk: boolean;
         lists: {
           isCustomList: boolean;
-          entries: { status: ListStatus; score: number; repeat: number; media: RawMedia }[];
+          entries: { status: ListStatus; score: number; repeat: number; updatedAt?: number; media: RawMedia }[];
         }[];
       };
     }>(LIST_LIST_QUERY, { userName, chunk }, CACHE_TTL_LIST_MS);
@@ -261,6 +262,7 @@ export async function fetchUserList(userName: string): Promise<UserList> {
             status: e.status,
             score: e.score ?? 0,
             repeat: e.repeat ?? 0,
+            updatedAt: e.updatedAt ?? 0,
             title: e.media.title?.romaji ?? e.media.title?.english ?? `(${e.media.id})`,
             custom: list.isCustomList,
           });
