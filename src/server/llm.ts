@@ -108,11 +108,14 @@ function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): st
         .map((t) => t.name)
         .join(", ");
       const plot = cleanText(r.media.description, 400);
+      const plotLinks = (r.links ?? [])
+        .map((l) => `shares plot elements (${l.shared.join(", ")}) with "${l.title}"`)
+        .join("; ");
       return (
         `- id=${r.media.id} — "${r.media.title}" (${r.media.seasonYear ?? "?"}, ${r.media.studio ?? "?"}; ` +
         `genres: ${r.media.genres.slice(0, 3).join(", ")}${themes ? `; themes: ${themes}` : ""})\n` +
         `  plot: ${plot || "not available"}\n` +
-        `  links to their taste: ${links || "none obvious — lean on the plot"}`
+        `  links to their taste: ${[links, plotLinks].filter(Boolean).join("; ") || "none obvious — lean on the plot"}`
       );
     })
     .join("\n");

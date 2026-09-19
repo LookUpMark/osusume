@@ -63,7 +63,7 @@ Requisito Marco: la chat e le spiegazioni parlano al *telespettatore* (trama, te
 
 Tranche successiva (da validare su fixture reali):
 
-- [ ] similarity semantica su description (embedding locali) per catchare collegamenti tematici che i tag si perdono
-- [ ] peso "mood/continuità": premi titoli che condividono tone-setting con le ultime N sessioni viste
-- [ ] franchise-aware: spiegare il punto di ingresso (cosa devi aver visto prima) dentro il why, non solo nei badge
-- [ ] diversità: MMR sul pool finale per non mandare 5 shonen dello stesso studio in top 10
+~~- [x] similarity lessicale su description (tokenize + stopword, zero dipendenze) — collegamenti trama visti↔candidati in ScoredReco.links, usati da chat e explain~~ fatto v0.7.5; embedding semantici veri differiti (dipendono da un modello embeddings nel backend)
+- [ ] peso "mood/continuità" — DIFFERITO: richiede ricalibrazione pesi con fixture reali, rischio regressione affinità
+~~- [x] franchise-aware: whyEntryPoint nel why deterministico per ENTRY_POINT~~ fatto v0.7.5
+- [ ] diversità MMR — DIFFERITO: il sort client-side per final cancella l'ordine MMR; serve un contratto UI (campo ordine) prima di essere utile

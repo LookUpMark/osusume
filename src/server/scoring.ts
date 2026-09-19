@@ -87,6 +87,7 @@ export function deterministicWhy(
   p: TasteProfile,
   badges: Badge[],
   lang: Lang,
+  franchise?: FranchiseInfo | null,
 ): string {
   const overlap = lovedOverlap(m, p);
   const examples = [...new Set(overlap.flatMap((o) => o.examples))].slice(0, 3);
@@ -102,7 +103,7 @@ export function deterministicWhy(
     });
   }
   const dims = overlap.map((o) => o.label.split(":").join(" ")).join(", ");
-  return tr(lang, "whyBase", {
+  const base = tr(lang, "whyBase", {
     dims: dims || tr(lang, "dimGenre"),
     studioPart: "",
     examplesPart:
@@ -115,6 +116,7 @@ export function deterministicWhy(
           })
         : "",
   });
+  return franchise?.kind === "ENTRY_POINT" ? `${base} ${tr(lang, "whyEntryPoint")}` : base;
 }
 
 /** Null when there is no honest negative evidence. */
@@ -188,7 +190,7 @@ export function scoreAll(
       badges,
       rootId: f?.kind === "STANDALONE" ? null : (f?.rootId ?? null),
       groupSize: 1,
-      why: deterministicWhy(m, p, badges, lang),
+      why: deterministicWhy(m, p, badges, lang, f),
     });
   }
   out.sort((a, b) => b.final - a.final);
@@ -213,4 +215,68 @@ export function dedupeFranchises(recos: ScoredReco[]): ScoredReco[] {
         ? r
         : { ...r, groupSize: sizeByRoot.get(r.rootId) ?? 1 },
     );
+}
+
+// --- plot-text links (scoring v2): connect candidates to what the user watched ---
+
+const STOP_WORDS = new Set([
+  // EN
+  "the", "and", "that", "with", "this", "from", "they", "their", "them", "have", "has", "had",
+  "been", "were", "will", "would", "could", "into", "than", "then", "when", "what", "which",
+  "while", "after", "before", "because", "about", "against", "between", "through", "there",
+  "these", "those", "being", "under", "over", "more", "most", "some", "such", "only", "also",
+  "very", "just", "your", "have", "each", "other", "both", "must", "make", "made", "their",
+  // IT
+  "della", "delle", "degli", "dallo", "nella", "nelle", "sullo", "sulla", "come", "dove",
+  "quando", "perche", "perché", "anche", "sono", "essere", "hanno", "questo", "questa",
+  "questi", "queste", "quella", "quello", "molto", "troppo", "ancora", "prima", "dopo",
+  "durante", "senza", "tutte", "tutti", "tutto", "tutta", "contro", "verso", "fuori",
+  "dentro", "solo", "fino", "nella", "come", "però", "pero", "cioè", "cioe",
+]);
+
+/** Lowercased word set, punctuation-free, stopwords and 3-letter noise dropped. */
+export function tokenize(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^\p{L}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !STOP_WORDS.has(w)),
+  );
+}
+
+export interface SeenText {
+  title: string;
+  keywords: Set<string>;
+}
+
+/** Corpus of positively-rated watched titles with usable plot text. */
+export function buildSeenCorpus(
+  items: { title: string; description: string | null; sentiment: number }[],
+): SeenText[] {
+  return items
+    .filter((i) => i.sentiment > 0 && i.description)
+    .map((i) => ({ title: i.title, keywords: tokenize(i.description!) }))
+    .filter((i) => i.keywords.size >= 8);
+}
+
+/** Titles the user watched whose plot shares meaningful vocabulary with the candidate. */
+export function textLinks(
+  m: MediaLite,
+  seen: SeenText[],
+  limit = 2,
+): { title: string; shared: string[] }[] {
+  const themes = m.tags
+    .filter((t) => t.rank >= 60 && !t.isSpoiler)
+    .map((t) => t.name)
+    .join(" ");
+  const cand = tokenize(`${m.description ?? ""} ${themes}`);
+  if (cand.size === 0) return [];
+  const out: { title: string; shared: string[] }[] = [];
+  for (const s of seen) {
+    const shared = [...cand].filter((w) => s.keywords.has(w));
+    if (shared.length >= 3) out.push({ title: s.title, shared: shared.slice(0, 4) });
+  }
+  return out.sort((a, b) => b.shared.length - a.shared.length).slice(0, limit);
 }

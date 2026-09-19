@@ -27,12 +27,15 @@ export function buildChatSystem(result: RecoResult, lang: Lang): string {
         .map((t) => t.name)
         .join(", ");
       const plot = cleanText(r.media.description, 450);
+      const plotLinks = (r.links ?? [])
+        .map((l) => `shares plot elements (${l.shared.join(", ")}) with "${l.title}"`)
+        .join("; ");
       const badges = r.badges.includes("HIDDEN_GEM") ? " [less-known gem]" : "";
       return (
         `- "${r.media.title}" (${r.media.seasonYear ?? "?"}, studio ${r.media.studio ?? "?"}; ` +
         `genres: ${r.media.genres.slice(0, 3).join(", ")}${themes ? `; themes: ${themes}` : ""})${badges}\n` +
         `  plot: ${plot || "not available"}\n` +
-        `  links to the user: ${links || "none obvious"}\n` +
+        `  links to the user: ${[links, plotLinks].filter(Boolean).join("; ") || "none obvious"}\n` +
         `  internal match reference: ${Math.round(r.final * 100)}/110`
       );
     })

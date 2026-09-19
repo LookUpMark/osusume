@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ListEntry, MediaLite, TasteProfile } from "../src/shared/types.ts";
 import { analyzeFranchises, type FranchiseInfo } from "../src/server/franchise.ts";
-import { affinityOf, dedupeFranchises, deterministicWhy, deterministicWhyNot, gemScoreOf, isGem, popNorm, qualityOf, scoreAll } from "../src/server/scoring.ts";
+import { affinityOf, buildSeenCorpus, dedupeFranchises, deterministicWhy, deterministicWhyNot, gemScoreOf, isGem, popNorm, qualityOf, scoreAll, textLinks, tokenize } from "../src/server/scoring.ts";
 
 const media = (id: number, over: Partial<MediaLite> = {}): MediaLite => ({
   id,
@@ -269,4 +269,51 @@ test("franchise: long chain (13 prequels) keeps one canonical root", () => {
   // even mid-chain members collapse to the same entry point
   assert.equal(info.get(12)?.kind, "ENTRY_POINT");
   assert.equal(info.get(12)?.entryPointId, 1);
+});
+
+test("scoring v2: plot-text links + entry-point why", () => {
+    const a = tokenize("Heroes train at the academy to master their quirk powers");
+  assert.ok(a.has("heroes") && a.has("academy"), "meaningful words kept");
+  assert.ok(!a.has("their") && !a.has("the"), "stopwords and short words dropped");
+
+  const corpus = buildSeenCorpus([
+    { title: "My Hero Academia", description: "Heroes training at the academy master quirk powers in class battles", sentiment: 0.8 },
+    { title: "Short desc", description: "too short", sentiment: 0.9 },
+    { title: "Dropped one", description: "Heroes academy quirk training again but dropped", sentiment: -0.5 },
+  ]);
+  assert.equal(corpus.length, 1, "only positive-sentiment with enough text");
+
+  const cand = {
+    id: 5, title: "cand", format: "TV", seasonYear: 2020, genres: [], studio: null,
+    tags: [], popularity: 50000, coverImage: null, coverColor: null, siteUrl: null,
+    description: "A school for heroes where students train their quirk in class",
+    relations: [],
+  } as any;
+  const links = textLinks(cand, corpus);
+  assert.equal(links.length, 1);
+  assert.equal(links[0].title, "My Hero Academia");
+  assert.ok(links[0].shared.length >= 3, "shared plot vocabulary extracted");
+
+  const noLinks = textLinks({ ...cand, description: null }, corpus);
+  assert.equal(noLinks.length, 0, "no description — no fabricated links");
+});
+
+test("scoring v2: entry-point franchise adds the entry hint to the why", () => {
+  // deterministicWhy with an ENTRY_POINT franchise appends the hint
+  const m = {
+    id: 9, title: "t", format: "TV", seasonYear: 2020, genres: [], studio: null,
+    tags: [{ name: "Psychological", rank: 90, isSpoiler: false }],
+    popularity: 50000, coverImage: null, coverColor: null, siteUrl: null,
+    description: null, relations: [],
+  } as any;
+  const profile = {
+    userName: "u", meanScore: 70, scoredCount: 5, confidence: "ok",
+    counts: { CURRENT: 0, PLANNING: 0, COMPLETED: 5, DROPPED: 0, PAUSED: 0, REPEATING: 0 },
+    loved: [{ dim: "tag", value: "Psychological", aff: 0.6, support: 5, examples: ["Serial Experiments Lain"] }],
+    disliked: [], hash: "h",
+  } as any;
+  const base = deterministicWhy(m, profile, [], "en");
+  const withEp = deterministicWhy(m, profile, [], "en", { kind: "ENTRY_POINT", entryPointId: 9, rootId: 9, droppedId: null });
+  assert.ok(!base.includes("entry point"), "no hint without franchise info");
+  assert.ok(withEp.includes("entry point"), "hint appended for ENTRY_POINT");
 });

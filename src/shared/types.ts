@@ -80,6 +80,8 @@ export interface ScoredReco {
   rootId: number | null;
   groupSize: number;
   why: string;
+  /** Plot-text links to positively-rated watched titles (scoring v2, set in recommend). */
+  links?: { title: string; shared: string[] }[];
 }
 
 export interface WhyNot {

@@ -3,7 +3,7 @@ import { fetchCandidates } from "./candidates.ts";
 import { fetchMediaByIds, fetchRecommendations, fetchUserList } from "./anilist.ts";
 import { buildProfile, entrySentiment } from "./profile.ts";
 import { analyzeFranchises } from "./franchise.ts";
-import { dedupeFranchises, deterministicWhyNot, scoreAll } from "./scoring.ts";
+import { buildSeenCorpus, dedupeFranchises, deterministicWhyNot, scoreAll, textLinks } from "./scoring.ts";
 import { WEIGHTS, localModeOn } from "./config.ts";
 
 // in-memory result cache: profile+pool are the expensive part; explain() reuses it
@@ -120,6 +120,22 @@ async function recommendFor(
   // one dedupe pass: canonical roots (franchise.ts min-id) keep groups stable,
   // and an entry point's own root already equals its superseded sequel's root
   const withGroups = dedupeFranchises(scored).slice(0, 50);
+
+  // plot-text links (scoring v2): connect each recommendation to positively-rated
+  // watched titles through shared plot vocabulary — grounds LLM chat/explanations
+  const corpus = buildSeenCorpus(
+    entries.map((e) => ({
+      title: mediaById.get(e.mediaId)?.title ?? "",
+      description: mediaById.get(e.mediaId)?.description ?? null,
+      sentiment: entrySentiment(e, profile.meanScore).s,
+    })),
+  );
+  if (corpus.length > 0) {
+    for (const r of withGroups) {
+      const links = textLinks(r.media, corpus);
+      if (links.length > 0) r.links = links;
+    }
+  }
 
   // anti-recommendations: weakest affinity candidates + dropped-series sequels,
   // with honest negative evidence, never duplicating something already recommended
