@@ -41,6 +41,17 @@ test("meanScoreOf ignores unscored and falls back to 60 below 3 scores", () => {
   assert.equal(scoredCount, 3);
 });
 
+test("unscored completion is a weak positive: zero-score lists get a taste profile", () => {
+  const s = entrySentiment(entry(1, "COMPLETED", 0), 60).s;
+  assert.ok(s > 0.1 && s < 0.3, `mild positive, got ${s}`);
+  assert.equal(entrySentiment(entry(2, "REPEATING", 0), 60).s > 0, true, "rewatch too");
+  assert.equal(entrySentiment(entry(3, "PAUSED", 0), 60).s < 0, true, "paused stays negative");
+  // a list with zero scores still yields loved dims (the LookUpMark case)
+  const mediaById = new Map([[1, media(0)]]);
+  const p = buildProfile([entry(1, "COMPLETED", 0), entry(1, "COMPLETED", 0)], mediaById, "t");
+  assert.ok(p.loved.length > 0, "Psychological lands in loved");
+});
+
 test("entrySentiment: above-mean scored, repeat bonus, planning excluded, dropped heavy negative", () => {
   const { mean } = meanScoreOf([
     entry(1, "COMPLETED", 60),

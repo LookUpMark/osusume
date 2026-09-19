@@ -1,4 +1,4 @@
-import type { Lang, RecoResult } from "../shared/types.ts";
+import type { Lang, RecoResult, ScoredReco } from "../shared/types.ts";
 import { cleanText, isTruncation, llmChat, resolveServedModel } from "./llm.ts";
 import { lovedOverlap } from "./scoring.ts";
 
@@ -9,10 +9,12 @@ const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
  *  plot, themes, atmosphere, connections with what they have already watched.
  *  Algorithm-speak (affinity, match %, "the algorithm") is explicitly banned:
  *  scores are internal reference material, quoted only if the user asks. */
-export function buildChatSystem(result: RecoResult, lang: Lang): string {
+export function buildChatSystem(result: RecoResult, lang: Lang, extraRecos: ScoredReco[] = []): string {
   const p = result.profile;
-  const recos = result.recos
-    .slice(0, 12) // the full list the recos view shows — nothing on screen is off-limits
+  const recos = [
+    ...result.recos.slice(0, 12), // the full list the recos view shows — nothing on screen is off-limits
+    ...extraRecos.slice(0, 5), // titles the user looked up in chat — always in context
+  ]
     .map((r) => {
       const overlap = lovedOverlap(r.media, p);
       const links = overlap
@@ -73,14 +75,19 @@ export function buildChatSystem(result: RecoResult, lang: Lang): string {
   );
 }
 
-/** history is the client-side conversation (already trimmed by the API layer). */
+/** history is the client-side conversation (already trimmed by the API layer).
+ *  extraRecos: looked-up titles outside the recommendation list, still discussable. */
 export async function chatReply(
   result: RecoResult,
   lang: Lang,
   history: { role: "user" | "assistant"; content: string }[],
+  extraRecos: ScoredReco[] = [],
 ): Promise<string> {
   const model = await resolveServedModel();
-  const messages = [{ role: "system" as const, content: buildChatSystem(result, lang) }, ...history];
+  const messages = [
+    { role: "system" as const, content: buildChatSystem(result, lang, extraRecos) },
+    ...history,
+  ];
   try {
     return await llmChat(messages, model);
   } catch (e) {

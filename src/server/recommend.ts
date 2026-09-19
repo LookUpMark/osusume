@@ -1,6 +1,6 @@
-import type { Lang, RecoResult, WhyNot } from "../shared/types.ts";
+import type { Lang, MediaLite, RecoResult, ScoredReco, TasteProfile, WhyNot } from "../shared/types.ts";
 import { fetchCandidates } from "./candidates.ts";
-import { fetchMediaByIds, fetchRecommendations, fetchUserList } from "./anilist.ts";
+import { fetchMediaByIds, fetchMediaSearch, fetchRecommendations, fetchUserList } from "./anilist.ts";
 import { buildProfile, entrySentiment } from "./profile.ts";
 import { analyzeFranchises } from "./franchise.ts";
 import { buildSeenCorpus, dedupeFranchises, deterministicWhyNot, diversify, scoreAll, textLinks, tokenize } from "./scoring.ts";
@@ -16,6 +16,52 @@ const inflight = new Map<string, Promise<RecoResult>>();
 export async function getProfile(username: string) {
   const { entries, mediaById } = await fetchUserList(username);
   return buildProfile(entries, mediaById, username);
+}
+
+/** Plot-text corpus of positively-sentiment watched titles (shared by the main
+ *  pipeline and the arbitrary-title lookup). */
+function seenCorpusFor(
+  entries: Awaited<ReturnType<typeof fetchUserList>>["entries"],
+  mediaById: Map<number, MediaLite>,
+  meanScore: number,
+) {
+  return buildSeenCorpus(
+    entries.map((e) => ({
+      title: mediaById.get(e.mediaId)?.title ?? "",
+      description: mediaById.get(e.mediaId)?.description ?? null,
+      sentiment: entrySentiment(e, meanScore).s,
+    })),
+  );
+}
+
+/** Score arbitrary titles (chat lookup / explain / chat extras) against the
+ *  user's taste: same scoring core, empty franchise/community context. */
+export async function scoreArbitrary(
+  ids: number[],
+  username: string,
+  lang: Lang,
+): Promise<{ profile: TasteProfile; recos: ScoredReco[] }> {
+  const { entries, mediaById } = await fetchUserList(username);
+  const profile = buildProfile(entries, mediaById, username);
+  const media = await fetchMediaByIds(ids);
+  const scored = scoreAll(media, profile, new Map(), new Map(), lang);
+  const corpus = seenCorpusFor(entries, mediaById, profile.meanScore);
+  if (corpus.length > 0) {
+    for (const r of scored) {
+      const links = textLinks(r.media, corpus);
+      if (links.length > 0) r.links = links;
+    }
+  }
+  return { profile, recos: scored };
+}
+
+/** Search AniList by title and score the matches against the user's taste. */
+export async function lookupMedia(username: string, q: string, lang: Lang): Promise<ScoredReco[]> {
+  const media = await fetchMediaSearch(q);
+  if (media.length === 0) return [];
+  const { recos } = await scoreArbitrary(media.map((m) => m.id), username, lang);
+  const order = new Map(media.map((m, i) => [m.id, i]));
+  return recos.sort((a, b) => (order.get(a.media.id) ?? 0) - (order.get(b.media.id) ?? 0));
 }
 
 export async function getRecommendation(
@@ -156,13 +202,7 @@ async function recommendFor(
 
   // plot-text links (scoring v2): connect each recommendation to positively-rated
   // watched titles through shared plot vocabulary — grounds LLM chat/explanations
-  const corpus = buildSeenCorpus(
-    entries.map((e) => ({
-      title: mediaById.get(e.mediaId)?.title ?? "",
-      description: mediaById.get(e.mediaId)?.description ?? null,
-      sentiment: entrySentiment(e, profile.meanScore).s,
-    })),
-  );
+  const corpus = seenCorpusFor(entries, mediaById, profile.meanScore);
   if (corpus.length > 0) {
     for (const r of withGroups) {
       const links = textLinks(r.media, corpus);

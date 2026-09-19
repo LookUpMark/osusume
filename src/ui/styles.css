@@ -605,6 +605,12 @@ button:disabled { opacity: 0.5; cursor: default; }
 .chat-card { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
 .chat-card:hover { border-color: var(--accent); }
 .chat-card img { width: 28px; height: 40px; object-fit: cover; border-radius: 6px; }
+.chat-card em { display: block; font-style: normal; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.chat-lookup { display: flex; gap: 8px; padding: 10px 14px 0; }
+.chat-lookup input { flex: 1; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: inherit; font: inherit; font-size: 13px; padding: 8px 12px; }
+.chat-lookup .btn-line { font-size: 13px; padding: 8px 14px; }
+.lookup-res { padding: 8px 14px 0; max-width: none; }
+.lookup-none { margin: 0; font-size: 13px; color: var(--muted); }
 .chat-input { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--border); }
 .chat-input input { flex: 1; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg); font: inherit; }
 .chat-input input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

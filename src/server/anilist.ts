@@ -70,6 +70,15 @@ query ($id_in: [Int]) {
   }
 }`;
 
+const MEDIA_SEARCH_QUERY = `
+query ($q: String) {
+  Page(perPage: 6) {
+    media(search: $q, type: ANIME, isAdult: false, sort: SEARCH_MATCH) {
+      ${MEDIA_FIELDS} relations { edges { relationType node { id } } }
+    }
+  }
+}`;
+
 const RECOMMENDATIONS_QUERY = `
 query ($id: Int) {
   Media(id: $id) {
@@ -323,6 +332,21 @@ export async function fetchMediaByIds(ids: number[]): Promise<MediaLite[]> {
     out.push(...data.Page.media.map(mapMedia));
   }
   return out;
+}
+
+/** Title search for the chat lookup (top matches, adult excluded). */
+export async function fetchMediaSearch(q: string): Promise<MediaLite[]> {
+  if (localModeOn()) {
+    const all = await readFixture<MediaLite[]>("candidates.json");
+    const n = q.toLowerCase();
+    return all.filter((m) => m.title.toLowerCase().includes(n)).slice(0, 6);
+  }
+  const data = await gql<{ Page: { media: RawMedia[] } }>(
+    MEDIA_SEARCH_QUERY,
+    { q },
+    CACHE_TTL_MEDIA_MS,
+  );
+  return data.Page.media.map(mapMedia);
 }
 
 export async function fetchRecommendations(

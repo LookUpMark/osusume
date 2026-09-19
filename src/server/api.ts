@@ -11,7 +11,7 @@ import {
 } from "./config.ts";
 import { explainRecos, LlmError, llmHealth } from "./llm.ts";
 import { chatReply } from "./chat.ts";
-import { getProfile, getRecommendation } from "./recommend.ts";
+import { getProfile, getRecommendation, lookupMedia, scoreArbitrary } from "./recommend.ts";
 import { ensureLlmServer, llmBackendState, logLlm, setupRoutes, shutdownBackend } from "./setup.ts";
 import { appUpdateStatus } from "./update.ts";
 
@@ -111,6 +111,12 @@ api.post("/explain", async (c) => {
     // shows — recomputing the whole list mid-open is seconds of dead wait
     const { recos, profile } = await getRecommendation(username, lang, { staleOk: true });
     const subset = recos.filter((r) => ids.has(r.media.id));
+    // ids outside the recommendation list (chat lookup) are scored on demand
+    const missing = [...ids].filter((id) => !subset.some((r) => r.media.id === id));
+    if (missing.length > 0) {
+      const extra = await scoreArbitrary(missing, username, lang);
+      subset.push(...extra.recos.filter((r) => ids.has(r.media.id)));
+    }
     const explanations = await explainRecos(subset, profile, lang, username);
     return c.json({
       explanations: [...explanations.entries()].map(([id, e]) => ({ id, ...e })),
@@ -118,11 +124,31 @@ api.post("/explain", async (c) => {
   });
 });
 
+// Search any title and score it against the user's taste — powers the chat
+// lookup card, the detail dialog and the "ask about a non-recommended title" flow.
+api.post("/lookup", async (c) => {
+  const body = (await c.req.json().catch(() => null)) as
+    | { username?: string; q?: string; lang?: Lang }
+    | null;
+  const username = body?.username ?? "";
+  const q = (body?.q ?? "").trim();
+  const lang = LANGS.has(body?.lang ?? "") ? (body!.lang as Lang) : "en";
+  if (!USERNAME_RE.test(username) || q.length < 2 || q.length > 80) {
+    return c.json({ error: "invalid_request" }, 400);
+  }
+  return withLocalFallback(c, async () => c.json({ recos: await lookupMedia(username, q, lang) }));
+});
+
 // Natural-language chat about the current result. The context (recommendations,
 // profile, avoid list) is rebuilt server-side — the client only sends the conversation.
 api.post("/chat", async (c) => {
   const body = (await c.req.json().catch(() => null)) as
-    | { username?: string; lang?: Lang; messages?: { role?: string; content?: string }[] }
+    | {
+        username?: string;
+        lang?: Lang;
+        extra?: number[];
+        messages?: { role?: string; content?: string }[];
+      }
     | null;
   const username = body?.username ?? "";
   const lang = LANGS.has(body?.lang ?? "") ? (body!.lang as Lang) : "en";
@@ -145,7 +171,14 @@ api.post("/chat", async (c) => {
     try {
       // stale-tolerant: a 10-minute-old result beats a full recompute mid-chat
       const result = await getRecommendation(username, lang, { staleOk: true });
-      const reply = await chatReply(result, lang, history);
+      // titles opened via the chat lookup join the context so the model can
+      // answer questions about them too (bounded, never duplicates)
+      const extraIds = (body?.extra ?? [])
+        .filter((x) => typeof x === "number")
+        .filter((id) => !result.recos.some((r) => r.media.id === id))
+        .slice(0, 5);
+      const extras = extraIds.length > 0 ? (await scoreArbitrary(extraIds, username, lang)).recos : [];
+      const reply = await chatReply(result, lang, history, extras);
       return c.json({ reply });
     } catch (e) {
       if (e instanceof LlmError) {

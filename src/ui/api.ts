@@ -62,11 +62,28 @@ export const fetchExplain = (
 
 export type ChatMsg = { role: "user" | "assistant"; content: string };
 
-export const postChat = (username: string, lang: Lang, messages: ChatMsg[]): Promise<{ reply: string }> =>
+export const postChat = (
+  username: string,
+  lang: Lang,
+  messages: ChatMsg[],
+  extra: number[] = [],
+): Promise<{ reply: string }> =>
   fetch("/api/chat", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username, lang, messages }),
+    body: JSON.stringify({ username, lang, messages, extra }),
+  }).then(json);
+
+/** Search any title, scored against the user's taste (chat lookup). */
+export const lookupMedia = (
+  username: string,
+  q: string,
+  lang: Lang,
+): Promise<{ recos: import("../shared/types.ts").ScoredReco[] }> =>
+  fetch("/api/lookup", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username, q, lang }),
   }).then(json);
 
 const isSetupStatus = (b: unknown): b is SetupStatus =>

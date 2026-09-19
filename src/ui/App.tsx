@@ -50,6 +50,8 @@ export function App() {
   const [username, setUsername] = useState("");
   const [result, setResult] = useState<RecoResult | null>(null);
   const [whySource, setWhySource] = useState<Record<number, "llm" | "local">>({});
+  const [extraRecos, setExtraRecos] = useState<ScoredReco[]>([]);
+  const langRef = useRef(lang);
   const [sort, setSort] = useState<SortKey>("final");
   const [gemsOnly, setGemsOnly] = useState(false);
   const [format, setFormat] = useState("all");
@@ -64,6 +66,12 @@ export function App() {
   useEffect(() => {
     localStorage.setItem("lang", lang);
     document.documentElement.lang = lang;
+    // language switch recomputes recommendations and explanations: the
+    // deterministic why and the LLM narrations are generated per language
+    if (langRef.current !== lang) {
+      langRef.current = lang;
+      if (username) void run(username);
+    }
   }, [lang]);
 
   const showView = (v: View) => {
@@ -145,6 +153,7 @@ export function App() {
     setError(null);
     setResult(null);
     setWhySource({});
+    setExtraRecos([]);
     setGenre("all");
     setPhase("profile");
     setLoading(true);
@@ -168,12 +177,19 @@ export function App() {
   /** DetailDialog fetched an LLM narration for one title — fold it into the result. */
   const onWhy = (id: number, text: string, source: "llm" | "cache") => {
     setWhySource((cur) => ({ ...cur, [id]: source === "cache" ? "llm" : source }));
-    setResult(
-      (cur) =>
-        cur
-          ? { ...cur, recos: cur.recos.map((x) => (x.media.id === id ? { ...x, why: text } : x)) }
-          : cur,
-    );
+    const fold = (list: ScoredReco[]): ScoredReco[] =>
+      list.some((x) => x.media.id === id) ? list.map((x) => (x.media.id === id ? { ...x, why: text } : x)) : list;
+    setResult((cur) => (cur ? { ...cur, recos: fold(cur.recos) } : cur));
+    setExtraRecos((cur) => fold(cur));
+  };
+
+  /** Open from chat: looked-up titles are outside result.recos — keep them so
+   *  the dialog resolves and the LLM why has somewhere to land. */
+  const onOpenChat = (r: ScoredReco) => {
+    if (!result?.recos.some((x) => x.media.id === r.media.id)) {
+      setExtraRecos((cur) => (cur.some((x) => x.media.id === r.media.id) ? cur : [...cur, r]));
+    }
+    setDialog(r);
   };
 
   const recos = useMemo(() => {
@@ -465,7 +481,7 @@ export function App() {
                 <p>{tr(lang, "chatSub")}</p>
               </div>
             </div>
-            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} onOpen={setDialog} />
+            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} onOpen={onOpenChat} />
           </section>
 
           {/* ── PROFILO ── */}
@@ -589,7 +605,11 @@ export function App() {
 
       {dialog && (
         <DetailDialog
-          reco={result?.recos.find((x) => x.media.id === dialog.media.id) ?? dialog}
+          reco={
+            result?.recos.find((x) => x.media.id === dialog.media.id) ??
+            extraRecos.find((x) => x.media.id === dialog.media.id) ??
+            dialog
+          }
           lang={lang}
           username={result?.profile.userName ?? username}
           whySource={whySource[dialog.media.id] ?? "local"}

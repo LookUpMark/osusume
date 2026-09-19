@@ -24,7 +24,10 @@ export function entrySentiment(e: ListEntry, mean: number): { s: number; w: numb
   const base = WEIGHTS.statusBase[e.status] ?? 0;
   const sRaw = e.score > 0 ? clamp((e.score - mean) / WEIGHTS.scoreSpread, -1, 1) : 0;
   const repeatBonus = WEIGHTS.repeatBonus * Math.min(e.repeat, WEIGHTS.repeatCap);
-  const s = clamp(base + sRaw + repeatBonus, -1, 1);
+  // finishing (or rewatching) without rating is still a choice — mild positive,
+  // otherwise a list with zero scores has an empty taste profile
+  const completionBoost = e.score === 0 && (e.status === "COMPLETED" || e.status === "REPEATING") ? 0.2 : 0;
+  const s = clamp(base + sRaw + repeatBonus + completionBoost, -1, 1);
   const w = e.score > 0 ? 1 : e.status === "DROPPED" ? 0.6 : 0.4;
   return { s, w };
 }
