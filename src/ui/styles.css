@@ -469,6 +469,7 @@ h1, h2, h3 { color: var(--fg); margin: 0; }
 .bar .quality { background: rgb(255 255 255 / 0.82); }
 .bar .community { background: rgb(163 163 163 / 0.75); }
 .dlg .why { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 14px; font-size: 14px; }
+.dlg .why-note { margin: 12px 0 0; font-size: 14px; }
 .dlg .src { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 8px 0 0; display: flex; align-items: center; gap: 6px; }
 .dlg .src .llm-dot { width: 6px; height: 6px; }
 .dlg-foot { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }

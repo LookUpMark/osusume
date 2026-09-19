@@ -589,7 +589,7 @@ export function App() {
 
       {dialog && (
         <DetailDialog
-          reco={dialog}
+          reco={result?.recos.find((x) => x.media.id === dialog.media.id) ?? dialog}
           lang={lang}
           username={result?.profile.userName ?? username}
           whySource={whySource[dialog.media.id] ?? "local"}
