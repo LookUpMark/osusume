@@ -88,6 +88,15 @@ query ($id: Int) {
   }
 }`;
 
+const MEDIA_REVIEWS_QUERY = `
+query ($id: Int) {
+  Media(id: $id) {
+    reviews(sort: RATING_DESC, perPage: 3) {
+      nodes { summary body(asHtml: false) score rating }
+    }
+  }
+}`;
+
 // --- rate limiting -------------------------------------------------------------
 
 let tokens = 3;
@@ -365,4 +374,44 @@ export async function fetchRecommendations(
     targetId: n.mediaRecommendation.id,
     rating: n.rating,
   }));
+}
+
+// --- reviews (LLM grounding) ----------------------------------------------------
+
+export interface ReviewLite {
+  summary: string;
+  body: string;
+  score: number | null;
+  rating: number;
+}
+
+/** Top-rated user reviews for one title — LLM context only, never blocking:
+ *  fixtures have none (silent degradation) and a fetch failure must not fail
+ *  explain/chat nor trip the AniList auto-fallback. */
+export async function fetchMediaReviews(id: number): Promise<ReviewLite[]> {
+  if (localModeOn()) return [];
+  const data = await gql<{
+    Media: { reviews: { nodes: { summary: string | null; body: string | null; score: number | null; rating: number }[] } | null };
+  } | null>(MEDIA_REVIEWS_QUERY, { id }, CACHE_TTL_MEDIA_MS).catch(() => null);
+  const nodes = data?.Media?.reviews?.nodes ?? [];
+  return nodes
+    .filter((n) => ((n.summary ?? "") + (n.body ?? "")).trim().length > 0)
+    .map((n) => ({
+      summary: (n.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 120),
+      body: (n.body ?? "").replace(/\s+/g, " ").trim().slice(0, 260),
+      score: n.score,
+      rating: n.rating,
+    }))
+    .slice(0, 2);
+}
+
+/** Reviews for a handful of ids at once (explain batch / chat mentions). */
+export async function gatherReviews(ids: number[]): Promise<Map<number, ReviewLite[]>> {
+  const unique = [...new Set(ids)];
+  const lists = await Promise.all(unique.map((id) => fetchMediaReviews(id)));
+  const out = new Map<number, ReviewLite[]>();
+  unique.forEach((id, i) => {
+    if (lists[i]!.length > 0) out.set(id, lists[i]!);
+  });
+  return out;
 }

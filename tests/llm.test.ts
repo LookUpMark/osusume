@@ -223,7 +223,52 @@ test("chat: system prompt is an expert grounded in the visible result, algorithm
   assert.ok(sys.includes("m1") && sys.includes("m2"), "titles present");
   assert.ok(sys.includes("BANNED"), "explicit ban on algorithm-speak");
   assert.ok(sys.includes("Psychological (they enjoyed it in"), "taste links with seen titles");
+  assert.ok(sys.includes("LEADS, not facts"), "comparison doctrine reaches chat");
   assert.ok(sys.includes("English"), "language directive present");
   const it = buildChatSystem(result, "it");
   assert.ok(it.includes("Italian"), "language follows the requested lang");
+});
+
+test("buildPrompt: comparison doctrine + reception line only when reviews exist", async () => {
+  const { buildPrompt } = await import("../src/server/llm.ts");
+  const base = buildPrompt([reco(1)], profile, "en");
+  assert.ok(base.includes("veteran anime critic"), "critic voice, not friend-wiki");
+  assert.ok(base.includes("LEADS, not facts"), "doctrine present");
+  assert.ok(base.includes("possible leads (verify, drop if shallow)"), "leads are framed as unverified");
+  assert.ok(!base.includes("reception:"), "no reception line without reviews");
+
+  const grounded = buildPrompt([reco(1)], profile, "en", new Map([[1, [
+    { summary: "A slow burn", body: "the payoff recontextualizes every early scene", score: 85, rating: 12 },
+  ]]]));
+  assert.ok(grounded.includes("reception:"), "reception reaches the prompt");
+  assert.ok(grounded.includes("payoff recontextualizes"), "review body excerpt present");
+  assert.ok(!grounded.includes("A slow burn"), "summary omitted — punchy lines get echoed verbatim");
+});
+
+test("mentionedTitles: last user message only, min title length, capped at 2", async () => {
+  const { mentionedTitles } = await import("../src/server/chat.ts");
+  const long = (id: number, title: string): ScoredReco => ({ ...reco(id), media: { ...media(id), title } });
+  const cands = [long(1, "Monster"), long(2, "Vinland Saga"), long(3, "mx")];
+  // titles below 4 chars ("mx") never match; case-insensitive
+  assert.equal(mentionedTitles([{ role: "user", content: "tell me about MONSTER please" }], cands).length, 1);
+  assert.equal(
+    mentionedTitles([{ role: "user", content: "tell me about MONSTER please" }], cands)[0]?.media.id,
+    1,
+  );
+  // last message is the assistant's → no match even if a title appears
+  assert.equal(
+    mentionedTitles(
+      [
+        { role: "user", content: "Monster?" },
+        { role: "assistant", content: "Monster is great" },
+      ],
+      cands,
+    ).length,
+    0,
+  );
+  assert.equal(
+    mentionedTitles([{ role: "user", content: "Monster or Vinland Saga first?" }], cands).length,
+    2,
+    "two mentions matched, cap enforced",
+  );
 });

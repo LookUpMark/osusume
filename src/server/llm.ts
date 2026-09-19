@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Explanation, Lang, ScoredReco, TasteProfile } from "../shared/types.ts";
 import { CACHE_DIR, CACHE_TTL_EXPL_MS, configuredLlmModel, llmBaseUrl, llmModel, LLM_TIMEOUT_MS } from "./config.ts";
+import { gatherReviews, type ReviewLite } from "./anilist.ts";
 import { lovedOverlap } from "./scoring.ts";
 import { llmAuthHeaders, logLlm } from "./setup.ts";
 
@@ -13,7 +14,7 @@ const EXPL_DIR = join(CACHE_DIR, "expl");
 export class LlmError extends Error {}
 
 // bumped when the prompt voice changes — old cached explanations must not resurface
-const PROMPT_VERSION = "v3-expert-2";
+const PROMPT_VERSION = "v4-critic-2";
 // thinking OFF makes a full explanation ~150 tokens: budget for a batch, not
 // for reasoning (the old 4000/16000 let Bonsai burn minutes of reasoning at 23 tok/s)
 const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS ?? 1200);
@@ -78,6 +79,9 @@ export async function llmChat(messages: { role: string; content: string }[], mod
         messages,
         temperature: 0.3,
         max_tokens: maxTokens,
+        // mild anti-loop pressure — small quants fall into verbatim paragraph
+        // repetition; servers without the field just drop it
+        repetition_penalty: 1.12,
         // Qwen3-family hard switch (Bonsai included): unknown fields are dropped
         // by servers that don't support it. Verified live: without it the model
         // spends the whole budget in invisible reasoning (~3 min per call).
@@ -120,7 +124,22 @@ export function cleanText(html: string | null, max = 450): string {
   return text.length > max ? `${text.slice(0, max).replace(/\s+\S*$/, "")}…` : text;
 }
 
-function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): string {
+/** The comparison doctrine, shared verbatim by explain + chat: comparisons are
+ *  about HOW stories work, links are leads to verify (not facts to recite),
+ *  and reception is absorbed as expertise, never cited. */
+export const COMPARISON_STANDARD = `THE COMPARISON STANDARD (what separates you from a fan wiki):
+- Compare HOW stories work — tone, structure, pacing, how a theme is dramatized, what it feels like to watch. The mere PRESENCE of an element is never a comparison. Rejected: "it has aliens, and so does Dandadan". Accepted: "where Dandadan turns the supernatural into kinetic comedy, here the otherworldly presses on the cast like a slow verdict — that comedy-to-melancholy whiplash is the real draw".
+- The "possible leads" you are given are LEADS, not facts. Use one only if you can say something true and specific about what the shared element DOES in this story. Nothing honest to build on? Drop the lead silently and judge the title on its own merits — a standalone expert blurb beats a forced comparison.
+- At most 1-2 references to titles they watched. One deep, verifiable connection beats three name-drops.
+- When a reception line is provided, mine it for what viewers praise or fault (character work, payoff, direction) and absorb that judgment as your own expertise. Rewrite it in your own words — the words "review", "reviewer", "viewer" or "critic" must NEVER appear in your reply.
+- Name craft when it matters: studio lineage, era, format, how the tone shifts.`;
+
+export function buildPrompt(
+  recos: ScoredReco[],
+  profile: TasteProfile,
+  lang: Lang,
+  reviews: Map<number, ReviewLite[]> = new Map(),
+): string {
   const loved = profile.loved
     .slice(0, 10)
     .map((d) => `${d.value} (e.g. ${d.examples.slice(0, 2).join(", ") || "n/a"})`)
@@ -132,7 +151,7 @@ function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): st
   const items = recos
     .map((r) => {
       const overlap = lovedOverlap(r.media, profile);
-      const links = overlap
+      const leads = overlap
         .map((o) => {
           const theme = o.label.split(":").pop();
           return `${theme} — they enjoyed it in ${o.examples.join(", ")}`;
@@ -145,25 +164,28 @@ function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): st
         .join(", ");
       const plot = cleanText(r.media.description, 400);
       const plotLinks = (r.links ?? [])
-        .map((l) => `shares plot elements (${l.shared.join(", ")}) with "${l.title}"`)
+        .map((l) => `shares imagery (${l.shared.join(", ")}) with "${l.title}"`)
         .join("; ");
+      const revs = (reviews.get(r.media.id) ?? [])
+        .map((v) => `"${v.body}"`)
+        .join(" | ");
       return (
         `- id=${r.media.id} — "${r.media.title}" (${r.media.seasonYear ?? "?"}, ${r.media.studio ?? "?"}; ` +
         `genres: ${r.media.genres.slice(0, 3).join(", ")}${themes ? `; themes: ${themes}` : ""})\n` +
         `  plot: ${plot || "not available"}\n` +
-        `  links to their taste: ${[links, plotLinks].filter(Boolean).join("; ") || "none obvious — lean on the plot"}`
+        (revs ? `  reception: ${revs}\n` : "") +
+        `  possible leads (verify, drop if shallow): ${[leads, plotLinks].filter(Boolean).join("; ") || "none obvious — judge the title on its own merits"}`
       );
     })
     .join("\n");
   return (
-    `You are a knowledgeable anime friend. The user loves: ${loved || "not enough data"}. ` +
-    `They dislike: ${disliked || "nothing notable"}.\n` +
-    `For each title below, write a rich but tight paragraph (3-5 sentences) in flawless ${LANG_NAME[lang]} on why ITS STORY could hook THIS user:\n` +
-    `- Describe plot, themes and atmosphere (draw on the plot text).\n` +
-    `- NAME the specific titles listed under "links to their taste" and explain what is shared (themes, plot devices, mood, character arcs) — generic phrases like "if you like emotional stories" without naming their titles are rejected.\n` +
-    `- Point out the pattern in their taste (what kinds of stories they gravitate to) and how this title fits or stretches it.\n` +
-    `- NEVER mention scores, percentages, "affinity", "quality", "match", the app or any algorithm — a real expert does not talk like that.\n` +
-    `Use ONLY the facts provided; if the plot text is missing, speak about the themes. Never invent plot details.\n\n${items}\n\n` +
+    `You are a veteran anime critic — the friend people trust because you explain WHY a title works, never just what it contains. ` +
+    `The viewer loves: ${loved || "not enough data"}. They dislike: ${disliked || "nothing notable"}.\n` +
+    `For each title below, write one rich, tight paragraph (3-5 sentences) in flawless ${LANG_NAME[lang]} on why ITS STORY could hook THIS viewer.\n` +
+    `${COMPARISON_STANDARD}\n` +
+    `Point out the pattern in their taste (what kinds of stories they gravitate to) and how this title fits or stretches it.\n` +
+    `Use ONLY the facts provided plus general knowledge of these exact titles; never invent plot. If the plot text is missing, speak about the themes. ` +
+    `NEVER mention scores, percentages, "affinity", "quality", "match", the app or any algorithm — a real expert does not talk like that.\n\n${items}\n\n` +
     `Reply with ONLY a JSON array: [{"id":<media id>,"why":"<explanation>"}] — every "why" MUST be written in ${LANG_NAME[lang]}.`
   );
 }
@@ -263,6 +285,8 @@ export async function explainRecos(
 
   try {
     const model = await resolveServedModel();
+    // real reception as critic grounding (never blocking — failures degrade silently)
+    const reviews = await gatherReviews(pending.map((r) => r.media.id));
     // ponytail: batches of max 10 — small local models degrade past that
     for (let i = 0; i < pending.length; i += 10) {
       const batch = pending.slice(i, i + 10);
@@ -274,7 +298,7 @@ export async function explainRecos(
             content:
               "You output only valid JSON. Do not explain your reasoning — the reply must be ONLY the JSON array.",
           },
-          { role: "user" as const, content: buildPrompt(batch, profile, lang) },
+          { role: "user" as const, content: buildPrompt(batch, profile, lang, reviews) },
         ];
         try {
           raw = await llmChat(chat, model);

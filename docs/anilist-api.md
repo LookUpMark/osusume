@@ -15,6 +15,7 @@ POST `https://graphql.anilist.co` con body `{query, variables}`. Nessuna chiave 
 - `genres [String]`, `tags {name rank(0-100) category isGeneralSpoiler isMediaSpoiler}`, `averageScore`, `popularity`, `favourites`, `studios(isMain: true)`, `seasonYear`, `format`, `episodes`, `coverImage{large color}`, `siteUrl`, `description`.
 - `relations {edges {relationType node {id}}}` — MediaRelation: PREQUEL, SEQUEL, PARENT, SIDE_STORY, SPIN_OFF, ADAPTATION, ALTERNATIVE, SUMMARY, SAME_UNIVERSE...; connections perPage max 25.
 - `Media.recommendations(sort: RATING_DESC, perPage ≤ 25)` → recommendation user-submitted con `rating` community: usato come segnale community (pre-cotto, ToS-ok).
+- `Media.reviews(sort: RATING_DESC, perPage: 3)` → recensioni utente (`summary`, `body`, `score`, `rating`): grounding per le narrazioni LLM (explain + chat). Una query per titolo spiegato/discusso (non per lookup), cache 7gg, degrada in silenzio: fallimento o fixtures → niente riga reception, mai blocco del flusso né trigger del fallback local-mode.
 
 ## Candidate pool
 
