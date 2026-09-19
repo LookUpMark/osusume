@@ -7,6 +7,7 @@ import {
   fetchProfile,
   fetchRecommend,
   fetchSetupStatus,
+  lookupMedia,
   postLocalMode,
   postSetup,
   type AppUpdate,
@@ -20,6 +21,7 @@ import { Hero } from "./components/Hero.tsx";
 import { MediaCard } from "./components/MediaCard.tsx";
 import { ProfileView } from "./components/ProfileView.tsx";
 import { Rail } from "./components/Rail.tsx";
+import { LoginModal } from "./components/LoginModal.tsx";
 import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
 import type { View } from "./views.ts";
@@ -48,6 +50,12 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
+  const [loginOpen, setLoginOpen] = useState(localStorage.getItem("username") === null);
+  const [animeSearch, setAnimeSearch] = useState<{ q: string; busy: boolean; recos: ScoredReco[] | null }>({
+    q: "",
+    busy: false,
+    recos: null,
+  });
   const [result, setResult] = useState<RecoResult | null>(null);
   const [whySource, setWhySource] = useState<Record<number, "llm" | "local">>({});
   const [extraRecos, setExtraRecos] = useState<ScoredReco[]>([]);
@@ -61,6 +69,16 @@ export function App() {
 
   useEffect(() => {
     fetchSetupStatus().then(setSetup).catch(() => setSetup("error"));
+  }, []);
+
+  // fake login persistence: a known user loads straight into their recos
+  const bootRef = useRef(false);
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+    const stored = localStorage.getItem("username");
+    if (stored) void run(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -148,7 +166,7 @@ export function App() {
         ? tr(lang, "errAnilistDown")
         : tr(lang, "errGeneric");
 
-  async function run(username: string) {
+  async function run(username: string): Promise<boolean> {
     setUsername(username);
     setError(null);
     setResult(null);
@@ -163,16 +181,40 @@ export function App() {
       const r = await fetchRecommend(username, lang);
       setResult(r);
       setPhase("recos");
+      return true;
       // explanations are ON-DEMAND now: fetched per-title when a detail opens
       // (DetailDialog), not for the whole list in one giant LLM prompt
     } catch (e) {
       setError(errorMessage(e));
       setPhase("idle");
+      return false;
     } finally {
       setLoading(false);
       refreshHealth(); // the server may have auto-switched to local mode mid-request
     }
   }
+
+  /** Fake login (initial or switch): persists only on success. */
+  const login = async (u: string) => {
+    if (await run(u)) {
+      localStorage.setItem("username", u);
+      setLoginOpen(false);
+    }
+  };
+
+  /** Topbar anime search: any title, scored against the profile. Opening a
+   *  result registers it as chat context (onOpenChat). */
+  const doAnimeSearch = async () => {
+    const q = animeSearch.q.trim();
+    if (q.length < 2 || !username || animeSearch.busy) return;
+    setAnimeSearch((s) => ({ ...s, busy: true }));
+    try {
+      const r = await lookupMedia(username, q, lang);
+      setAnimeSearch({ q, busy: false, recos: r.recos });
+    } catch {
+      setAnimeSearch({ q, busy: false, recos: [] });
+    }
+  };
 
   /** DetailDialog fetched an LLM narration for one title — fold it into the result. */
   const onWhy = (id: number, text: string, source: "llm" | "cache") => {
@@ -294,10 +336,17 @@ export function App() {
             view={view}
             lang={lang}
             user={result?.profile.userName ?? username}
-            busy={loading}
-            onLang={() => setLang(lang === "en" ? "it" : "en")}
-            onProfile={() => showView("profile")}
-            onSubmit={run}
+            busy={loading || animeSearch.busy}
+            query={animeSearch.q}
+            results={animeSearch.recos}
+            onQuery={(q) => setAnimeSearch({ q, busy: false, recos: null })}
+            onSearch={doAnimeSearch}
+            onClose={() => setAnimeSearch((s) => ({ ...s, recos: null }))}
+            onOpen={(r) => {
+              setAnimeSearch({ q: "", busy: false, recos: null });
+              onOpenChat(r);
+            }}
+            onSwitchUser={() => setLoginOpen(true)}
           />
 
           {error && (
@@ -481,7 +530,14 @@ export function App() {
                 <p>{tr(lang, "chatSub")}</p>
               </div>
             </div>
-            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} onOpen={onOpenChat} />
+            <ChatPanel
+              lang={lang}
+              result={result}
+              llmOn={llmOn}
+              username={result?.profile.userName ?? username}
+              extraIds={extraRecos.map((r) => r.media.id)}
+              onOpen={onOpenChat}
+            />
           </section>
 
           {/* ── PROFILO ── */}
@@ -602,6 +658,16 @@ export function App() {
           </footer>
         </div>
       </div>
+
+      {loginOpen && (
+        <LoginModal
+          lang={lang}
+          busy={loading}
+          error={error}
+          current={username || undefined}
+          onLogin={login}
+        />
+      )}
 
       {dialog && (
         <DetailDialog

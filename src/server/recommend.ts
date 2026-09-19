@@ -57,7 +57,7 @@ export async function scoreArbitrary(
 
 /** Search AniList by title and score the matches against the user's taste. */
 export async function lookupMedia(username: string, q: string, lang: Lang): Promise<ScoredReco[]> {
-  const media = await fetchMediaSearch(q);
+  const media = (await fetchMediaSearch(q)).filter((m) => m.format !== "MUSIC");
   if (media.length === 0) return [];
   const { recos } = await scoreArbitrary(media.map((m) => m.id), username, lang);
   const order = new Map(media.map((m, i) => [m.id, i]));

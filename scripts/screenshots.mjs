@@ -51,14 +51,12 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ width: 1680, height: 1050, show: true });
   try {
     await win.loadURL("http://127.0.0.1:3000");
-    await sleep(1500);
-    console.log(
-      "page state:",
-      await win.webContents.executeJavaScript(
-        `JSON.stringify({ inputs: document.querySelectorAll("input").length, head: document.body.innerText.slice(0, 80) })`,
-      ).catch((e) => `exec failed: ${e.message}`),
-    );
-    await win.webContents.executeJavaScript(search(".search input", "LookUpMark"));
+    await win.webContents.executeJavaScript(`localStorage.clear()`);
+    await win.reload();
+    await sleep(2000);
+    // fake login
+    await shot(win, "login");
+    await win.webContents.executeJavaScript(search(".login-form input", "LookUpMark"));
     // probe-style: single check after a settle sleep (polling misses it somehow)
     let cards = 0;
     for (let i = 0; i < 60; i++) {
@@ -80,6 +78,15 @@ app.whenReady().then(async () => {
     await sleep(400);
     await shot(win, "detail");
     await win.webContents.executeJavaScript(click(".dlg-close"));
+    await sleep(300);
+
+    // topbar anime search: dropdown over the recos grid
+    await win.webContents.executeJavaScript(search(".search input", "Monster"));
+    await waitFor(win, `document.querySelectorAll(".top-results .chat-card").length > 0`, 60_000);
+    await sleep(400);
+    await shot(win, "search");
+    await win.webContents.executeJavaScript(click(".dlg-scrim, header"));
+    await win.webContents.executeJavaScript(`document.querySelector(".search input").blur(); window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
     await sleep(300);
 
     // chat: real question + reply with title cards
