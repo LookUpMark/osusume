@@ -5,7 +5,10 @@ Personalized anime recommendations from your own AniList list — with explanati
 | | |
 |---|---|
 | ![Recommendations](docs/screenshots/home.png) | ![Detail](docs/screenshots/detail.png) |
+| ![Chat](docs/screenshots/chat.png) | ![Profile](docs/screenshots/profile.png) |
 | ![Setup wizard](docs/screenshots/setup-wizard.png) | ![Settings](docs/screenshots/settings.png) |
+
+_Screenshots from a real run with the AniList user **LookUpMark** — recommendations, on-demand LLM explanations, chat with clickable title cards, taste profile, setup wizard and settings._
 
 ## Why this one
 

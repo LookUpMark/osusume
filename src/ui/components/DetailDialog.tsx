@@ -143,7 +143,7 @@ export function DetailDialog(props: {
             )}
           </div>
           {description && <p className="why">{description}</p>}
-          {r.why && <p className="why-note">{r.why}</p>}
+          {r.why && <p className="why-note">{r.why.replace(/\*/g, "")}</p>}
           <p className="src">
             <span className={`llm-dot${props.whySource === "llm" ? " on" : ""}`} aria-hidden="true" />
             {tr(lang, props.whySource === "llm" ? "whySrcLlm" : "whySrcLocal")}

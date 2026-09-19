@@ -102,7 +102,7 @@ export function ChatPanel(props: {
           msgs.map((m, i) => (
             <div key={i} style={{ display: "contents" }}>
               <div className={`chat-msg ${m.role}`} aria-label={m.role}>
-                <p>{m.content}</p>
+                <p>{m.content.replace(/\*/g, "")}</p>
               </div>
               {m.role === "assistant" && props.result && mentionedRecos(m.content, props.result.recos).length > 0 && (
                 <div className="chat-cards">
