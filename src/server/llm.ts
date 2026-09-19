@@ -291,6 +291,7 @@ export async function explainRecos(
     for (let i = 0; i < pending.length; i += 10) {
       const batch = pending.slice(i, i + 10);
       let raw: string;
+      let items: { id: number; why: string }[] = [];
       try {
         const chat = [
           {
@@ -308,12 +309,32 @@ export async function explainRecos(
           // a big budget — the explanation is per-title and cached for a week
           raw = await llmChat(chat, model, LLM_RETRY_TOKENS);
         }
+        items = parseExplanations(raw);
+        if (items.length === 0) {
+          // small models sometimes return valid JSON with a wrong key ("where"
+          // instead of "why"): one corrective retry beats a silent fallback
+          logLlm(`explain: batch unparseabile (${raw.slice(0, 60).replace(/\s+/g, " ")}…) — retry correttivo`);
+          const corrective = [
+            ...chat,
+            {
+              role: "user" as const,
+              content:
+                'Your reply did not match the required format. Each item must be exactly {"id":<media id>,"why":"<explanation text>"}. Reply again with ONLY the JSON array.',
+            },
+          ];
+          try {
+            raw = await llmChat(corrective, model);
+            items = parseExplanations(raw);
+          } catch {
+            /* keep the deterministic fallbacks */
+          }
+        }
       } catch (e) {
         // log the failure — silent fallbacks made "why is there no LLM text?" undebuggable
         logLlm(`explain: LLM error (${(e as Error).message}) per model=${llmModel()} — prose deterministiche in uso`);
         break;
       }
-      for (const e of parseExplanations(raw)) {
+      for (const e of items) {
         const reco = batch.find((r) => r.media.id === e.id);
         const text = e.why.trim();
         // only genuine LLM output is cached — caching deterministic fallbacks would
