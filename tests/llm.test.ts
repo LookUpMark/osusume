@@ -175,7 +175,7 @@ test("llmHealth: 200 on /models is not 'up' unless the configured model is serve
   }
 });
 
-test("chat: system prompt is grounded in the visible result", async () => {
+test("chat: system prompt is an expert grounded in the visible result, algorithm-speak banned", async () => {
   const { buildChatSystem } = await import("../src/server/chat.ts");
   const result = {
     profile,
@@ -184,7 +184,8 @@ test("chat: system prompt is grounded in the visible result", async () => {
   } as unknown as Parameters<typeof buildChatSystem>[0];
   const sys = buildChatSystem(result, "en");
   assert.ok(sys.includes("m1") && sys.includes("m2"), "titles present");
-  assert.ok(sys.includes("deterministic why for 1"), "match reasons included");
+  assert.ok(sys.includes("BANNED"), "explicit ban on algorithm-speak");
+  assert.ok(sys.includes("Psychological (they enjoyed it in"), "taste links with seen titles");
   assert.ok(sys.includes("English"), "language directive present");
   const it = buildChatSystem(result, "it");
   assert.ok(it.includes("Italian"), "language follows the requested lang");

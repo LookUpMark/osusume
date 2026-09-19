@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Explanation, Lang, ScoredReco, TasteProfile } from "../shared/types.ts";
 import { CACHE_DIR, CACHE_TTL_EXPL_MS, configuredLlmModel, llmBaseUrl, llmModel, LLM_TIMEOUT_MS } from "./config.ts";
+import { lovedOverlap } from "./scoring.ts";
 import { llmAuthHeaders, logLlm } from "./setup.ts";
 
 const EXPL_DIR = join(CACHE_DIR, "expl");
@@ -65,32 +66,63 @@ export async function llmChat(messages: { role: string; content: string }[], mod
 
 const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
 
+/** Strip HTML + collapse whitespace (AniList descriptions are HTML). */
+export function cleanText(html: string | null, max = 450): string {
+  if (!html) return "";
+  const text = html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;|&apos;/g, "'")
+    .replace(/&mdash;/g, "—")
+    .replace(/&hellip;/g, "…")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max).replace(/\s+\S*$/, "")}…` : text;
+}
+
 function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): string {
   const loved = profile.loved
     .slice(0, 10)
-    .map((d) => `${d.dim} ${d.value} (e.g. ${d.examples.slice(0, 2).join(", ") || "n/a"})`)
+    .map((d) => `${d.value} (e.g. ${d.examples.slice(0, 2).join(", ") || "n/a"})`)
     .join("; ");
   const disliked = profile.disliked
     .slice(0, 6)
-    .map((d) => `${d.dim} ${d.value}`)
+    .map((d) => d.value)
     .join("; ");
   const items = recos
-    .map(
-      (r, i) =>
-        `${i}. id=${r.media.id} "${r.media.title}" (${r.media.seasonYear ?? "?"}, ${r.media.studio ?? "?"}) ` +
-        `genres: ${r.media.genres.slice(0, 4).join(", ")}; tags: ${r.media.tags
-          .filter((t) => t.rank >= 60)
-          .slice(0, 5)
-          .map((t) => t.name)
-          .join(", ")}; AniList score ${r.media.averageScore ?? "?"}/100, ${r.media.popularity} members; ` +
-        `deterministic match note: ${r.why}`,
-    )
+    .map((r) => {
+      const overlap = lovedOverlap(r.media, profile);
+      const links = overlap
+        .map((o) => {
+          const theme = o.label.split(":").pop();
+          return `${theme} — they enjoyed it in ${o.examples.join(", ")}`;
+        })
+        .join("; ");
+      const themes = r.media.tags
+        .filter((t) => t.rank >= 60 && !t.isSpoiler)
+        .slice(0, 5)
+        .map((t) => t.name)
+        .join(", ");
+      const plot = cleanText(r.media.description, 400);
+      return (
+        `- id=${r.media.id} — "${r.media.title}" (${r.media.seasonYear ?? "?"}, ${r.media.studio ?? "?"}; ` +
+        `genres: ${r.media.genres.slice(0, 3).join(", ")}${themes ? `; themes: ${themes}` : ""})\n` +
+        `  plot: ${plot || "not available"}\n` +
+        `  links to their taste: ${links || "none obvious — lean on the plot"}`
+      );
+    })
     .join("\n");
   return (
-    `You are an anime expert. The user's taste profile — they love: ${loved || "not enough data"}. ` +
+    `You are a knowledgeable anime friend. The user loves: ${loved || "not enough data"}. ` +
     `They dislike: ${disliked || "nothing notable"}.\n` +
-    `For each candidate below, write 2-3 sentences in ${LANG_NAME[lang]} on why THIS user would (or would not) enjoy it. ` +
-    `Use ONLY the facts provided — do not invent plot details. Reference their taste profile concretely.\n\n${items}\n\n` +
+    `For each title below, write 2-3 sentences in ${LANG_NAME[lang]} on why ITS STORY could hook THIS user: ` +
+    `talk about the plot, themes and atmosphere (draw on the plot text), and connect them to titles they already enjoyed. ` +
+    `NEVER mention scores, percentages, "affinity", "quality", "match", the app or any algorithm — a real expert does not talk like that. ` +
+    `Use ONLY the facts provided; if the plot text is missing, speak about the themes. Never invent plot details.\n\n${items}\n\n` +
     `Reply with ONLY a JSON array: [{"id":<media id>,"why":"<explanation>"}]`
   );
 }

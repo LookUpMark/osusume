@@ -52,3 +52,18 @@ Differiti dichiarati: ci.yml actions ancora tag-based (@v4, mitigato con `permis
 - [ ] Porta 1234 occupata da altro processo → solo log, app integra
 - [ ] `rm data/config.json` → wizard riappare
 - [ ] `.env` con `LLM_BASE_URL` custom → wizard mai mostrato, ensure no-op
+
+## Scoring v2 — expert-first (2026-09-19)
+
+Requisito Marco: la chat e le spiegazioni parlano al *telespettatore* (trama, temi, collegamenti con ciò che ha visto), mai di algoritmi. Fatto subito (v0.7.4):
+
+- descrizioni AniList (HTML-strippate, spoiler-tag esclusi) nel contesto chat e nel prompt explain
+- `lovedOverlap` esposto: per ogni titolo consigliato il modello riceve i collegamenti reali col gusto (tema → titoli visti in cui è apparso)
+- system prompt chat = esperto amico: gergo dell'app bannato (affinity/match/algoritmo), numeri solo su richiesta esplicita, risposta alla domanda effettiva
+
+Tranche successiva (da validare su fixture reali):
+
+- [ ] similarity semantica su description (embedding locali) per catchare collegamenti tematici che i tag si perdono
+- [ ] peso "mood/continuità": premi titoli che condividono tone-setting con le ultime N sessioni viste
+- [ ] franchise-aware: spiegare il punto di ingresso (cosa devi aver visto prima) dentro il why, non solo nei badge
+- [ ] diversità: MMR sul pool finale per non mandare 5 shonen dello stesso studio in top 10

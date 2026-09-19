@@ -68,7 +68,7 @@ export function isGem(m: MediaLite, gem: number): boolean {
 // --- deterministic explanations -------------------------------------------------
 
 /** Shared loved dims present on the candidate, strongest first. */
-function lovedOverlap(m: MediaLite, p: TasteProfile): { label: string; examples: string[] }[] {
+export function lovedOverlap(m: MediaLite, p: TasteProfile): { label: string; examples: string[] }[] {
   const tagNames = new Set(m.tags.filter((t) => t.rank >= 60).map((t) => t.name));
   const values = new Set<string>([...m.genres, ...(m.studio ? [m.studio] : [])]);
   const out: { label: string; examples: string[] }[] = [];

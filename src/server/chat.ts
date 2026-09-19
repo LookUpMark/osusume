@@ -1,38 +1,64 @@
 import type { Lang, RecoResult } from "../shared/types.ts";
-import { llmChat, resolveServedModel } from "./llm.ts";
+import { cleanText, llmChat, resolveServedModel } from "./llm.ts";
+import { lovedOverlap } from "./scoring.ts";
 
 const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
 
-/** System prompt: the model can only discuss what the UI already shows — the
- *  current recommendations, the taste profile, the avoid list — grounded in the
- *  exact scores and reasons it can be asked about. */
+/** System prompt: the model is an anime expert friend, NOT a dashboard. It may
+ *  only discuss what the UI already shows — but in terms a viewer cares about:
+ *  plot, themes, atmosphere, connections with what they have already watched.
+ *  Algorithm-speak (affinity, match %, "the algorithm") is explicitly banned:
+ *  scores are internal reference material, quoted only if the user asks. */
 export function buildChatSystem(result: RecoResult, lang: Lang): string {
   const p = result.profile;
   const recos = result.recos
     .slice(0, 10)
-    .map(
-      (r, i) =>
-        `${i + 1}. "${r.media.title}" (${r.media.seasonYear ?? "?"}, ${r.media.studio ?? "?"}) — match ` +
-        `${Math.round(r.final * 100)}/110 (affinity ${Math.round(r.breakdown.affinity * 100)}%, ` +
-        `quality ${Math.round(r.breakdown.quality * 100)}%): ${r.why}`,
-    )
+    .map((r) => {
+      const overlap = lovedOverlap(r.media, p);
+      const links = overlap
+        .map((o) => {
+          const theme = o.label.split(":").pop();
+          return `${theme} (they enjoyed it in ${o.examples.join(", ")})`;
+        })
+        .join("; ");
+      const themes = r.media.tags
+        .filter((t) => t.rank >= 60 && !t.isSpoiler)
+        .slice(0, 5)
+        .map((t) => t.name)
+        .join(", ");
+      const plot = cleanText(r.media.description, 450);
+      const badges = r.badges.includes("HIDDEN_GEM") ? " [less-known gem]" : "";
+      return (
+        `- "${r.media.title}" (${r.media.seasonYear ?? "?"}, studio ${r.media.studio ?? "?"}; ` +
+        `genres: ${r.media.genres.slice(0, 3).join(", ")}${themes ? `; themes: ${themes}` : ""})${badges}\n` +
+        `  plot: ${plot || "not available"}\n` +
+        `  links to the user: ${links || "none obvious"}\n` +
+        `  internal match reference: ${Math.round(r.final * 100)}/110`
+      );
+    })
     .join("\n");
   const loved = p.loved
-    .slice(0, 5)
-    .map((d) => `${d.value} (${Math.round(d.aff * 100)}%)`)
-    .join(", ");
+    .slice(0, 8)
+    .map((d) => `${d.value} (seen in ${d.examples.slice(0, 2).join(", ") || "n/a"})`)
+    .join("; ");
   const disliked = p.disliked.slice(0, 5).map((d) => d.value).join(", ");
-  const avoided = result.avoided.slice(0, 5).map((a) => a.media.title).join(", ");
+  const avoided = result.avoided
+    .slice(0, 5)
+    .map((a) => `"${a.media.title}" (${a.reason})`)
+    .join("; ");
   return (
-    `You are Osusume, an anime recommendation assistant, chatting with AniList user ${p.userName}. ` +
-    `Reply in ${LANG_NAME[lang]}, naturally and concisely (2-5 sentences unless the question needs more). ` +
-    `You can only discuss the data below (the current recommendations, the taste profile, the avoid list) plus general context about those titles. ` +
-    `Ground every claim in the list: cite titles, match scores out of 110, affinity/quality percentages and the match reasons. ` +
-    `Do not invent recommendations outside the list — if asked for more, say the list is what the app found.\n\n` +
-    `USER TASTE — loves: ${loved || "not enough data"}. Dislikes: ${disliked || "nothing notable"}. ` +
-    `Mean score ${p.meanScore}, ${p.counts.COMPLETED} completed.\n\n` +
+    `You are Osusume, a knowledgeable, warm anime expert chatting with ${p.userName}. ` +
+    `They are a viewer, not a data scientist: they care about STORIES, not metrics.\n\n` +
+    `HOW TO TALK:\n` +
+    `- Answer the question they ACTUALLY asked. "Why would the plot interest me?" means talk about the plot, themes, tone and emotions — not about scores or the app.\n` +
+    `- Connect titles to what they have already watched ("since you enjoyed X, which shares Y…"), using the links provided.\n` +
+    `- BANNED words: "affinity", "quality %", "match score", "the algorithm", "prioritized", "profile" — never explain the app's mechanics. If strength matters, say it in words ("widely beloved", "a hidden gem many missed"). The internal match reference numbers are for you ONLY; quote them verbatim just if explicitly asked about scores.\n` +
+    `- Ground claims in the plot texts and themes provided; general knowledge of the titles listed is fine, inventing plot points is not. If unsure about a detail, say so.\n` +
+    `- Conversational: 2-5 sentences unless the question needs more. No bullet lists unless asked. Reply in ${LANG_NAME[lang]}.\n\n` +
+    `THE USER: loves ${loved || "not enough data"}; dislikes ${disliked || "nothing notable"}; ` +
+    `mean score ${p.meanScore}, ${p.counts.COMPLETED} completed.\n\n` +
     `CURRENT RECOMMENDATIONS:\n${recos || "(none yet)"}` +
-    (avoided ? `\n\nSUGGESTED TO AVOID: ${avoided}` : "")
+    (avoided ? `\n\nTITLES SUGGESTED TO AVOID (do not recommend): ${avoided}` : "")
   );
 }
 
