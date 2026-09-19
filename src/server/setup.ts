@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { appendFileSync, createWriteStream, existsSync, mkdirSync, openSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
+import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, openSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { homedir, platform, arch, totalmem, cpus } from "node:os";
@@ -37,7 +37,7 @@ export function detectHardware(): Hardware {
   let appleSilicon = os === "mac" && arch() === "arm64";
   if (os === "mac" && !appleSilicon) {
     // Rosetta caveat: node may report x64 on Apple Silicon
-    const { stdout } = spawnSync("sysctl", ["-n", "machdep.cpu.brand_string"], { encoding: "utf8" });
+    const { stdout } = spawnSync("sysctl", ["-n", "machdep.cpu.brand_string"], { encoding: "utf8", timeout: 3000 });
     appleSilicon = typeof stdout === "string" && stdout.includes("Apple");
   }
   const chip = cpus()[0]?.model?.trim() || "Unknown CPU";
@@ -47,19 +47,25 @@ export function detectHardware(): Hardware {
 export function suggestModel(hw: Hardware): {
   model: string;
   sizeGb: number;
+  /** MLX pack for the oMLX backend (runs the Prism ternary runtime) */
   mlx: { model: string; sizeGb: number } | null;
+  /** MLX variant downloadable via lms (v1 packings only — Bonsai-2 packs are
+   *  not loadable by LM Studio/llama.cpp upstream, so 27B has none here) */
+  mlxLms: { model: string; sizeGb: number } | null;
 } {
   if (hw.ramGb >= RAM_TRESHOLD_GB) {
     return {
       model: MODELS.b27.model,
       sizeGb: MODELS.b27.sizeGb,
-      mlx: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-27B-mlx-2bit", sizeGb: 7.9 } : null,
+      mlx: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit", sizeGb: 8.6 } : null,
+      mlxLms: null,
     };
   }
   return {
     model: MODELS.b8.model,
     sizeGb: MODELS.b8.sizeGb,
     mlx: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-8B-mlx-2bit", sizeGb: 2.16 } : null,
+    mlxLms: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-8B-mlx-2bit", sizeGb: 2.16 } : null,
   };
 }
 
@@ -72,7 +78,18 @@ export function needsSetupVersion(cfg: { setupVersion?: string }, version = APP_
 // --- oMLX (Apple Silicon multi-model server) -------------------------------------
 
 const omlxDefaultPath = (): string => join(homedir(), ".omlx", "bin", "omlx");
-const OMLX_BASE = process.env.OMLX_BASE_URL ?? "http://127.0.0.1:8080/v1";
+/** Port from ~/.omlx/settings.json — the oMLX CLI writes there; probing the wrong
+ *  port costs a full HTTP timeout on every status/ensure round. */
+function omlxPortFromSettings(): string | null {
+  try {
+    const s = JSON.parse(readFileSync(join(homedir(), ".omlx", "settings.json"), "utf8"));
+    const p = s?.server?.port;
+    return typeof p === "number" && p > 0 ? String(p) : null;
+  } catch {
+    return null;
+  }
+}
+const OMLX_BASE = process.env.OMLX_BASE_URL ?? `http://127.0.0.1:${omlxPortFromSettings() ?? "8080"}/v1`;
 
 export function resolveOmlx(): string | null {
   if (process.env.OMLX_BIN) return process.env.OMLX_BIN;
@@ -134,7 +151,7 @@ export function resolveLms(): string | null {
   if (cfg.lmsPath && existsSync(cfg.lmsPath)) return cfg.lmsPath;
   const def = lmsDefaultPath();
   if (existsSync(def)) return def;
-  const probe = spawnSync("lms", ["--version"], { encoding: "utf8" });
+  const probe = spawnSync("lms", ["--version"], { encoding: "utf8", timeout: 3000 });
   return probe.status === 0 ? "lms" : null;
 }
 
@@ -148,6 +165,8 @@ const log = (line: string): void => {
     /* logging must never crash the app */
   }
 };
+/** Shared llm.log writer — LLM errors must be observable, never swallowed. */
+export const logLlm = log;
 
 const httpOk = async (url: string, timeoutMs: number, headers: Record<string, string> = {}): Promise<boolean> => {
   try {
@@ -182,10 +201,11 @@ interface RunResult {
  * nonzero exit — the caller decides via the returned code. Timeout: SIGTERM,
  * then SIGKILL after a grace window; the promise always settles.
  */
-function runLms(lms: string, args: string[], timeoutMs = 60_000): Promise<RunResult> {
+function runLms(lms: string, args: string[], timeoutMs = 60_000, onSpawn?: (child: ChildProcess) => void): Promise<RunResult> {
   log(`$ ${lms} ${args.join(" ")}`);
   return new Promise((resolve) => {
     const child = spawn(lms, args, { stdio: ["ignore", "pipe", "pipe"] });
+    onSpawn?.(child);
     let stdout = "";
     let stderr = "";
     let done = false;
@@ -242,6 +262,12 @@ export interface SetupJob {
 let job: SetupJob = { state: "idle", model: null, logTail: "" };
 const jobActive = (): boolean => job.state === "downloading" || job.state === "installing-cli";
 
+// generation token: every async writer captures its generation and no-ops if a
+// newer job (or a cancel) has superseded it — no resurrected cancelled jobs
+let jobGen = 0;
+// child of the active lms download: cancelJob kills it for real
+let dlChild: ChildProcess | null = null;
+
 /** Feed the wizard's log view; ring buffer keeps the last ~2 KB. */
 function jobFeed(text: string): void {
   if (!jobActive()) return;
@@ -256,12 +282,20 @@ export function startDownload(model: string): void {
   if (!MODEL_KEY_RE.test(model)) throw new Error("invalid_model");
   const lms = resolveLms();
   if (!lms) throw new Error("lms_missing");
+  const gen = ++jobGen;
   job = { state: "downloading", model, logTail: "" };
   // --gguf/--mlx flag: defensive disambiguation between repo variants
   const flag = model.includes("-mlx") ? "--mlx" : "--gguf";
-  void runLms(lms, ["get", model, flag], 60 * 60 * 1000).then((r) => {
-    if (r.code === 0) job = { state: "done", model, logTail: job.logTail };
-    else {
+  void runLms(lms, ["get", model, flag], 60 * 60 * 1000, (child) => {
+    dlChild = child;
+  }).then((r) => {
+    dlChild = null;
+    if (gen !== jobGen) return; // cancelled or superseded — never resurrect the job
+    if (r.code === 0) {
+      lsCache = null;
+      job = { state: "done", model, logTail: job.logTail };
+      ensureLlmServer(true); // auto-get path: pick up the new model now
+    } else {
       log(`download fallito: ${r.stderr.slice(-500)}`);
       job = { state: "error", model, logTail: job.logTail, error: r.stderr.slice(-300) || `exit ${r.code}` };
     }
@@ -272,24 +306,25 @@ export function startDownload(model: string): void {
 export function installCli(): void {
   if (jobActive()) throw new Error("busy");
   const os = detectHardware().os;
+  const gen = ++jobGen;
   if (os === "win") {
     job = { state: "installing-cli", model: null, logTail: "" };
     // fixed string on purpose: official LM Studio PowerShell installer
-    runInstall(["powershell", "-NoProfile", "-Command", "irm https://lmstudio.ai/install.ps1 | iex"]);
+    runInstall(gen, ["powershell", "-NoProfile", "-Command", "irm https://lmstudio.ai/install.ps1 | iex"]);
   } else if (os === "mac") {
     job = { state: "installing-cli", model: null, logTail: "" };
     // fixed string on purpose: official LM Studio bash installer
-    runInstall(["bash", "-c", "curl -fsSL https://lmstudio.ai/install.sh | bash"]);
+    runInstall(gen, ["bash", "-c", "curl -fsSL https://lmstudio.ai/install.sh | bash"]);
   } else {
     job = { state: "error", model: null, logTail: "", error: "unsupported OS — try: npx lmstudio install-cli" };
   }
 }
 
-function runInstall(cmd: string[]): void {
+function runInstall(gen: number, cmd: string[]): void {
   const child = spawn(cmd[0]!, cmd.slice(1), { stdio: ["ignore", "pipe", "pipe"] });
   let done = false;
   const finish = (state: JobState, error?: string): void => {
-    if (done) return;
+    if (done || gen !== jobGen) return; // superseded (cancel/reset) — never resurrect
     done = true;
     job = { state, model: null, logTail: job.logTail, ...(error ? { error } : {}) };
   };
@@ -319,7 +354,7 @@ export function getJob(): SetupJob {
 // --- Bonsai MLX download into oMLX (streamed from Hugging Face) -------------------
 
 const OMLX_DOWNLOADABLE = {
-  "prism-ml/Ternary-Bonsai-27B-mlx-2bit": 7.9,
+  "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit": 8.6,
   "prism-ml/Ternary-Bonsai-8B-mlx-2bit": 2.16,
 } as const;
 const GB = 2 ** 30;
@@ -329,6 +364,7 @@ let dlAbort: AbortController | null = null;
 export function startOmlxDownload(repo: string): void {
   if (jobActive()) throw new Error("busy");
   if (!(repo in OMLX_DOWNLOADABLE)) throw new Error("unsupported_repo");
+  const gen = ++jobGen;
   job = {
     state: "downloading",
     model: repo,
@@ -370,9 +406,11 @@ export function startOmlxDownload(repo: string): void {
         });
         await pipeline(Readable.fromWeb(res.body as never), counter, createWriteStream(join(dest, file)));
       }
+      if (gen !== jobGen) return; // cancelled or superseded
       lsCache = null;
       job = { state: "done", model: repo, logTail: job.logTail, bytesDone: totalBytes, totalBytes };
     } catch (e) {
+      if (gen !== jobGen) return; // cancelled or superseded — never resurrect the job
       const aborted = (e as Error).name === "AbortError";
       job = {
         state: aborted ? "idle" : "error",
@@ -387,8 +425,15 @@ export function startOmlxDownload(repo: string): void {
 }
 
 export function cancelJob(): void {
+  ++jobGen; // in-flight writers become stale: a finished child cannot resurrect the job
   dlAbort?.abort();
   dlAbort = null;
+  if (dlChild) {
+    const child = dlChild;
+    child.kill("SIGTERM");
+    setTimeout(() => child.kill("SIGKILL"), 5000);
+    dlChild = null;
+  }
   if (jobActive()) job = { state: "idle", model: null, logTail: "" };
 }
 
@@ -401,19 +446,24 @@ let ensureLock: Promise<void> | null = null;
 type OwnedBackend = { kind: "omlx"; child: ChildProcess } | { kind: "lmstudio" } | null;
 let owned: OwnedBackend = null;
 
+/** Kill the wrapper AND the omlx-server it spawned: the wrapper runs detached
+ *  (own process group), so a negative pid reaches the whole tree — and only OUR
+ *  instance, never the user's other oMLX processes. */
+function killOmlxTree(child: ChildProcess): void {
+  try {
+    process.kill(-child.pid!, "SIGTERM");
+  } catch {
+    child.kill("SIGTERM");
+  }
+}
+
 /** Register exit handlers: the LLM backend lives and dies with the app. */
 export function cleanupOnExit(): void {
   const stop = (): void => {
     if (!owned) return;
     log(`app in chiusura — arresto backend ${owned.kind}`);
     if (owned.kind === "omlx") {
-      // the CLI wrapper spawns a separate omlx-server process: stop both
-      owned.child.kill("SIGTERM");
-      try {
-        spawnSync("pkill", ["-f", "omlx-server"], { timeout: 5000 });
-      } catch {
-        /* best effort */
-      }
+      killOmlxTree(owned.child);
     } else {
       const lms = resolveLms();
       if (lms) spawnSync(lms, ["server", "stop"], { timeout: 10_000 });
@@ -436,18 +486,18 @@ export function llmBackendState(): BackendState {
 /** First run (or post-reset) with no backend configured: auto-resolve an engine
  *  that already exists on this machine, so the LLM comes up with the app.
  *  Only models already on disk are picked — fresh installs go through the wizard. */
-async function autoPickBackend(): Promise<{ backend: "omlx" | "lmstudio"; model: string } | null> {
+async function autoPickBackend(): Promise<{ backend: "omlx" | "lmstudio"; model: string; baseUrl: string } | null> {
   if (resolveOmlx()) {
     const models = await omlxModels(false); // server not up yet → directory scan
     if (models.length) {
-      return { backend: "omlx", model: models.find((m) => /bonsai/i.test(m)) ?? models[0] };
+      return { backend: "omlx", model: models.find((m) => /bonsai/i.test(m)) ?? models[0], baseUrl: OMLX_BASE };
     }
   }
   const lms = resolveLms();
   if (lms) {
     const models = await downloadedModels(lms).catch(() => [] as string[]);
     if (models.length) {
-      return { backend: "lmstudio", model: models.find((m) => /bonsai/i.test(m)) ?? models[0] };
+      return { backend: "lmstudio", model: models.find((m) => /bonsai/i.test(m)) ?? models[0], baseUrl: LMSTUDIO_BASE };
     }
   }
   return null;
@@ -461,9 +511,10 @@ let lastEnsure = 0;
 export function ensureLlmServer(force = false): void {
   if (hasCustomEnv()) return; // env LLM_BASE_URL wins everywhere — hands off
   const cfg = readConfigFile();
+  if (!cfg.setupDone) return; // wizard not finished — never probe/persist behind it
   if (cfg.backend === "skipped" || cfg.backend === "custom") return; // explicit user choice
   const configured = cfg.backend === "lmstudio" || cfg.backend === "omlx";
-  if (configured && (!cfg.setupDone || !cfg.model)) return;
+  if (configured && !cfg.model) return;
   const now = Date.now();
   if (!force && (ensureLock || now - lastEnsure < (backendState === "up" ? 60_000 : 15_000))) return;
   lastEnsure = now; // ponytail: time-based retry throttle, no backoff table
@@ -506,8 +557,21 @@ async function run(): Promise<void> {
     const spawnServe = (): void => {
       log(`avvio omlx serve sulla porta ${port}`);
       const out = openSync(LLM_LOG, "a");
+      // detached: own process group → killOmlxTree reaches wrapper + omlx-server
       const child = spawn(omlx, ["serve", "--host", "127.0.0.1", "--port", port], {
         stdio: ["ignore", out, out],
+        detached: true,
+      });
+      child.on("error", (e) => {
+        log(`omlx serve spawn error: ${e.message}`);
+        backendState = "off";
+      });
+      child.on("close", () => {
+        try {
+          closeSync(out);
+        } catch {
+          /* already closed */
+        }
       });
       owned = { kind: "omlx", child };
     };
@@ -519,7 +583,10 @@ async function run(): Promise<void> {
         });
         if (!res.ok) return false;
         const j = (await res.json()) as { data?: { id?: string }[] };
-        return (j.data ?? []).some((m) => m.id === cfg.model);
+        // oMLX serves bare names while the wizard may persist an org/repo id:
+        // tolerate both spellings or the backend stays permanently "off"
+        const leaf = cfg.model?.split("/").pop();
+        return (j.data ?? []).some((m) => m.id === cfg.model || (leaf != null && m.id === leaf));
       } catch {
         return false;
       }
@@ -536,7 +603,7 @@ async function run(): Promise<void> {
     if (!(await modelVisible())) {
       log(`oMLX non vede ${cfg.model} — riavvio del server per rescan`);
       if (owned?.kind === "omlx") {
-        owned.child.kill("SIGTERM");
+        killOmlxTree(owned.child); // whole group: the old server must free the port
         owned = null;
         for (let i = 0; i < 30 && (await httpOk(`${base}/models`, 1000, llmAuthHeaders())); i++) {
           await sleep(1000);
@@ -582,13 +649,16 @@ async function run(): Promise<void> {
       backendState = "off";
       return;
     }
+    // route the auto-get through the download job singleton: one owner, the wizard
+    // shows real progress, and completion re-kicks ensure (see startDownload)
     log(`modello ${cfg.model} assente — lo scarico (può volerci molto)`);
-    const dl = await runLms(lms, ["get", cfg.model!, cfg.model!.includes("-mlx") ? "--mlx" : "--gguf"], 60 * 60 * 1000);
-    if (dl.code !== 0) {
-      log(`download: exit ${dl.code}`);
-      backendState = "off";
-      return;
+    try {
+      startDownload(cfg.model!);
+    } catch (e) {
+      log(`auto-get non partito: ${(e as Error).message}`);
     }
+    backendState = "off";
+    return;
   }
   const load = await runLms(lms, ["load", cfg.model!, "-y", "--gpu=max", "--context-length=8192"], 180_000);
   if (load.code !== 0) {
@@ -608,23 +678,31 @@ async function run(): Promise<void> {
 
 let lsCache: { at: number; models: string[] } | null = null;
 
-async function downloadedModels(lms: string | null): Promise<string[]> {
-  if (!lms) return [];
-  if (lsCache && Date.now() - lsCache.at < 10_000) return lsCache.models;
+async function refreshLs(lms: string): Promise<void> {
   const ls = await runLms(lms, ["ls", "--json"], 15_000);
-  if (ls.code !== 0) return lsCache?.models ?? []; // don't cache failures
-  let models: string[] = [];
+  if (ls.code !== 0) return; // keep serving whatever we had
   try {
     const parsed = JSON.parse(ls.stdout) as { models?: { path?: string; key?: string }[] };
-    models = (parsed.models ?? [])
+    const models = (parsed.models ?? [])
       .map((m) => m.key ?? m.path ?? "")
       .filter((s) => s.length > 0);
+    lsCache = { at: Date.now(), models };
   } catch {
-    /* non-json output (older lms) — treat as unknown, uncached */
+    /* non-json output (older lms) — keep old cache */
+  }
+}
+
+/** Stale-while-revalidate: /status must never block on `lms ls` (up to 15 s of
+ *  spawn on a cold machine) — serve the last known list and refresh in background. */
+async function downloadedModels(lms: string | null): Promise<string[]> {
+  if (!lms) return [];
+  const cached = lsCache;
+  if (!cached) {
+    await refreshLs(lms); // first call in this process: block once
     return lsCache?.models ?? [];
   }
-  lsCache = { at: Date.now(), models };
-  return models;
+  if (Date.now() - cached.at >= 10_000) void refreshLs(lms); // expired → revalidate
+  return cached.models;
 }
 
 // --- routes -----------------------------------------------------------------------
@@ -648,6 +726,13 @@ setupRoutes.get("/status", async (c) => {
     omlx != null ? omlxModels(omlxUp) : Promise.resolve([]),
     httpOk(`${cfg.baseUrl ?? LMSTUDIO_BASE}/models`, 1000, llmAuthHeaders()),
   ]);
+  // "up" only if the configured model is actually among the served ones — a live
+  // server that doesn't serve our model would show a green chip on a broken setup
+  const leaf = cfg.model?.split("/").pop();
+  const modelServed =
+    cfg.model == null ||
+    omlxModelsList.some((m) => m === cfg.model || m === leaf) ||
+    models.some((m) => m === cfg.model || m === leaf);
   // disclosure-minimal: no absolute binary path, no raw env details beyond hw summary
   const status: SetupStatus = {
     setupDone: Boolean(cfg.setupDone),
@@ -659,7 +744,7 @@ setupRoutes.get("/status", async (c) => {
     omlx: { installed: omlx != null, serverUp: omlxUp, models: omlxModelsList },
     downloadedModels: models,
     job,
-    llm: { state: reportedLlmState(serverUp) },
+    llm: { state: reportedLlmState(serverUp && modelServed) },
   };
   return c.json(status);
 });
@@ -698,7 +783,9 @@ setupRoutes.post("/finish", async (c) => {
     | null;
   if (!body) return c.json({ error: "invalid_request" }, 400);
   if (body.backend === "skipped") {
-    updateConfig({ setupDone: true, setupVersion: APP_VERSION, backend: "skipped" });
+    // explicit undefined keys erase leftovers: an LLM the user declined must not
+    // keep receiving prompts through a stale model/baseUrl
+    updateConfig({ setupDone: true, setupVersion: APP_VERSION, backend: "skipped", model: undefined, baseUrl: undefined });
     return c.json({ ok: true });
   }
   if (body.model != null && !MODEL_KEY_RE.test(body.model)) {
@@ -760,7 +847,6 @@ setupRoutes.post("/reset", (c) => {
   }
   // reset shared state too, so the app truly returns to pre-setup
   updateConfig({});
-  job = { state: "idle", model: null, logTail: "" };
-  lsCache = null;
+  cancelJob(); // kills an in-flight download and bumps the generation
   return c.json({ ok: true });
 });

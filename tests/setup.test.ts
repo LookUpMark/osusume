@@ -29,6 +29,16 @@ test("suggestModel: MLX variant only on Apple Silicon", () => {
   assert.equal(suggestModel(hw({ appleSilicon: false })).mlx, null);
 });
 
+test("suggestModel: Bonsai-2 MLX is oMLX-only — no LM Studio MLX variant for 27B", () => {
+  const hi = suggestModel(hw({ ramGb: 36, appleSilicon: true }));
+  assert.equal(hi.mlx?.model, "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit");
+  assert.equal(hi.mlx?.sizeGb, 8.6);
+  assert.equal(hi.mlxLms, null, "Bonsai-2 packings are not loadable by LM Studio — no lms MLX variant");
+  const lo = suggestModel(hw({ ramGb: 8, appleSilicon: true }));
+  assert.ok(lo.mlxLms?.model.includes("8B"), "8B v1 MLX stays available via lms");
+  assert.ok(lo.mlxLms?.model.includes("mlx"));
+});
+
 test("needsSetupVersion: wizard reopens on app update, ack silences it", () => {
   assert.equal(needsSetupVersion({}, "0.5.4"), true, "no marker yet");
   assert.equal(needsSetupVersion({ setupVersion: "0.5.3" }, "0.5.4"), true, "older marker");
@@ -62,14 +72,21 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
   const dir = mkdtempSync(join(tmpdir(), "alr-setup-"));
   const cfgPath = join(dir, "config.json");
   const callsPath = join(dir, "lms-calls.log");
-  // fake lms: logs "subcmd args…" per invocation, empty ls, load fails (fast, no HTTP poll)
+  // fake lms: logs "subcmd args…" per invocation, ls lists the model only after
+  // it was "get"-ed, load fails (fast, no HTTP poll)
   const fakeLms = join(dir, "fake-lms.sh");
   writeFileSync(
     fakeLms,
     [
       "#!/bin/bash",
       `echo "$*" >> ${JSON.stringify(callsPath)}`,
-      'if [ "$1" = "ls" ]; then echo \'[]\'; fi',
+      'if [ "$1" = "ls" ]; then',
+      `  if grep -q "^get " ${JSON.stringify(callsPath)}; then`,
+      `    echo '{"models":[{"key":"prism-ml/Bonsai-27B-gguf"}]}';`,
+      "  else",
+      "    echo '[]';",
+      "  fi",
+      "fi",
       'if [ "$1" = "load" ]; then exit 1; fi',
       "exit 0",
       "",
@@ -93,6 +110,7 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
     env: {
       ...process.env,
       ANILIST_FIXTURES: "fixtures",
+      ALR_DATA_DIR: join(dir, "data"), // keep llm.log/cache out of the real repo data/
       CONFIG_PATH: cfgPath,
       LMS_PATH: fakeLms,
       LMSTUDIO_BASE_URL: `http://127.0.0.1:${closedPort}/v1`,
@@ -138,16 +156,18 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
     assert.equal(cfg.baseUrl, `http://127.0.0.1:${closedPort}/v1`);
 
     // ensureLlmServer() was kicked by finish: wait for the documented sequence.
-    // (extra leading "ls --json" probes exist: boot auto-pick + /status; and
-    // /health re-kicks ensure while off — anchor on the LAST "daemon up".)
+    // (Boot-time ensure is a no-op until setupDone — no pre-wizard probes.)
+    // The auto-get of the missing model now runs through the download job
+    // singleton: ensure#1 stops after "ls --json" (model absent → startDownload),
+    // the job's "get" runs, and on completion ensure re-kicks itself and loads.
+    // Anchor on the LAST "daemon up" (= ensure#2).
     const expected = [
       "daemon up",
       "server start",
       "ls --json",
-      "get prism-ml/Bonsai-27B-gguf --gguf",
       "load prism-ml/Bonsai-27B-gguf -y --gpu=max --context-length=8192",
     ];
-    const deadline2 = Date.now() + 20000;
+    const deadline2 = Date.now() + 30000;
     let seq: string[] = [];
     while (Date.now() < deadline2) {
       try {
@@ -161,6 +181,11 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
     const start = seq.lastIndexOf("daemon up");
     assert.ok(start >= 0, "ensure must run the documented command sequence");
     assert.deepEqual(seq.slice(start, start + expected.length), expected, "ensure must run the documented command sequence");
+    assert.equal(
+      seq.filter((l) => l === "get prism-ml/Bonsai-27B-gguf --gguf").length,
+      1,
+      "exactly one download of the model, owned by the job singleton",
+    );
 
     // load failed on the fake → backend deterministically off (never a phantom "up")
     const health = await (await fetch(`${BASE}/api/health`)).json();
@@ -171,6 +196,74 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
     assert.deepEqual(readConfigFile(cfgPath), {});
     const statusAfter = await (await fetch(`${BASE}/api/setup/status`)).json();
     assert.equal(statusAfter.setupDone, false);
+  } finally {
+    child.kill("SIGTERM");
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cancelled download cannot resurrect the job or outlive the cancel", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "alr-cancel-"));
+  const cfgPath = join(dir, "config.json");
+  const callsPath = join(dir, "lms-calls.log");
+  // fake lms: "get" sleeps 2s (a real download takes a while), everything else instant
+  const fakeLms = join(dir, "fake-lms.sh");
+  writeFileSync(
+    fakeLms,
+    [
+      "#!/bin/bash",
+      `echo "$*" >> ${JSON.stringify(callsPath)}`,
+      'if [ "$1" = "get" ]; then sleep 2; fi',
+      'if [ "$1" = "ls" ]; then echo \'{"models":[]}\'; fi',
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
+  const { chmodSync } = await import("node:fs");
+  chmodSync(fakeLms, 0o755);
+
+  const PORT = 4797;
+  const BASE = `http://127.0.0.1:${PORT}`;
+  const child: ChildProcess = spawn(process.execPath, ["src/server/index.ts"], {
+    cwd: join(import.meta.dirname, ".."),
+    env: {
+      ...process.env,
+      ANILIST_FIXTURES: "fixtures",
+      ALR_DATA_DIR: join(dir, "data"),
+      CONFIG_PATH: cfgPath,
+      LMS_PATH: fakeLms,
+      LMSTUDIO_BASE_URL: "http://127.0.0.1:9/v1",
+      PORT: String(PORT),
+    },
+    stdio: "ignore",
+  });
+  try {
+    const deadline = Date.now() + 15000;
+    for (;;) {
+      try {
+        if ((await fetch(`${BASE}/api/health`)).ok) break;
+      } catch {
+        /* not up yet */
+      }
+      if (Date.now() > deadline) throw new Error("server did not start");
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    const dl = await fetch(`${BASE}/api/setup/download`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: "prism-ml/Bonsai-27B-gguf" }),
+    });
+    assert.equal(dl.status, 200);
+
+    // cancel mid-download: job must go idle AND stay idle after the child exits
+    await fetch(`${BASE}/api/setup/cancel`, { method: "POST" });
+    const idle = (await (await fetch(`${BASE}/api/setup/status`)).json()).job;
+    assert.equal(idle.state, "idle");
+    await new Promise((r) => setTimeout(r, 3500)); // child would have exited by now
+    const after = (await (await fetch(`${BASE}/api/setup/status`)).json()).job;
+    assert.equal(after.state, "idle", "cancelled job must never resurrect to done/error");
+    assert.equal(after.model, null);
   } finally {
     child.kill("SIGTERM");
     rmSync(dir, { recursive: true, force: true });

@@ -3,10 +3,19 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 // Minimal .env loader (no dependency): KEY=VALUE lines, existing env wins.
+// Values: matched quotes stripped, inline ` # comment` truncated.
 try {
   for (const line of readFileSync(new URL("../../.env", import.meta.url), "utf8").split("\n")) {
     const m = line.match(/^([A-Z_]+)=(.*)$/);
-    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].trim();
+    if (m && !(m[1] in process.env)) {
+      let v = m[2].trim();
+      if (v.length > 1 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) {
+        v = v.slice(1, -1);
+      }
+      const hash = v.indexOf(" #");
+      if (hash >= 0) v = v.slice(0, hash).trim();
+      process.env[m[1]] = v;
+    }
   }
 } catch {
   /* no .env — fine */
@@ -94,7 +103,9 @@ export function updateConfig(patch: AppConfig, path: string = CONFIG_PATH): void
   if (path === CONFIG_PATH) fileConfig = merged;
 }
 
-export const llmModel = (): string => process.env.LLM_MODEL ?? fileConfig.model ?? "qwen3:8b";
+/** Explicitly configured model, or null when the app would fall back to the default. */
+export const configuredLlmModel = (): string | null => process.env.LLM_MODEL ?? fileConfig.model ?? null;
+export const llmModel = (): string => configuredLlmModel() ?? "qwen3:8b";
 /** Read per call (tests repoint the env at a fake server). */
 export const llmBaseUrl = (): string =>
   process.env.LLM_BASE_URL ?? fileConfig.baseUrl ?? "http://127.0.0.1:11434/v1";
