@@ -7,6 +7,7 @@ import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 // on an esbuild bundle — no dependency on the type-stripping of Electron's embedded
 // Node, and its own SIGTERM handler keeps stopping the LLM backend on quit.
 let server: ChildProcess | null = null;
+let serverPort: number | null = null;
 let quitting = false;
 
 if (!app.requestSingleInstanceLock()) {
@@ -48,6 +49,7 @@ function fail(message: string, detail: string): void {
 
 async function start(): Promise<void> {
   const port = await freePort();
+  serverPort = port;
   server = spawn(process.execPath, [join(root, "dist-electron", "server.mjs")], {
     cwd: root, // serveStatic root "./dist" is cwd-relative
     env: {
@@ -113,6 +115,10 @@ app.whenReady().then(start).catch((e) => fail("Startup failed.", String(e)));
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
   quitting = true;
-  // SIGTERM → the server's cleanupOnExit stops oMLX / LM Studio
+  // SIGTERM kills the Node child without running its exit handlers (always on
+  // Windows): ask the server to stop the LLM backend itself, best effort
+  if (serverPort != null) {
+    void fetch(`http://127.0.0.1:${serverPort}/api/shutdown`, { method: "POST" }).catch(() => undefined);
+  }
   server?.kill("SIGTERM");
 });

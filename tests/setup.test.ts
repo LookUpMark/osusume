@@ -206,13 +206,15 @@ test("cancelled download cannot resurrect the job or outlive the cancel", async 
   const dir = mkdtempSync(join(tmpdir(), "alr-cancel-"));
   const cfgPath = join(dir, "config.json");
   const callsPath = join(dir, "lms-calls.log");
-  // fake lms: "get" sleeps 2s (a real download takes a while), everything else instant
+  // fake lms: "get" sleeps 2s (a real download takes a while), everything else
+  // instant; a TERM trap records the kill so the test can pin fix e1-6
   const fakeLms = join(dir, "fake-lms.sh");
   writeFileSync(
     fakeLms,
     [
       "#!/bin/bash",
       `echo "$*" >> ${JSON.stringify(callsPath)}`,
+      `trap "echo KILLED >> ${callsPath}; exit 143" TERM`,
       'if [ "$1" = "get" ]; then sleep 2; fi',
       'if [ "$1" = "ls" ]; then echo \'{"models":[]}\'; fi',
       "exit 0",
@@ -256,10 +258,44 @@ test("cancelled download cannot resurrect the job or outlive the cancel", async 
     });
     assert.equal(dl.status, 200);
 
+    // wait until the download child actually started (first call logged):
+    // a TERM sent before bash registers its trap kills it silently
+    const startDeadline = Date.now() + 5000;
+    let started = false;
+    while (Date.now() < startDeadline) {
+      try {
+        if (readFileSync(callsPath, "utf8").includes("get ")) {
+          started = true;
+          break;
+        }
+      } catch {
+        /* not written yet */
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(started, "download child must start");
+
     // cancel mid-download: job must go idle AND stay idle after the child exits
     await fetch(`${BASE}/api/setup/cancel`, { method: "POST" });
     const idle = (await (await fetch(`${BASE}/api/setup/status`)).json()).job;
     assert.equal(idle.state, "idle");
+
+    // the child must die for real (fix e1-6 pinned): the fake logs KILLED on TERM
+    const killDeadline = Date.now() + 6000;
+    let killedSeen = false;
+    while (Date.now() < killDeadline) {
+      try {
+        if (readFileSync(callsPath, "utf8").includes("KILLED")) {
+          killedSeen = true;
+          break;
+        }
+      } catch {
+        /* not written yet */
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    assert.ok(killedSeen, "cancel must SIGTERM the download child");
+
     await new Promise((r) => setTimeout(r, 3500)); // child would have exited by now
     const after = (await (await fetch(`${BASE}/api/setup/status`)).json()).job;
     assert.equal(after.state, "idle", "cancelled job must never resurrect to done/error");

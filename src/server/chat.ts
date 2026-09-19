@@ -12,7 +12,7 @@ const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
 export function buildChatSystem(result: RecoResult, lang: Lang): string {
   const p = result.profile;
   const recos = result.recos
-    .slice(0, 10)
+    .slice(0, 12) // the full list the recos view shows — nothing on screen is off-limits
     .map((r) => {
       const overlap = lovedOverlap(r.media, p);
       const links = overlap

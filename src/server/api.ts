@@ -9,10 +9,10 @@ import {
   setAutoFallback,
   setLocalMode,
 } from "./config.ts";
-import { explainRecos, llmHealth } from "./llm.ts";
+import { explainRecos, LlmError, llmHealth } from "./llm.ts";
 import { chatReply } from "./chat.ts";
 import { getProfile, getRecommendation } from "./recommend.ts";
-import { ensureLlmServer, llmBackendState, setupRoutes } from "./setup.ts";
+import { ensureLlmServer, llmBackendState, logLlm, setupRoutes, shutdownBackend } from "./setup.ts";
 import { appUpdateStatus } from "./update.ts";
 
 const USERNAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
@@ -125,26 +125,42 @@ api.post("/chat", async (c) => {
   const username = body?.username ?? "";
   const lang = LANGS.has(body?.lang ?? "") ? (body!.lang as Lang) : "en";
   if (!USERNAME_RE.test(username)) return c.json({ error: "invalid_username" }, 400);
+  // normalize, never drop: an over-long turn is clamped so mid-conversation
+  // context survives (dropping it made the model "forget" what it had said)
   const history = (body?.messages ?? [])
     .filter(
       (m): m is { role: "user" | "assistant"; content: string } =>
         (m.role === "user" || m.role === "assistant") &&
         typeof m.content === "string" &&
-        m.content.length > 0 &&
-        m.content.length <= 4000,
+        m.content.trim().length > 0,
     )
+    .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }))
     .slice(-12);
   if (history.length === 0 || history[history.length - 1]!.role !== "user") {
     return c.json({ error: "invalid_request" }, 400);
   }
-  try {
-    const result = await getRecommendation(username, lang); // cached in-memory (10 min)
-    const reply = await chatReply(result, lang, history);
-    return c.json({ reply });
-  } catch (e) {
-    if ((e as Error).message?.startsWith("LLM HTTP")) return c.json({ error: "llm_unavailable" }, 503);
-    return errorResponse(c, e);
-  }
+  return withLocalFallback(c, async () => {
+    try {
+      // stale-tolerant: a 10-minute-old result beats a full recompute mid-chat
+      const result = await getRecommendation(username, lang, { staleOk: true });
+      const reply = await chatReply(result, lang, history);
+      return c.json({ reply });
+    } catch (e) {
+      if (e instanceof LlmError) {
+        logLlm(`chat: LLM error (${e.message}) per model=${llmModel()}`);
+        return c.json({ error: "llm_unavailable" }, 503);
+      }
+      return errorResponse(c, e);
+    }
+  });
+});
+
+// Signal-independent teardown (Windows path): Electron calls this on quit because
+// SIGTERM kills the Node child without running its exit handlers.
+api.post("/shutdown", (c) => {
+  shutdownBackend();
+  setTimeout(() => process.exit(0), 200); // let the response flush first
+  return c.json({ ok: true });
 });
 
 function errorResponse(c: { json: (x: object, status: number) => Response }, e: unknown): Response {

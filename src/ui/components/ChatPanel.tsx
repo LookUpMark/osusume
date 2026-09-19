@@ -15,6 +15,12 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
     endRef.current?.scrollIntoView({ block: "end" });
   }, [msgs, busy]);
 
+  // a new search is a new conversation — never keep turns about the old result
+  useEffect(() => {
+    setMsgs([]);
+    setErr(false);
+  }, [props.username, props.result?.profile.hash]);
+
   const disabled = busy || !result || props.llmOn === false;
 
   async function send() {
@@ -52,13 +58,17 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
           ))
         )}
         {busy && (
-          <div className="chat-msg assistant thinking" aria-label={tr(lang, "chatThinking")}>
+          <div className="chat-msg assistant thinking" role="status" aria-label={tr(lang, "chatThinking")}>
             <span className="dots" aria-hidden="true">
               <span /><span /><span />
             </span>
           </div>
         )}
-        {err && <p className="error">{tr(lang, "chatErr")}</p>}
+        {err && (
+          <p className="error" role="alert">
+            {tr(lang, "chatErr")}
+          </p>
+        )}
         <div ref={endRef} />
       </div>
       <form
@@ -73,6 +83,7 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
           placeholder={tr(lang, "chatPlaceholder")}
           onChange={(e) => setInput(e.target.value)}
           disabled={disabled}
+          maxLength={4000}
           aria-label={tr(lang, "chatPlaceholder")}
         />
         <button className="btn btn-primary" type="submit" disabled={disabled || !input.trim()}>

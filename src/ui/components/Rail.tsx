@@ -141,7 +141,7 @@ export function Rail(props: {
           </>
         )}
         <button type="button" className="lang-btn" onClick={props.onLang} aria-label="IT / EN" title="IT / EN">
-          IT
+          {lang === "en" ? "IT" : "EN"}
         </button>
       </div>
     </aside>

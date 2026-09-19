@@ -96,6 +96,13 @@ export function App() {
 
   useEffect(refreshHealth, []);
 
+  // keep the LLM chip (and the chat lock) honest: the backend may come up or
+  // die at any time, the mount-time check alone froze it for the whole session
+  useEffect(() => {
+    const t = setInterval(refreshHealth, 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // update check: server injects APP_VERSION only when packaged
   useEffect(() => {
     fetchAppUpdate().then(setUpdate).catch(() => undefined);

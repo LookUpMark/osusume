@@ -317,3 +317,20 @@ test("scoring v2: entry-point franchise adds the entry hint to the why", () => {
   assert.ok(!base.includes("entry point"), "no hint without franchise info");
   assert.ok(withEp.includes("entry point"), "hint appended for ENTRY_POINT");
 });
+
+test("scoring v2: PREQUEL cycle never self-references (pin f4-1)", () => {
+  // 1 and 2 claim each other as prequel: chainOf(1) must not contain 1 itself
+  const listMap = new Map<number, any>([
+    [1, { mediaId: 1, status: "COMPLETED", score: 80, title: "t1" }],
+    [2, { mediaId: 2, status: "COMPLETED", score: 80, title: "t2" }],
+  ]);
+  const cands = [
+    media(1, { relations: [{ id: 2, relationType: "PREQUEL" }] }),
+    media(2, { relations: [{ id: 1, relationType: "PREQUEL" }] }),
+  ];
+  const info = analyzeFranchises(cands, listMap);
+  for (const [id, f] of info) {
+    assert.notEqual(f.entryPointId, id, `franchise ${id} must not be its own entry point`);
+    assert.notEqual(f.kind, "EXCLUDED", "a two-node seen cycle is not dropped material");
+  }
+});

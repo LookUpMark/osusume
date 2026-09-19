@@ -466,19 +466,24 @@ function killOmlxTree(child: ChildProcess): void {
   }
 }
 
+/** Stop the owned LLM backend. Signal-independent so it can also be invoked via
+ *  POST /api/shutdown — on Windows SIGTERM kills Electron's Node child without
+ *  running exit handlers, leaving the backend alive. */
+export function shutdownBackend(): void {
+  if (!owned) return;
+  log(`app in chiusura — arresto backend ${owned.kind}`);
+  if (owned.kind === "omlx") {
+    killOmlxTree(owned.child);
+  } else {
+    const lms = resolveLms();
+    if (lms) spawnSync(lms, ["server", "stop"], { timeout: 10_000 });
+  }
+  owned = null;
+}
+
 /** Register exit handlers: the LLM backend lives and dies with the app. */
 export function cleanupOnExit(): void {
-  const stop = (): void => {
-    if (!owned) return;
-    log(`app in chiusura — arresto backend ${owned.kind}`);
-    if (owned.kind === "omlx") {
-      killOmlxTree(owned.child);
-    } else {
-      const lms = resolveLms();
-      if (lms) spawnSync(lms, ["server", "stop"], { timeout: 10_000 });
-    }
-    owned = null;
-  };
+  const stop = shutdownBackend;
   process.on("exit", stop);
   for (const sig of ["SIGINT", "SIGTERM"] as const) {
     process.on(sig, () => {
@@ -525,7 +530,10 @@ export function ensureLlmServer(force = false): void {
   const configured = cfg.backend === "lmstudio" || cfg.backend === "omlx";
   if (configured && !cfg.model) return;
   const now = Date.now();
-  if (!force && (ensureLock || now - lastEnsure < (backendState === "up" ? 60_000 : 15_000))) return;
+  // the lock wins over force: two concurrent run() calls spawn two backends and
+  // leak one (owned points at the last child — the first survives app quit)
+  if (ensureLock) return;
+  if (!force && now - lastEnsure < (backendState === "up" ? 60_000 : 15_000)) return;
   lastEnsure = now; // ponytail: time-based retry throttle, no backoff table
   backendState = "starting";
   ensureLock = (async () => {
@@ -574,6 +582,7 @@ async function run(): Promise<void> {
       child.on("error", (e) => {
         log(`omlx serve spawn error: ${e.message}`);
         backendState = "off";
+        if (owned?.kind === "omlx" && owned.child === child) owned = null;
       });
       child.on("close", () => {
         try {

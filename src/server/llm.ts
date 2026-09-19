@@ -8,6 +8,13 @@ import { llmAuthHeaders, logLlm } from "./setup.ts";
 
 const EXPL_DIR = join(CACHE_DIR, "expl");
 
+/** Typed LLM failure: callers distinguish "model/backend problem" (503, log)
+ *  from generic errors. */
+export class LlmError extends Error {}
+
+// bumped when the prompt voice changes — old cached explanations must not resurface
+const PROMPT_VERSION = "v2-expert-1";
+
 export async function llmHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${llmBaseUrl()}/models`, {
@@ -55,13 +62,15 @@ export async function llmChat(messages: { role: string; content: string }[], mod
     body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 4000 }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
+  if (!res.ok) throw new LlmError(`LLM HTTP ${res.status}`);
   const json = (await res.json()) as {
     choices?: { message?: { content?: string }; finish_reason?: string }[];
   };
   const choice = json.choices?.[0];
-  if (choice?.finish_reason === "length") throw new Error("LLM output truncated (finish_reason=length)");
-  return choice?.message?.content ?? "";
+  if (choice?.finish_reason === "length") throw new LlmError("LLM output truncated (finish_reason=length)");
+  const content = choice?.message?.content ?? "";
+  if (content.trim().length === 0) throw new LlmError("LLM returned empty content");
+  return content;
 }
 
 const LANG_NAME: Record<Lang, string> = { en: "English", it: "Italian" };
@@ -212,7 +221,7 @@ export async function explainRecos(
   const fresh = new Map<string, string>();
 
   const key = createHash("sha256")
-    .update(`${username}|${profile.hash}|${lang}|${llmModel()}|`)
+    .update(`${username}|${profile.hash}|${lang}|${llmModel()}|${llmBaseUrl()}|${PROMPT_VERSION}|`)
     .update(recos.map((r) => r.media.id).sort((a, b) => a - b).join(","))
     .digest("hex");
   const cached = await cacheGet(key);

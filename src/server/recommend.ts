@@ -21,7 +21,7 @@ export async function getProfile(username: string) {
 export async function getRecommendation(
   username: string,
   lang: Lang,
-  opts: { refresh?: boolean } = {},
+  opts: { refresh?: boolean; staleOk?: boolean } = {},
 ): Promise<RecoResult> {
   // mode in the key: a cached local-mode result must never resurface after
   // the app switches back to live AniList data
@@ -29,17 +29,28 @@ export async function getRecommendation(
   if (!opts.refresh) {
     const hit = resultCache.get(cacheKey);
     if (hit && Date.now() - hit.at < RESULT_TTL_MS) return hit.result;
+    // staleOk (chat context): better an expired result than a 1-minute recompute
+    // — and if the recompute fails anyway, the last good result still answers
+    if (hit && opts.staleOk) return hit.result;
     const pending = inflight.get(cacheKey);
     if (pending) return pending;
   }
   const p = recommendFor(username, lang, opts).finally(() => inflight.delete(cacheKey));
   inflight.set(cacheKey, p);
-  const result = await p;
-  for (const [k, v] of resultCache) {
-    if (Date.now() - v.at >= RESULT_TTL_MS) resultCache.delete(k); // prune on write
+  try {
+    const result = await p;
+    for (const [k, v] of resultCache) {
+      if (Date.now() - v.at >= RESULT_TTL_MS) resultCache.delete(k); // prune on write
+    }
+    resultCache.set(cacheKey, { at: Date.now(), result });
+    return result;
+  } catch (e) {
+    if (opts.staleOk) {
+      const hit = resultCache.get(cacheKey);
+      if (hit) return hit.result;
+    }
+    throw e;
   }
-  resultCache.set(cacheKey, { at: Date.now(), result });
-  return result;
 }
 
 async function recommendFor(
