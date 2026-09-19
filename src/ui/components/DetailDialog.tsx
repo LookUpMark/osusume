@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Lang } from "../../shared/strings.ts";
 import { tr } from "../../shared/strings.ts";
 import type { ScoredReco } from "../../shared/types.ts";
+import { fetchExplain } from "../api.ts";
 
 const clean = (html: string | null): string | null => {
   if (!html) return null;
@@ -27,8 +28,9 @@ function BrkRow(props: { k: string; cls: string; v: number; suffix?: string }) {
 export function DetailDialog(props: {
   reco: ScoredReco;
   lang: Lang;
+  username: string;
   whySource: "llm" | "local";
-  explaining?: boolean;
+  onWhy: (id: number, text: string, source: "llm" | "cache") => void;
   onClose: () => void;
   onSimilar: () => void;
 }) {
@@ -37,6 +39,7 @@ export function DetailDialog(props: {
   const m = r.media;
   const lang = props.lang;
   const description = clean(m.description);
+  const [writing, setWriting] = useState(false);
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -47,6 +50,27 @@ export function DetailDialog(props: {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // LLM explanation ON-DEMAND: only this title, only when its detail is open.
+  // Cached server-side (7d) — reopening is instant.
+  useEffect(() => {
+    if (props.whySource === "llm") return;
+    let alive = true;
+    setWriting(true);
+    fetchExplain(props.username, [m.id], lang)
+      .then((ex) => {
+        const e = ex.explanations.find((x) => x.id === m.id);
+        if (alive && e && e.text && e.source !== "fallback") props.onWhy(m.id, e.text, e.source);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setWriting(false);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m.id, props.username, lang]);
 
   return (
     <div
@@ -111,7 +135,7 @@ export function DetailDialog(props: {
             <span className={`llm-dot${props.whySource === "llm" ? " on" : ""}`} aria-hidden="true" />
             {tr(lang, props.whySource === "llm" ? "whySrcLlm" : "whySrcLocal")}
           </p>
-          {props.explaining && props.whySource !== "llm" && (
+          {writing && props.whySource !== "llm" && (
             <p className="src llm-writing" role="status">
               <span className="dots" aria-hidden="true">
                 <span /><span /><span />

@@ -3,7 +3,6 @@ import { tr, type Lang } from "../shared/strings.ts";
 import type { RecoResult, ScoredReco, SetupStatus } from "../shared/types.ts";
 import {
   fetchAppUpdate,
-  fetchExplain,
   fetchHealth,
   fetchProfile,
   fetchRecommend,
@@ -51,7 +50,6 @@ export function App() {
   const [username, setUsername] = useState("");
   const [result, setResult] = useState<RecoResult | null>(null);
   const [whySource, setWhySource] = useState<Record<number, "llm" | "local">>({});
-  const [explaining, setExplaining] = useState(false);
   const [sort, setSort] = useState<SortKey>("final");
   const [gemsOnly, setGemsOnly] = useState(false);
   const [format, setFormat] = useState("all");
@@ -139,6 +137,7 @@ export function App() {
     setUsername(username);
     setError(null);
     setResult(null);
+    setWhySource({});
     setGenre("all");
     setPhase("profile");
     setLoading(true);
@@ -148,26 +147,8 @@ export function App() {
       const r = await fetchRecommend(username, lang);
       setResult(r);
       setPhase("recos");
-      // upgrade deterministic whys with LLM narrations, in the background
-      setExplaining(true);
-      fetchExplain(username, r.recos.slice(0, 10).map((x) => x.media.id), lang)
-        .then((ex) => {
-          const byId = new Map(ex.explanations.map((x) => [x.id, x]));
-          setWhySource(Object.fromEntries([...byId].map(([id, x]) => [id, x.source === "fallback" ? "local" : "llm"])));
-          setResult((cur) =>
-            cur
-              ? {
-                  ...cur,
-                  recos: cur.recos.map((x) => {
-                    const e = byId.get(x.media.id);
-                    return e ? { ...x, why: e.text } : x;
-                  }),
-                }
-              : cur,
-          );
-        })
-        .catch(() => undefined)
-        .finally(() => setExplaining(false));
+      // explanations are ON-DEMAND now: fetched per-title when a detail opens
+      // (DetailDialog), not for the whole list in one giant LLM prompt
     } catch (e) {
       setError(errorMessage(e));
       setPhase("idle");
@@ -176,6 +157,17 @@ export function App() {
       refreshHealth(); // the server may have auto-switched to local mode mid-request
     }
   }
+
+  /** DetailDialog fetched an LLM narration for one title — fold it into the result. */
+  const onWhy = (id: number, text: string, source: "llm" | "cache") => {
+    setWhySource((cur) => ({ ...cur, [id]: source === "cache" ? "llm" : source }));
+    setResult(
+      (cur) =>
+        cur
+          ? { ...cur, recos: cur.recos.map((x) => (x.media.id === id ? { ...x, why: text } : x)) }
+          : cur,
+    );
+  };
 
   const recos = useMemo(() => {
     if (!result) return [];
@@ -592,8 +584,9 @@ export function App() {
         <DetailDialog
           reco={dialog}
           lang={lang}
+          username={result?.profile.userName ?? username}
           whySource={whySource[dialog.media.id] ?? "local"}
-          explaining={explaining}
+          onWhy={onWhy}
           onClose={() => setDialog(null)}
           onSimilar={() => {
             setDialog(null);
