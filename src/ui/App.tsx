@@ -465,7 +465,7 @@ export function App() {
                 <p>{tr(lang, "chatSub")}</p>
               </div>
             </div>
-            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} />
+            <ChatPanel lang={lang} result={result} llmOn={llmOn} username={result?.profile.userName ?? username} onOpen={setDialog} />
           </section>
 
           {/* ── PROFILO ── */}

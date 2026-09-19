@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { tr, type Lang } from "../../shared/strings.ts";
-import type { RecoResult } from "../../shared/types.ts";
+import type { RecoResult, ScoredReco } from "../../shared/types.ts";
 import { postChat, type ChatMsg } from "../api.ts";
 
-export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn: boolean | null; username: string }) {
+/** Titles among the current recos that the reply mentions by name — clickable
+ *  cards under the message (substring match; the prompt makes the model cite
+ *  titles verbatim). */
+function mentionedRecos(text: string, recos: ScoredReco[]): ScoredReco[] {
+  const hay = text.toLowerCase();
+  return recos.filter((r) => r.media.title.length >= 4 && hay.includes(r.media.title.toLowerCase()));
+}
+
+export function ChatPanel(props: {
+  lang: Lang;
+  result: RecoResult | null;
+  llmOn: boolean | null;
+  username: string;
+  onOpen: (reco: ScoredReco) => void;
+}) {
   const { lang, result } = props;
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -63,8 +77,20 @@ export function ChatPanel(props: { lang: Lang; result: RecoResult | null; llmOn:
           </div>
         ) : (
           msgs.map((m, i) => (
-            <div key={i} className={`chat-msg ${m.role}`} aria-label={m.role}>
-              <p>{m.content}</p>
+            <div key={i} style={{ display: "contents" }}>
+              <div className={`chat-msg ${m.role}`} aria-label={m.role}>
+                <p>{m.content}</p>
+              </div>
+              {m.role === "assistant" && props.result && mentionedRecos(m.content, props.result.recos).length > 0 && (
+                <div className="chat-cards">
+                  {mentionedRecos(m.content, props.result.recos).map((r) => (
+                    <button key={r.media.id} className="chat-card" type="button" onClick={() => props.onOpen(r)}>
+                      {r.media.coverImage && <img src={r.media.coverImage} alt="" />}
+                      <span>{r.media.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
