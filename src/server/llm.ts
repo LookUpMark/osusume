@@ -13,7 +13,7 @@ const EXPL_DIR = join(CACHE_DIR, "expl");
 export class LlmError extends Error {}
 
 // bumped when the prompt voice changes — old cached explanations must not resurface
-const PROMPT_VERSION = "v2-expert-1";
+const PROMPT_VERSION = "v3-expert-2";
 // thinking OFF makes a full explanation ~150 tokens: budget for a batch, not
 // for reasoning (the old 4000/16000 let Bonsai burn minutes of reasoning at 23 tok/s)
 const LLM_MAX_TOKENS = Number(process.env.LLM_MAX_TOKENS ?? 1200);
@@ -158,11 +158,13 @@ function buildPrompt(recos: ScoredReco[], profile: TasteProfile, lang: Lang): st
   return (
     `You are a knowledgeable anime friend. The user loves: ${loved || "not enough data"}. ` +
     `They dislike: ${disliked || "nothing notable"}.\n` +
-    `For each title below, write 2-3 sentences in ${LANG_NAME[lang]} on why ITS STORY could hook THIS user: ` +
-    `talk about the plot, themes and atmosphere (draw on the plot text), and connect them to titles they already enjoyed. ` +
-    `NEVER mention scores, percentages, "affinity", "quality", "match", the app or any algorithm — a real expert does not talk like that. ` +
+    `For each title below, write a rich but tight paragraph (3-5 sentences) in flawless ${LANG_NAME[lang]} on why ITS STORY could hook THIS user:\n` +
+    `- Describe plot, themes and atmosphere (draw on the plot text).\n` +
+    `- NAME the specific titles listed under "links to their taste" and explain what is shared (themes, plot devices, mood, character arcs) — generic phrases like "if you like emotional stories" without naming their titles are rejected.\n` +
+    `- Point out the pattern in their taste (what kinds of stories they gravitate to) and how this title fits or stretches it.\n` +
+    `- NEVER mention scores, percentages, "affinity", "quality", "match", the app or any algorithm — a real expert does not talk like that.\n` +
     `Use ONLY the facts provided; if the plot text is missing, speak about the themes. Never invent plot details.\n\n${items}\n\n` +
-    `Reply with ONLY a JSON array: [{"id":<media id>,"why":"<explanation>"}]`
+    `Reply with ONLY a JSON array: [{"id":<media id>,"why":"<explanation>"}] — every "why" MUST be written in ${LANG_NAME[lang]}.`
   );
 }
 
