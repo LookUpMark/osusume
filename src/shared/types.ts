@@ -122,7 +122,7 @@ export interface SetupStatus {
     sizeGb: number;
     /** MLX pack for the oMLX backend */
     mlx: { model: string; sizeGb: number } | null;
-    /** MLX variant loadable via lms/LM Studio (null when none exists, e.g. 27B Bonsai-2) */
+    /** MLX variant downloadable via lms/LM Studio (Apple Silicon only, null elsewhere) */
     mlxLms: { model: string; sizeGb: number } | null;
   };
   lms: { installed: boolean; path: string | null; serverUp: boolean };

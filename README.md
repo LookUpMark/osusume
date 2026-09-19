@@ -53,10 +53,10 @@ Build it yourself: `pnpm dist:linux` (on Linux; output in `release/`).
 
 ```bash
 docker compose up -d
-# open http://localhost:3000 — app + Ollama + Bonsai model, no wizard, no Node needed
+# open http://localhost:3000 — app + Ollama + model, no wizard, no Node needed
 ```
 
-Full mode wires an Ollama container automatically (`LLM_BASE_URL` env) and pulls the model on first start (~6.7 GB for Ternary-Bonsai-27B, no-op afterwards). Pick a smaller model on <16 GB hosts: `ANILIST_MODEL=hf.co/prism-ml/Ternary-Bonsai-8B-gguf docker compose up -d`. GPU (Linux+NVIDIA): uncomment the `deploy.resources` block in `compose.yaml`.
+Full mode wires an Ollama container automatically (`LLM_BASE_URL` env) and pulls the model on first start (~21 GB for Qwen3.6-35B-A3B Q4_K_M, no-op afterwards). Pick a smaller model on <32 GB hosts: `ANILIST_MODEL=hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M docker compose up -d`. GPU (Linux+NVIDIA): uncomment the `deploy.resources` block in `compose.yaml`.
 
 **macOS**: Docker runs Linux in a VM without GPU — if you already run LM Studio on the host, prefer app-only mode (see the header of `compose.yaml`): the wizard then points at `http://host.docker.internal:1234/v1`.
 
@@ -70,11 +70,11 @@ pnpm dev
 # open http://127.0.0.1:3000
 ```
 
-On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Ternary-Bonsai-27B](https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf) (6.7 GB) on ≥16 GB machines, Ternary-Bonsai-8B (2 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
+On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) 4-bit (~21 GB, MoE with 3B active params: fast and strong in ~200 languages) on ≥32 GB machines, [Gemma 4 12B](https://huggingface.co/google/gemma-4-12B-it) 4-bit (~8 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
 
 - Skip the wizard anytime: the app works fully without an LLM (deterministic explanations).
-- Prefer your own endpoint (Ollama, LM Studio GUI, llama.cpp server…)? Set `LLM_BASE_URL` in `.env` (see `.env.example`) — the wizard stays out of the way.
-- Ternary (2-bit) Apple MLX variants of Bonsai are selectable in the wizard. On Apple Silicon with [oMLX](https://github.com/PrismML-Eng) the wizard offers **[Ternary-Bonsai-2-27B-mlx-2bit](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-mlx-2bit)** (8.6 GB, downloaded straight into oMLX). The LM Studio MLX checkbox stays on the 8B v1 pack: Bonsai-2 packings (GGUF and MLX) require the PrismML runtimes and are **not loadable by LM Studio/llama.cpp/MLX upstream**.
+- Prefer your own endpoint (Ollama, LM Studio GUI, llama.cpp server…)? Set `LLM_BASE_URL` in `.env` (see `.env.example`) — the wizard stays out of the way. For Ollama, pull the HF pack directly: `ollama pull hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M` (or `hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M` on <32 GB).
+- On Apple Silicon with [oMLX](https://github.com/PrismML-Eng) the wizard offers the MLX packs ([Qwen3.6-35B-A3B-4bit](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit) / [gemma-4-12B-it-4bit](https://huggingface.co/mlx-community/gemma-4-12B-it-4bit)), downloaded straight into `~/.omlx/models`. The LM Studio MLX checkbox uses the lmstudio-community packs — standard MLX, loadable by LM Studio upstream.
 - To redo the wizard: `rm data/config.json`.
 
 Language: English by default, Italiano via the toggle (covers UI strings and explanation language).

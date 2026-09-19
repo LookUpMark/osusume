@@ -275,7 +275,7 @@ export function SetupWizard(props: {
                 <label className="mlx-opt">
                   <input
                     type="checkbox"
-                    checked={model.includes("-mlx")}
+                    checked={/-mlx/i.test(model)}
                     onChange={(e) =>
                       setModel(e.target.checked ? status.suggested.mlxLms!.model : status.suggested.model)
                     }
@@ -284,12 +284,6 @@ export function SetupWizard(props: {
                 </label>
               )}
             </div>
-            {model.includes("-mlx") && (
-              <p className="warn-box">
-                {tr(lang, "mlxWarn")}
-                <code>uvx --from https://github.com/PrismML/mlx-lm mlx_lm.server --model {model}</code>
-              </p>
-            )}
             {!status.lms.installed && (
               <div className="action-row">
                 <span className="warn-box">{tr(lang, "backendMissing")}</span>

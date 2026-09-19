@@ -18,13 +18,28 @@ import type { SetupHardware, SetupStatus } from "../shared/types.ts";
 
 const LLM_LOG = join(DATA_DIR, "llm.log");
 
-// --- model catalogue (ternary variants, verified 2026-09-08, Apache 2.0, prism-ml on HF) ----------
+// --- model catalogue (verified on HF + live-loaded on oMLX 2026-09-19) ---------------------------
+// Two tiers: Qwen3.6-35B-A3B (MoE, 3B active — fast, ~200 languages) needs ~19.5 GB
+// of weights → 32 GB unified memory minimum (macOS wired cap); Gemma 4 12B 4bit
+// (~6.3 GB) covers everything below. Each tier ships the pack each engine wants:
+// oMLX loads mlx-community packs, LM Studio the lmstudio-community/unsloth ones,
+// Ollama pulls GGUF straight from HF via the hf.co/…:tag syntax.
 
 export const MODELS = {
-  b27: { model: "prism-ml/Ternary-Bonsai-27B-gguf", sizeGb: 6.7 },
-  b8: { model: "prism-ml/Ternary-Bonsai-8B-gguf", sizeGb: 2.03 },
+  qwen36: {
+    gguf: { model: "lmstudio-community/Qwen3.6-35B-A3B-GGUF", sizeGb: 21.5 },
+    mlx: { model: "mlx-community/Qwen3.6-35B-A3B-4bit", sizeGb: 19.5 },
+    mlxLms: { model: "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit", sizeGb: 19.5 },
+    ollama: "hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M",
+  },
+  gemma4: {
+    gguf: { model: "unsloth/gemma-4-12b-it-GGUF", sizeGb: 8.1 },
+    mlx: { model: "mlx-community/gemma-4-12B-it-4bit", sizeGb: 6.3 },
+    mlxLms: { model: "lmstudio-community/gemma-4-12B-it-MLX-4bit", sizeGb: 7.9 },
+    ollama: "hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M",
+  },
 } as const;
-const RAM_TRESHOLD_GB = 16; // ternary 27B ≈ 6.7 GB weights (8B-class footprint) @4K ctx — 16 GB machines are comfy
+const RAM_TRESHOLD_GB = 32;
 // overridable so tests (and port-conflicted setups) can point elsewhere
 export const LMSTUDIO_BASE = process.env.LMSTUDIO_BASE_URL ?? "http://127.0.0.1:1234/v1";
 
@@ -47,25 +62,17 @@ export function detectHardware(): Hardware {
 export function suggestModel(hw: Hardware): {
   model: string;
   sizeGb: number;
-  /** MLX pack for the oMLX backend (runs the Prism ternary runtime) */
+  /** MLX pack for the oMLX backend (Apple Silicon only) */
   mlx: { model: string; sizeGb: number } | null;
-  /** MLX variant downloadable via lms (v1 packings only — Bonsai-2 packs are
-   *  not loadable by LM Studio/llama.cpp upstream, so 27B has none here) */
+  /** MLX variant downloadable via lms for LM Studio (Apple Silicon only) */
   mlxLms: { model: string; sizeGb: number } | null;
 } {
-  if (hw.ramGb >= RAM_TRESHOLD_GB) {
-    return {
-      model: MODELS.b27.model,
-      sizeGb: MODELS.b27.sizeGb,
-      mlx: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit", sizeGb: 8.6 } : null,
-      mlxLms: null,
-    };
-  }
+  const tier = hw.ramGb >= RAM_TRESHOLD_GB ? MODELS.qwen36 : MODELS.gemma4;
   return {
-    model: MODELS.b8.model,
-    sizeGb: MODELS.b8.sizeGb,
-    mlx: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-8B-mlx-2bit", sizeGb: 2.16 } : null,
-    mlxLms: hw.appleSilicon ? { model: "prism-ml/Ternary-Bonsai-8B-mlx-2bit", sizeGb: 2.16 } : null,
+    model: tier.gguf.model,
+    sizeGb: tier.gguf.sizeGb,
+    mlx: hw.appleSilicon ? tier.mlx : null,
+    mlxLms: hw.appleSilicon ? tier.mlxLms : null,
   };
 }
 
@@ -112,10 +119,22 @@ export function readOmlxKey(): string | null {
 function localOmlxModels(): string[] {
   try {
     const modelsDir = join(homedir(), ".omlx", "models");
-    // a real model dir has a config.json — skip stray files and containers
+    const hasConfig = (p: string): boolean => existsSync(join(p, "config.json"));
+    // a real model dir has a config.json — bare (<model>/) or org-nested (<org>/<model>/),
+    // reporting the leaf id the server serves
     return readdirSync(modelsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && existsSync(join(modelsDir, d.name, "config.json")))
-      .map((d) => d.name);
+      .filter((d) => d.isDirectory())
+      .flatMap((d) => {
+        const p = join(modelsDir, d.name);
+        if (hasConfig(p)) return [d.name];
+        try {
+          return readdirSync(p, { withFileTypes: true })
+            .filter((s) => s.isDirectory() && hasConfig(join(p, s.name)))
+            .map((s) => s.name);
+        } catch {
+          return [];
+        }
+      });
   } catch {
     return [];
   }
@@ -293,7 +312,8 @@ export function startDownload(model: string): void {
   const gen = ++jobGen;
   job = { state: "downloading", model, logTail: "" };
   // --gguf/--mlx flag: defensive disambiguation between repo variants
-  const flag = model.includes("-mlx") ? "--mlx" : "--gguf";
+  // (case-insensitive: lmstudio-community ids spell "-MLX-4bit")
+  const flag = /-mlx/i.test(model) ? "--mlx" : "--gguf";
   void runLms(lms, ["get", model, flag], 60 * 60 * 1000, (child) => {
     dlChild = child;
   }).then((r) => {
@@ -359,12 +379,11 @@ export function getJob(): SetupJob {
   return job;
 }
 
-// --- Bonsai MLX download into oMLX (streamed from Hugging Face) -------------------
+// --- catalogue MLX packs download into oMLX (streamed from Hugging Face) ----------
 
 const OMLX_DOWNLOADABLE = {
-  "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit": 8.6,
-  "prism-ml/Ternary-Bonsai-27B-mlx-2bit": 7.9, // v1 — kept as an explicit alternative
-  "prism-ml/Ternary-Bonsai-8B-mlx-2bit": 2.16,
+  "mlx-community/Qwen3.6-35B-A3B-4bit": 19.5,
+  "mlx-community/gemma-4-12B-it-4bit": 6.3,
 } as const;
 const GB = 2 ** 30;
 
@@ -504,14 +523,14 @@ async function autoPickBackend(): Promise<{ backend: "omlx" | "lmstudio"; model:
   if (resolveOmlx()) {
     const models = await omlxModels(false); // server not up yet → directory scan
     if (models.length) {
-      return { backend: "omlx", model: models.find((m) => /bonsai/i.test(m)) ?? models[0], baseUrl: OMLX_BASE };
+      return { backend: "omlx", model: models.find((m) => /qwen3\.6|gemma-?4/i.test(m)) ?? models[0], baseUrl: OMLX_BASE };
     }
   }
   const lms = resolveLms();
   if (lms) {
     const models = await downloadedModels(lms).catch(() => [] as string[]);
     if (models.length) {
-      return { backend: "lmstudio", model: models.find((m) => /bonsai/i.test(m)) ?? models[0], baseUrl: LMSTUDIO_BASE };
+      return { backend: "lmstudio", model: models.find((m) => /qwen3\.6|gemma-?4/i.test(m)) ?? models[0], baseUrl: LMSTUDIO_BASE };
     }
   }
   return null;

@@ -15,28 +15,28 @@ const hw = (over: Partial<Hardware> = {}): Hardware => ({
   ...over,
 });
 
-test("suggestModel: RAM thresholds pick 27B vs 8B", () => {
-  assert.ok(suggestModel(hw({ ramGb: 16 })).model.includes("27B"));
-  assert.ok(suggestModel(hw({ ramGb: 32 })).model.includes("27B"));
-  assert.ok(suggestModel(hw({ ramGb: 15 })).model.includes("8B"));
-  assert.ok(suggestModel(hw({ ramGb: 8 })).model.includes("8B"));
-  assert.equal(suggestModel(hw({ ramGb: 36 })).sizeGb, 6.7);
-  assert.equal(suggestModel(hw({ ramGb: 8 })).sizeGb, 2.03);
+test("suggestModel: RAM threshold 32GB picks Qwen3.6 vs Gemma 4", () => {
+  assert.ok(suggestModel(hw({ ramGb: 32 })).model.includes("Qwen3.6"));
+  assert.ok(suggestModel(hw({ ramGb: 64 })).model.includes("Qwen3.6"));
+  assert.ok(suggestModel(hw({ ramGb: 24 })).model.includes("gemma-4"));
+  assert.ok(suggestModel(hw({ ramGb: 8 })).model.includes("gemma-4"));
+  assert.equal(suggestModel(hw({ ramGb: 64 })).sizeGb, 21.5);
+  assert.equal(suggestModel(hw({ ramGb: 16 })).sizeGb, 8.1);
 });
 
-test("suggestModel: MLX variant only on Apple Silicon", () => {
+test("suggestModel: MLX variants only on Apple Silicon", () => {
   assert.ok(suggestModel(hw({ appleSilicon: true })).mlx?.model.includes("mlx"));
   assert.equal(suggestModel(hw({ appleSilicon: false })).mlx, null);
+  assert.equal(suggestModel(hw({ appleSilicon: false })).mlxLms, null);
 });
 
-test("suggestModel: Bonsai-2 MLX is oMLX-only — no LM Studio MLX variant for 27B", () => {
-  const hi = suggestModel(hw({ ramGb: 36, appleSilicon: true }));
-  assert.equal(hi.mlx?.model, "prism-ml/Ternary-Bonsai-2-27B-mlx-2bit");
-  assert.equal(hi.mlx?.sizeGb, 8.6);
-  assert.equal(hi.mlxLms, null, "Bonsai-2 packings are not loadable by LM Studio — no lms MLX variant");
-  const lo = suggestModel(hw({ ramGb: 8, appleSilicon: true }));
-  assert.ok(lo.mlxLms?.model.includes("8B"), "8B v1 MLX stays available via lms");
-  assert.ok(lo.mlxLms?.model.includes("mlx"));
+test("suggestModel: per-engine MLX packs for both tiers on Apple Silicon", () => {
+  const hi = suggestModel(hw({ ramGb: 64, appleSilicon: true }));
+  assert.equal(hi.mlx?.model, "mlx-community/Qwen3.6-35B-A3B-4bit", "oMLX gets the mlx-community pack");
+  assert.equal(hi.mlxLms?.model, "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit", "LM Studio gets its own pack");
+  const lo = suggestModel(hw({ ramGb: 16, appleSilicon: true }));
+  assert.equal(lo.mlx?.model, "mlx-community/gemma-4-12B-it-4bit");
+  assert.equal(lo.mlxLms?.model, "lmstudio-community/gemma-4-12B-it-MLX-4bit");
 });
 
 test("needsSetupVersion: wizard reopens on app update, ack silences it", () => {
@@ -133,7 +133,7 @@ test("setup flow with fake lms: status, finish writes config, ensure sequences l
     const status = await (await fetch(`${BASE}/api/setup/status`)).json();
     assert.equal(status.setupDone, false);
     assert.ok(status.hardware.ramGb > 0);
-    assert.ok(status.suggested.model.includes("Bonsai"));
+    assert.ok(/Qwen3\.6|gemma-4/i.test(status.suggested.model), "suggestion comes from the live catalogue");
     assert.equal(status.lms.installed, true, "fake LMS_PATH must be detected");
     assert.equal(status.job.state, "idle");
 

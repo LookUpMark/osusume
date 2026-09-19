@@ -6,8 +6,7 @@
 #     2. docker compose up -d app
 #     3. in the setup wizard, use custom endpoint http://host.docker.internal:1234/v1
 #
-# Model choice (RAM): < 16 GB → export ANILIST_MODEL=hf.co/prism-ml/Ternary-Bonsai-8B-gguf
-# Fallback if Ollama refuses the Q1_0 format: ANILIST_MODEL=qwen3:8b
+# Model choice (RAM): < 32 GB → export ANILIST_MODEL=hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M
 
 services:
   app:
@@ -17,7 +16,7 @@ services:
     environment:
       # custom env ⇒ the setup wizard stays out of the way; LLM is wired automatically
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL=${ANILIST_MODEL:-hf.co/prism-ml/Ternary-Bonsai-27B-gguf}
+      - LLM_MODEL=${ANILIST_MODEL:-hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M}
       - HOST=0.0.0.0 # bind inside the container so the port mapping reaches it
     volumes:
       - app-data:/app/data # disk cache + config survive restarts
@@ -32,7 +31,7 @@ services:
     volumes:
       - ollama-models:/root/.ollama
     environment:
-      - OLLAMA_MODEL=${ANILIST_MODEL:-hf.co/prism-ml/Ternary-Bonsai-27B-gguf}
+      - OLLAMA_MODEL=${ANILIST_MODEL:-hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M}
     # Linux + NVIDIA: uncomment for GPU acceleration (macOS VMs have no GPU)
     # deploy:
     #   resources:
