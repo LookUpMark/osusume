@@ -1,0 +1,377 @@
+{
+  "status": 200,
+  "body": {
+    "profile": {
+      "userName": "LookUpMark",
+      "meanScore": 83.3,
+      "scoredCount": 8,
+      "confidence": "ok",
+      "counts": {
+        "CURRENT": 1,
+        "PLANNING": 1,
+        "COMPLETED": 7,
+        "DROPPED": 6,
+        "PAUSED": 1,
+        "REPEATING": 0
+      },
+      "loved": [
+        {
+          "dim": "tag",
+          "value": "Psychological",
+          "aff": 0.0888440860215054,
+          "support": 4,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "genre",
+          "value": "Drama",
+          "aff": 0.13636363636363638,
+          "support": 5,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "genre",
+          "value": "Psychological",
+          "aff": 0.08750000000000001,
+          "support": 4,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "studio",
+          "value": "Madhouse",
+          "aff": 0.07562500000000001,
+          "support": 3,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "era",
+          "value": "2010",
+          "aff": 0.08062500000000002,
+          "support": 3,
+          "examples": [
+            "All Time Fav"
+          ]
+        }
+      ],
+      "disliked": [
+        {
+          "dim": "tag",
+          "value": "Slapstick",
+          "aff": -0.5,
+          "support": 5,
+          "examples": []
+        },
+        {
+          "dim": "genre",
+          "value": "Comedy",
+          "aff": -0.6,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "genre",
+          "value": "Action",
+          "aff": -0.073125,
+          "support": 2,
+          "examples": []
+        },
+        {
+          "dim": "studio",
+          "value": "Pierrot",
+          "aff": -0.6,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "era",
+          "value": "2020",
+          "aff": -0.4542613636363636,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "era",
+          "value": "2015",
+          "aff": -0.08396739130434781,
+          "support": 6,
+          "examples": []
+        }
+      ],
+      "hash": "f8667d61587a97a3"
+    },
+    "recos": [
+      {
+        "media": {
+          "id": 102,
+          "title": "Test Series S2",
+          "format": "TV",
+          "seasonYear": 2015,
+          "genres": [
+            "Action",
+            "Drama"
+          ],
+          "tags": [
+            {
+              "name": "Conflict",
+              "rank": 88,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Sunrise",
+          "averageScore": 84,
+          "popularity": 200000,
+          "coverImage": null,
+          "coverColor": "#3355ee",
+          "siteUrl": "https://anilist.co/anime/102",
+          "description": "Second season.",
+          "relations": [
+            {
+              "id": 101,
+              "relationType": "PREQUEL"
+            }
+          ]
+        },
+        "final": 0.6552049715848928,
+        "breakdown": {
+          "affinity": 0.5013842020750988,
+          "quality": 0.8370516083565481,
+          "community": 0,
+          "mood": 0
+        },
+        "badges": [
+          "NEXT_STEP"
+        ],
+        "rootId": 101,
+        "groupSize": 1,
+        "why": "Matcha il tuo gusto per genre Drama. Visto in: All Time Fav.",
+        "mmRank": 1
+      },
+      {
+        "media": {
+          "id": 300,
+          "title": "Unseen Series S1",
+          "format": "TV",
+          "seasonYear": 2010,
+          "genres": [
+            "Psychological",
+            "Mystery"
+          ],
+          "tags": [
+            {
+              "name": "Psychological",
+              "rank": 94,
+              "isSpoiler": false
+            },
+            {
+              "name": "Thrills",
+              "rank": 72,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Madhouse",
+          "averageScore": 86,
+          "popularity": 250000,
+          "coverImage": null,
+          "coverColor": "#333344",
+          "siteUrl": "https://anilist.co/anime/300",
+          "description": "Entry point.",
+          "relations": [
+            {
+              "id": 301,
+              "relationType": "SEQUEL"
+            }
+          ]
+        },
+        "final": 0.5863525797003042,
+        "breakdown": {
+          "affinity": 0.5269023254307553,
+          "quality": 0.8578970872923246,
+          "community": 0.03,
+          "mood": 0
+        },
+        "badges": [
+          "ENTRY_POINT"
+        ],
+        "rootId": 300,
+        "groupSize": 1,
+        "why": "Matcha il tuo gusto per tag Psychological, genre Psychological. Visto in: All Time Fav. È anche il primo capitolo della serie — un buon punto d'ingresso.",
+        "mmRank": 2
+      },
+      {
+        "media": {
+          "id": 402,
+          "title": "Popular Action",
+          "format": "TV",
+          "seasonYear": 2020,
+          "genres": [
+            "Action"
+          ],
+          "tags": [
+            {
+              "name": "Conflict",
+              "rank": 70,
+              "isSpoiler": false
+            },
+            {
+              "name": "Super Power",
+              "rank": 65,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Pierrot",
+          "averageScore": 88,
+          "popularity": 600000,
+          "coverImage": null,
+          "coverColor": "#557766",
+          "siteUrl": "https://anilist.co/anime/402",
+          "description": "Everyone has seen it.",
+          "relations": []
+        },
+        "final": 0.5409306049116278,
+        "breakdown": {
+          "affinity": 0.4348607954545455,
+          "quality": 0.892907598710359,
+          "community": 0.03,
+          "mood": 0
+        },
+        "badges": [],
+        "rootId": null,
+        "groupSize": 1,
+        "why": "Valutato 88/100 su AniList da 600.000 membri.",
+        "mmRank": 3
+      },
+      {
+        "media": {
+          "id": 401,
+          "title": "Hidden Gem Psychological",
+          "format": "TV",
+          "seasonYear": 2016,
+          "genres": [
+            "Psychological",
+            "Mystery"
+          ],
+          "tags": [
+            {
+              "name": "Psychological",
+              "rank": 96,
+              "isSpoiler": false
+            },
+            {
+              "name": "Time Loop",
+              "rank": 75,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Madhouse",
+          "averageScore": 78,
+          "popularity": 5000,
+          "coverImage": null,
+          "coverColor": "#443355",
+          "siteUrl": "https://anilist.co/anime/401",
+          "description": "Little known, well rated.",
+          "relations": [
+            {
+              "id": 999,
+              "relationType": "SPIN_OFF"
+            }
+          ]
+        },
+        "final": 0.5106331858162793,
+        "breakdown": {
+          "affinity": 0.5202106497543532,
+          "quality": 0.7089528427273835,
+          "community": 0,
+          "mood": 0
+        },
+        "badges": [
+          "SPIN_OFF",
+          "HIDDEN_GEM"
+        ],
+        "rootId": null,
+        "groupSize": 1,
+        "why": "Matcha il tuo gusto per tag Psychological, genre Psychological. Visto in: All Time Fav. Gemma nascosta: solo 5000 membri, 78/100 su AniList.",
+        "mmRank": 4
+      },
+      {
+        "media": {
+          "id": 403,
+          "title": "Slapstick Sequel Bait",
+          "format": "TV",
+          "seasonYear": 2018,
+          "genres": [
+            "Comedy"
+          ],
+          "tags": [
+            {
+              "name": "Slapstick",
+              "rank": 82,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Pierrot",
+          "averageScore": 64,
+          "popularity": 90000,
+          "coverImage": null,
+          "coverColor": "#aa3344",
+          "siteUrl": "https://anilist.co/anime/403",
+          "description": "More of what was dropped.",
+          "relations": []
+        },
+        "final": 0.33210424529739035,
+        "breakdown": {
+          "affinity": 0.2456413043478261,
+          "quality": 0.659712366745338,
+          "community": 0,
+          "mood": 0
+        },
+        "badges": [],
+        "rootId": null,
+        "groupSize": 1,
+        "why": "Valutato 64/100 su AniList da 90.000 membri.",
+        "mmRank": 5
+      }
+    ],
+    "avoided": [
+      {
+        "media": {
+          "id": 202,
+          "title": "Dropped Show S2",
+          "format": "TV",
+          "seasonYear": 2017,
+          "genres": [
+            "Comedy"
+          ],
+          "tags": [
+            {
+              "name": "Slapstick",
+              "rank": 80,
+              "isSpoiler": false
+            }
+          ],
+          "studio": "Pierrot",
+          "averageScore": 66,
+          "popularity": 150000,
+          "coverImage": null,
+          "coverColor": "#aa3333",
+          "siteUrl": "https://anilist.co/anime/202",
+          "description": "Sequel to a dropped show.",
+          "relations": [
+            {
+              "id": 201,
+              "relationType": "PREQUEL"
+            }
+          ]
+        },
+        "reason": "Condivide genre Comedy, studio Pierrot che hai droppato o votato basso, e in questa serie hai droppato Dropped Show S1."
+      }
+    ]
+  }
+}

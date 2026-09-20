@@ -30,7 +30,7 @@ Consolidamento dei fatti verificati (4 ricerche con fonti, esecuzioni live inclu
 - Ordine chiavi: dict Python 3.7+ = inserimento (come JS per chiavi non integer-like); sort_keys default False.
 - httpx: NESSUN retry nativo (solo HTTPTransport(retries=N) su ConnectError/ConnectTimeout — non basta: retry ladder manuale). Timeout per-fase (connect/read/write/pool) = inactivity, NON totale: replicare AbortSignal.timeout(15s) con `asyncio.wait_for`. Errori: rete = `httpx.TransportError`; status = resp.status_code; body non-JSON = json.JSONDecodeError. Streaming: `client.stream("GET", url)` + `aiter_bytes()`. In test/contesto con proxy env: `trust_env=False`.
 - regex lib: `regex.sub(r"[^\p{L}\s]", " ", s)` — default UNICODE senza flag. NFKD: `unicodedata.normalize("NFKD", s)` + strip marks con `regex.sub(r"\p{M}", "", …)` (parità bit-a-bit con JS `\p{M}`; `unicodedata.combining` NON coincide al 100%).
-- toLocaleString en/it: formattatore manuale (thousand ",", "." / ".", ","), su repr shortest round-trip; arrotondare a ≤3 decimali prima (JS Intl default max 3 frac).
+- toLocaleString en/it: formattatore manuale su repr shortest round-trip; **CORREZIONE P2 (verificata su node + golden)**: il grouping NON è incondizionato — it segue CLDR minimumGroupingDigits=2: `(5000).toLocaleString('it')` → `"5000"` (4 cifre, no grouping), `90000` → `"90.000"`; en raggruppa sempre. Formatter hardcoded con regola it: grouping solo da ≥5 cifre nella parte intera. (La prescrizione iniziale "incondizionato" rompeva ogni gem con popularity a 4 cifre in it.)
 
 **pytest e2e** (docs.pytest.org, docs.python.org asyncio/subprocess):
 - `tmp_path_factory.mktemp(basename)` — API pytest è `mktemp`, NON `mkdtemp` (quello è tempfile). `monkeypatch.setenv` per env ereditata dal subprocess, teardown automatico.
@@ -53,7 +53,8 @@ Consolidamento dei fatti verificati (4 ricerche con fonti, esecuzioni live inclu
 1. `git checkout -b py-backend` dal main corrente.
 2. Scrivere `docs/contract.md`: tabella endpoint della spec §2.1 + error map + shape payload (fonte: lettura diretta `src/server/api.ts`, `src/shared/types.ts`, `src/ui/api.ts` — copiare gli shape, non riformularli).
 3. Scrivere `tests/golden/record.mjs` (record DAL backend Node attuale): spawn `node src/server/index.ts` con env blindata — `ANILIST_FIXTURES=fixtures|fixtures-real`, `CACHE_DIR`/`CONFIG_PATH`/`ALR_DATA_DIR` in tmpdir (`fs.mkdtemp`), `LLM_BASE_URL=http://127.0.0.1:1/v1` (dead), `LMS_PATH` fake bash, NO `APP_VERSION` — e catturare: health (pre), recommend en, recommend it, profile, lookup×3 query, explain batch (→ fallback), health (post), local-mode `{auto:false}` → `{auto:true,local:false}` → health, setup/status, config, app-update, chat (→ 503). Scrive `tests/golden/<case>.json` (body + status) e `tests/golden/manifest.json`.
-4. Compare: `tests/golden/compare.py` — deep-diff JSON (chiavi ordine-insensibile, array ordine-sensibile, float shortest-repr) con exit code 0/1.
+4. Compare: `tests/golden/compare.py` — deep-diff JSON (chiavi ordine-insensibile, array ordine-sensibile, float shortest-repr) con exit code 0/1; scrub dei path in `tests/golden/volatile.json` su ENTRAMBI i lati.
+   Ricetta env obbligatoria del lato "actual" (identica a record.mjs): `ANILIST_FIXTURES`, `LLM_BASE_URL`/`LMSTUDIO_BASE_URL`/`OMLX_BASE_URL` dead su 127.0.0.1:1, `LMS_PATH` fake bash, `ALR_DATA_DIR`/`CONFIG_PATH`/`CACHE_DIR` in tmpdir, `HOME` in tmpdir (→ `~/.omlx` vuoto, come il golden), delete-list env completa (APP_VERSION, LLM_MODEL, ANILIST_ENDPOINT, RATE_PER_MIN, LLM_TIMEOUT_MS, LLM_API_KEY inclusi), senza .env.
 
 **Gate (exit 0 richiesto)**
 - `node tests/golden/record.mjs fixtures && node tests/golden/record.mjs fixtures-real` (secondo solo se fixtures-real presente in locale) → golden committati (sintetici) e `git status` pulito dopo secondo record (stabilità: 2 record identici → `git diff --exit-code tests/golden`).
@@ -108,9 +109,11 @@ Consolidamento dei fatti verificati (4 ricerche con fonti, esecuzioni live inclu
 - `app/queries/`: recommend, profile (cache lista 1h), explain (ids filter/dedup, staleOk, scoreArbitrary per missing), lookup (MUSIC escluso, riordino per indice ricerca), local-mode state (core/: pin env, auto-fallback ≠404 +1 retry, setAutoFallback(false)→setLocalMode(false)).
 - Test: golden compare FULL `recommend en+it, lookup, explain-fallback, local-mode, health-post` su fixtures + fixtures-real.
 
-**Gate**: `python tests/golden/compare.py --suite full` exit 0 su ENTRAMBI i dataset; `uv run pytest backend/tests` exit 0.
+**Gate**: `python tests/golden/compare.py <actual> tests/golden/fixtures --only <17 file scope P1+P4>` exit 0 su ENTRAMBI i dataset (il flag `--suite full` NON esiste; i file `chat-503`, `error-400-chat`, `setup-status` sono scope P5 e entrano nel gate P5); `uv run pytest backend/tests` exit 0.
 
 **Anti-pattern**: cambiare l'ordine delle fasi della pipeline; dedupe dopo MMR; applicare communityCap solo in scoreAll e non in accumulo (o viceversa).
+
+**Payload** (da review P2): i campi optional `links`/`mmRank` vanno OMITTI dal JSON (semantica `undefined` TS), `rootId`/`droppedId`/`entryPointId` restano `null` esplicito — exclude_none selettivo campo per campo, il golden compare becca chiavi in più.
 
 ## P5 — Commands (setup/config/chat/app-update)
 

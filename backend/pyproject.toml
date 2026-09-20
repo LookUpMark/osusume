@@ -1,0 +1,24 @@
+[project]
+name = "osusume-backend"
+version = "1.1.0"
+description = "Osusume backend (Python/FastAPI port of src/server)"
+requires-python = ">=3.12"
+dependencies = [
+    # floor 0.141: app.frontend() (static + SPA fallback) esiste solo da lì
+    "fastapi>=0.141",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    # \p{L}/\p{M} del tokenizer non esistono nella stdlib re (spec §2.2.5)
+    "regex>=2024.4.16",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

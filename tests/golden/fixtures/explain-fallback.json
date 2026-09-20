@@ -1,0 +1,32 @@
+{
+  "status": 200,
+  "body": {
+    "explanations": [
+      {
+        "id": 102,
+        "text": "Matches your taste for genre Drama. Seen in: All Time Fav.",
+        "source": "fallback"
+      },
+      {
+        "id": 300,
+        "text": "Matches your taste for tag Psychological, genre Psychological. Seen in: All Time Fav. It is also the first chapter of its series — a clean entry point.",
+        "source": "fallback"
+      },
+      {
+        "id": 402,
+        "text": "Rated 88/100 on AniList by 600,000 members.",
+        "source": "fallback"
+      },
+      {
+        "id": 401,
+        "text": "Matches your taste for tag Psychological, genre Psychological. Seen in: All Time Fav. Hidden gem: only 5,000 members, 78/100 on AniList.",
+        "source": "fallback"
+      },
+      {
+        "id": 403,
+        "text": "Rated 64/100 on AniList by 90,000 members.",
+        "source": "fallback"
+      }
+    ]
+  }
+}

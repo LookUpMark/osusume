@@ -16,7 +16,20 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm build
       - run: pnpm test
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --project backend --frozen --dev
+      # explicit backend/tests: pins the pytest rootdir to backend/ (its pyproject
+      # carries the config) while the e2e tests spawn run_dev.py with cwd = repo root
+      - run: uv run --project backend pytest backend/tests -q
 
   docker:
     runs-on: ubuntu-latest
@@ -34,3 +47,5 @@ jobs:
           done
           docker logs smoke
           exit 1
+      - if: always()
+        run: docker rm -f smoke

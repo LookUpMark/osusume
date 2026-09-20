@@ -12,3 +12,10 @@ THIRD-PARTY-NOTICES.md
 compose.yaml
 Dockerfile
 .dockerignore
+# backend dev artifacts: a local .venv in the context would clobber the one
+# built inside the image by `uv sync` (COPY backend ./backend merges dirs)
+backend/.venv/
+__pycache__/
+.pytest_cache/
+release/
+build/pyserver/

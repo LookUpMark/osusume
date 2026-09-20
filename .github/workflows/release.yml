@@ -1,7 +1,9 @@
 name: release
 
 # Builds the installers (macOS DMG, Windows NSIS, Linux AppImage) and attaches
-# them to the GitHub release. Each job runs on its native OS.
+# them to the GitHub release. Each job runs on its native OS: the frontend, the
+# PyInstaller sidecar (via uv + scripts/build-pyserver.mjs) and the Electron
+# shell are all built for the host platform.
 # The tag must match package.json version (v0.4.0 ↔ "0.4.0").
 # workflow_dispatch (no tag) = build-only dry run.
 
@@ -15,7 +17,7 @@ permissions:
 
 jobs:
   dmg:
-    runs-on: macos-latest
+    runs-on: macos-latest # arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -37,7 +39,14 @@ jobs:
             exit 1
           fi
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
       - run: pnpm build && pnpm build:electron
+
+      - name: Build the Python sidecar (PyInstaller onedir)
+        run: node scripts/build-pyserver.mjs
 
       - name: Build DMG (arm64)
         run: pnpm exec electron-builder --mac --arm64 --publish never
@@ -86,7 +95,14 @@ jobs:
             exit 1
           fi
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
       - run: pnpm build && pnpm build:electron
+
+      - name: Build the Python sidecar (PyInstaller onedir)
+        run: node scripts/build-pyserver.mjs
 
       - name: Build NSIS installer (x64)
         run: pnpm exec electron-builder --win --x64 --publish never
@@ -134,7 +150,14 @@ jobs:
             exit 1
           fi
 
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
       - run: pnpm build && pnpm build:electron
+
+      - name: Build the Python sidecar (PyInstaller onedir)
+        run: node scripts/build-pyserver.mjs
 
       - name: Build AppImage (x64)
         run: pnpm exec electron-builder --linux --x64 --publish never

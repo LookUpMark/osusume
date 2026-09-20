@@ -1,0 +1,111 @@
+{
+  "status": 200,
+  "body": {
+    "profile": {
+      "userName": "LookUpMark",
+      "meanScore": 83.3,
+      "scoredCount": 8,
+      "confidence": "ok",
+      "counts": {
+        "CURRENT": 1,
+        "PLANNING": 1,
+        "COMPLETED": 7,
+        "DROPPED": 6,
+        "PAUSED": 1,
+        "REPEATING": 0
+      },
+      "loved": [
+        {
+          "dim": "tag",
+          "value": "Psychological",
+          "aff": 0.0888440860215054,
+          "support": 4,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "genre",
+          "value": "Drama",
+          "aff": 0.13636363636363638,
+          "support": 5,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "genre",
+          "value": "Psychological",
+          "aff": 0.08750000000000001,
+          "support": 4,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "studio",
+          "value": "Madhouse",
+          "aff": 0.07562500000000001,
+          "support": 3,
+          "examples": [
+            "All Time Fav"
+          ]
+        },
+        {
+          "dim": "era",
+          "value": "2010",
+          "aff": 0.08062500000000002,
+          "support": 3,
+          "examples": [
+            "All Time Fav"
+          ]
+        }
+      ],
+      "disliked": [
+        {
+          "dim": "tag",
+          "value": "Slapstick",
+          "aff": -0.5,
+          "support": 5,
+          "examples": []
+        },
+        {
+          "dim": "genre",
+          "value": "Comedy",
+          "aff": -0.6,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "genre",
+          "value": "Action",
+          "aff": -0.073125,
+          "support": 2,
+          "examples": []
+        },
+        {
+          "dim": "studio",
+          "value": "Pierrot",
+          "aff": -0.6,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "era",
+          "value": "2020",
+          "aff": -0.4542613636363636,
+          "support": 6,
+          "examples": []
+        },
+        {
+          "dim": "era",
+          "value": "2015",
+          "aff": -0.08396739130434781,
+          "support": 6,
+          "examples": []
+        }
+      ],
+      "hash": "f8667d61587a97a3"
+    }
+  }
+}

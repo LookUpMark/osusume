@@ -1,0 +1,77 @@
+/* Osusume — design system "Seanime" (vedi DESIGN.md di progetto) */
+:root {
+  color-scheme: dark;
+  accent-color: var(--accent);
+  --bg: #121212;
+  --surface: #1c1c1c;
+  --surface-2: #282828;
+  --fg: #ffffff;
+  --body-text: #e5e5e5;
+  --muted: #a3a3a3;
+  --border: #303030;
+  --accent: #9f92ff;
+  --ring: #c7c2ff;
+  --glow-a: #34268a;
+  --glow-b: #0c1d48;
+  --ink: #121212;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --font-body: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body-text);
+  font: 15px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; color: inherit; }
+h1, h2, h3, p { text-wrap: pretty; }
+h1, h2, h3 { color: var(--fg); margin: 0; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+:is(button, a, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+::selection { background: rgb(159 146 255 / 0.24); color: var(--fg); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  html { scroll-behavior: auto !important; }
+  .car-track { scroll-behavior: auto !important; }
+}
+
+/* ── primitive condivise: pulsanti ──────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: var(--r-sm); padding: 11px 18px;
+  font-size: 14px; font-weight: 600; border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: var(--ink); box-shadow: 0 10px 28px -10px rgb(159 146 255 / 0.55); transition: background 0.15s ease, transform 0.12s ease; }
+.btn-primary:hover { background: var(--ring); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-ghost { background: rgb(255 255 255 / 0.08); color: var(--fg); border-color: rgb(255 255 255 / 0.28); backdrop-filter: blur(8px); }
+.btn-ghost:hover { border-color: rgb(255 255 255 / 0.5); }
+.btn-line { background: none; border: 1px solid var(--border); color: var(--body-text); border-radius: var(--r-sm); padding: 10px 15px; font-size: 13.5px; font-weight: 500; transition: border-color 0.15s ease, color 0.15s ease; }
+.btn-line:hover { border-color: rgb(255 255 255 / 0.5); color: var(--fg); }
+
+/* ── primitive condivise: badge e fallback copertina ────────── */
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
+.chip-badge {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--body-text); border: 0;
+  border-radius: 999px; padding: 3px 9px; background: var(--surface-2);
+}
+.chip-badge.gem { background: var(--accent); color: var(--ink); font-weight: 600; }
+.chip-badge.entry { color: var(--ring); background: rgb(199 194 255 / 0.12); }
+.cover-fallback { display: grid; place-items: center; font-family: var(--font-mono); font-size: 28px; color: var(--muted); }

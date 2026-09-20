@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "llm": {
+      "model": "qwen3:8b"
+    }
+  }
+}

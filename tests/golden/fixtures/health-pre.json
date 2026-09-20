@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "llm": {
+      "model": "qwen3:8b",
+      "enabled": false,
+      "state": "off"
+    },
+    "local": {
+      "on": true,
+      "available": true,
+      "auto": true
+    }
+  }
+}
