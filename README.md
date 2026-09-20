@@ -28,13 +28,13 @@ Download `Osusume-<version>-arm64.dmg` from the [latest release](https://github.
 
 The build is **unsigned** (no Apple Developer ID): on first launch macOS may block it — **right-click the app → Open → Open** (once), or if it reports the app as damaged, run `xattr -cr "/Applications/Osusume.app"`. The app checks GitHub releases on startup: when a new version is out, an arrow chip appears in the sidebar — clicking it opens the release page for the new DMG (updates are manual by design while the app is unsigned). Data lives in `~/Library/Application Support/Osusume/`.
 
-Build it yourself: `pnpm dist:mac` (output in `release/`).
+Build it yourself: `pnpm dist:mac` (output in `release/`). Building from source also needs [uv](https://docs.astral.sh/uv/) on your PATH: `pnpm dist:mac` provisions Python 3.12 itself, bundles the FastAPI server into a PyInstaller sidecar (`pnpm build:pyserver`, output in `build/pyserver/`), then builds the Electron shell.
 
 ### Windows installer
 
 Download `Osusume-Setup-<version>.exe` from the [latest release](https://github.com/LookUpMark/osusume/releases/latest) and run it. The build is **unsigned**: SmartScreen may warn — **More info → Run anyway**. Same update chip in the sidebar; data lives in `%APPDATA%\Osusume\`.
 
-Build it yourself: `pnpm dist:win` (on Windows; output in `release/`).
+Build it yourself: `pnpm dist:win` (on Windows; output in `release/`; needs [uv](https://docs.astral.sh/uv/) for the sidecar, see macOS above).
 
 ### Linux AppImage
 
@@ -47,7 +47,7 @@ chmod +x Osusume-<version>.AppImage
 
 Data lives in `~/.config/Osusume/`.
 
-Build it yourself: `pnpm dist:linux` (on Linux; output in `release/`).
+Build it yourself: `pnpm dist:linux` (on Linux; output in `release/`; needs [uv](https://docs.astral.sh/uv/) for the sidecar, see macOS above).
 
 ### Docker (fewest commands)
 
@@ -69,6 +69,8 @@ pnpm install
 pnpm dev
 # open http://127.0.0.1:3000
 ```
+
+The desktop shell (`pnpm app`) additionally spawns the Python server: install [uv](https://docs.astral.sh/uv/) and run `uv sync --project backend` once to provision `backend/.venv`.
 
 On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) 4-bit (~21 GB, MoE with 3B active params: fast and strong in ~200 languages) on ≥32 GB machines, [Gemma 4 12B](https://huggingface.co/google/gemma-4-12B-it) 4-bit (~8 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
 

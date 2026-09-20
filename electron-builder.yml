@@ -8,7 +8,13 @@ files:
   - dist-electron/**
   - fixtures/** # demo dataset: powers the auto-fallback when AniList is down
   - package.json
-asar: false # ELECTRON_RUN_AS_NODE child reads plain files; bundle is tiny
+asar: false # the sidecar and the frontend load straight from the bundle dir; asar buys nothing here
+# Python sidecar (PyInstaller onedir from `pnpm build:pyserver`): Contents/Resources/desktop-server/
+extraResources:
+  - from: build/pyserver/dist/osusume-server
+    to: desktop-server
+    filter:
+      - "**/*"
 mac:
   category: public.app-category.entertainment
   icon: build/icon.icns

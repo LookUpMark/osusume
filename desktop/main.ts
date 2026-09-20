@@ -3,9 +3,10 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, Menu, shell } from "electron";
 
-// The server runs as a plain-Node child of the Electron binary (ELECTRON_RUN_AS_NODE)
-// on an esbuild bundle — no dependency on the type-stripping of Electron's embedded
-// Node, and its own SIGTERM handler keeps stopping the LLM backend on quit.
+// The server is the FastAPI sidecar: a PyInstaller onedir binary under
+// Resources/desktop-server when packaged, backend/.venv/bin/python run_dev.py in
+// dev (same app.main bootstrap — uvicorn.Server stays in app.main.SERVER so
+// POST /api/shutdown can stop the LLM backend on quit).
 let server: ChildProcess | null = null;
 let serverPort: number | null = null;
 let quitting = false;
@@ -16,6 +17,28 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const root = app.isPackaged ? join(process.resourcesPath, "app") : app.getAppPath();
+
+function serverCommand(): { cmd: string; args: string[] } {
+  if (!app.isPackaged) {
+    // not `uv run`: uv may be off the PATH of the launched app; the venv python
+    // provisioned by `uv sync --project backend` is the stable entry
+    const py =
+      process.platform === "win32"
+        ? join(root, "backend", ".venv", "Scripts", "python.exe")
+        : join(root, "backend", ".venv", "bin", "python");
+    return { cmd: py, args: [join(root, "backend", "run_dev.py")] };
+  }
+  return {
+    // electron-builder copies the *contents* of build/pyserver/dist/osusume-server
+    // into desktop-server/ (binary + _internal side by side)
+    cmd: join(
+      process.resourcesPath,
+      "desktop-server",
+      process.platform === "win32" ? "osusume-server.exe" : "osusume-server",
+    ),
+    args: [],
+  };
+}
 
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -50,19 +73,21 @@ function fail(message: string, detail: string): void {
 async function start(): Promise<void> {
   const port = await freePort();
   serverPort = port;
-  server = spawn(process.execPath, [join(root, "dist-electron", "server.mjs")], {
-    cwd: root, // serveStatic root "./dist" is cwd-relative
+  // the gate for the packaged app polls this line (the sidecar owns the log otherwise)
+  console.log(`[osusume] sidecar on http://127.0.0.1:${port}`);
+  const { cmd, args } = serverCommand();
+  server = spawn(cmd, args, {
+    cwd: root, // fixtures/ resolve cwd-relative (config.fixtures_available)
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
       NODE_ENV: "production",
       PORT: String(port),
       // the .app bundle is read-only (App Translocation): all runtime data goes
       // to ~/Library/Application Support/<productName>/
       ALR_DATA_DIR: app.getPath("userData"),
-      // version marker only when packaged: in dev-electron a version bump must
-      // not reopen the wizard on every `pnpm app`
-      ...(app.isPackaged ? { APP_VERSION: app.getVersion() } : {}),
+      // frontend build lives in resources/app/dist when packaged (dev: repo root,
+      // resolved by app.main from __file__)
+      ...(app.isPackaged ? { APP_VERSION: app.getVersion(), DIST_DIR: join(root, "dist") } : {}),
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -113,12 +138,43 @@ app.on("second-instance", () => {
 app.whenReady().then(start).catch((e) => fail("Startup failed.", String(e)));
 
 app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => {
-  quitting = true;
-  // SIGTERM kills the Node child without running its exit handlers (always on
+
+function stopServer(): void {
+  // SIGTERM kills the sidecar without running its exit handlers (always on
   // Windows): ask the server to stop the LLM backend itself, best effort
   if (serverPort != null) {
     void fetch(`http://127.0.0.1:${serverPort}/api/shutdown`, { method: "POST" }).catch(() => undefined);
   }
-  server?.kill("SIGTERM");
+  if (server && server.exitCode == null) {
+    server.kill("SIGTERM");
+    // never orphan the LLM backend if SIGTERM is swallowed (e.g. during startup)
+    const child = server;
+    const killTimer = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    child.once("exit", () => clearTimeout(killTimer));
+  }
+}
+
+app.on("before-quit", () => {
+  quitting = true;
+  stopServer();
 });
+
+// SIGTERM/SIGINT (kill, Ctrl+C, logout) bypass before-quit on macOS/Linux and
+// would orphan the sidecar: do the cleanup explicitly, then exit — app.quit()
+// from a signal handler occasionally stalls in the native quit sequence
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    quitting = true;
+    stopServer();
+    void new Promise<void>((resolve) => {
+      const t = setTimeout(() => {
+        server?.kill("SIGKILL");
+        resolve();
+      }, 2_000);
+      server?.once("exit", () => {
+        clearTimeout(t);
+        resolve();
+      });
+    }).then(() => app.exit(0));
+  });
+}
