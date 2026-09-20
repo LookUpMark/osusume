@@ -11,14 +11,21 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StrictBool
 
 from app.adapters.anilist.client import AniListError
+from app.adapters.llm.chat import chat_reply
+from app.adapters.llm.client import LlmError, llm_health
+from app.adapters.system import setup as setup_mod
+from app.adapters.system.setup import setup_router
 from app.adapters.system.update import app_update_status
 from app.core import config
+from app.core.errors import ApiError
+from app.domain import pipeline
 # alias "recommend_query": la route POST /recommend si chiama `recommend` e
 # ombreggerebbe il modulo nello scope del file
 from app.queries import explain_query, profile_query
 from app.queries import recommend as recommend_query
 
 router = APIRouter()
+router.include_router(setup_router, prefix="/setup")
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 LANGS: frozenset[str] = frozenset({"en", "it"})
@@ -89,10 +96,14 @@ def _local_state() -> dict:
 
 @router.get("/health")
 async def health() -> dict:
+    setup_mod.ensure_llm_server()  # throttled no-op unless the backend should be up (or retried)
     return {
         "ok": True,
-        # P1: nessun backend LLM ancora — enabled False / state "off"
-        "llm": {"model": config.llm_model(), "enabled": False, "state": "off"},
+        "llm": {
+            "model": config.llm_model(),
+            "enabled": await llm_health(),
+            "state": setup_mod.llm_backend_state(),
+        },
         "local": _local_state(),
     }
 
@@ -190,8 +201,74 @@ async def lookup(body: LookupBody | None = None):
         return _error_response(e)
 
 
+class ChatBody(BaseModel):
+    """Body di ``/chat`` (api.ts righe 145-152). ``messages``/``extra`` restano LOOSE
+    (dict/Any): la normalizzazione filtro-per-tipo è semantica del TS, non della
+    validazione pydantic — un turno malformato va scartato, non rifiutato in 422."""
+
+    username: str = ""
+    lang: str | None = None
+    extra: list[Any] = []
+    messages: list[dict[str, Any]] = []
+
+
+def _normalize_history(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """``history`` (api.ts righe 158-166): normalize, never drop — un turno troppo
+    lungo viene clampato così il contesto di conversazione sopravvive."""
+    out: list[dict[str, str]] = []
+    for m in messages:
+        role = m.get("role")
+        content = m.get("content")
+        if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+            out.append({"role": role, "content": content[:4000]})
+    return out[-12:]
+
+
+def chat_extra_ids(extra: list[Any], recos: list) -> list[float | int]:
+    """``extraIds`` (api.ts righe 176-179): numeri non presenti nelle recos, poi
+    ``slice(0, 5)`` — NESSUNA dedup (a differenza di /explain, qui l'ordine del
+    client conta e i doppioni sono innocui)."""
+    return [
+        x
+        for x in extra
+        if isinstance(x, (int, float)) and not isinstance(x, bool) and not any(r.media.id == x for r in recos)
+    ][:5]
+
+
+async def _chat_turn(username: str, lang: str, history: list[dict[str, str]], extra: list[Any]) -> dict:
+    """Corpo di ``/chat`` (api.ts righe 170-190): LlmError → 503 + log, il resto sale."""
+    try:
+        # stale-tolerant: a 10-minute-old result beats a full recompute mid-chat
+        result = await pipeline.get_recommendation(username, lang, stale_ok=True)
+        # titles opened via the chat lookup join the context (bounded, never duplicates)
+        extra_ids = chat_extra_ids(extra, result.recos)
+        extras = (await pipeline.score_arbitrary(extra_ids, username, lang))[1] if extra_ids else []
+        return {"reply": await chat_reply(result, lang, history, extras)}
+    except LlmError as e:
+        setup_mod.log_llm(f"chat: LLM error ({e}) per model={config.llm_model()}")
+        raise ApiError(503, "llm_unavailable")
+
+
+@router.post("/chat")
+async def chat(body: ChatBody | None = None):
+    if body is None:
+        body = ChatBody()
+    if not USERNAME_RE.match(body.username):
+        return _invalid_username()
+    history = _normalize_history(body.messages)
+    if not history or history[-1]["role"] != "user":
+        return _invalid_request()
+    try:
+        return await with_local_fallback(lambda: _chat_turn(body.username, _lang(body.lang), history, body.extra))
+    except ApiError:
+        raise
+    except Exception as e:
+        return _error_response(e)
+
+
 @router.post("/shutdown")
 async def shutdown() -> dict:
+    setup_mod.shutdown_backend()  # il backend LLM owned muore con l'app (anche via HTTP)
     # la risposta {"ok":true} DEVE partire prima dello shutdown (contratto Windows/desktop)
     from app import main  # import differito: main importa questo router
 

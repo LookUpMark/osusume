@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cattura i golden "actual" lato Python (subset P1+P4) per ``tests/golden/compare.py``.
+"""Cattura i golden "actual" lato Python (subset P1+P4+P5) per ``tests/golden/compare.py``.
 
 Usage:
     python3 backend/scripts/golden_actual.py <outDir> [fixtureDir]
@@ -11,11 +11,11 @@ sequenziali, l'ordine è parte della riproducibilità. Scrive ``{"status", "body
 pretty 2-space con i path di ``tests/golden/volatile.json`` scrubbed a null, come
 record.mjs (compare.py scrubba comunque entrambi i lati).
 
-Poi (il confronto resta limitato ai nomi passati a ``--only``):
-    python3 tests/golden/compare.py tests/golden/fixtures <outDir> \
-        --only health-pre,health-post,localmode-off,localmode-retry-live,config,app-update,error-403
-Subset P4 (pipeline + query layer): recommend-en/it, profile, lookup-1..3,
-explain-fallback, error-400-username (+ error-400-q/ids, catture gratuite).
+Poi (a scope pieno, senza ``--only``):
+    python3 tests/golden/compare.py tests/golden/fixtures <outDir>
+Catture: health-pre/post, recommend-en/it, profile, lookup-1..3, explain-fallback,
+chat-503, setup-status (P5), config, app-update, error-403/400-username/400-q/
+400-ids/400-chat, localmode-off/retry-live.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ async def _recommend_en(client: httpx.AsyncClient, state: State) -> httpx.Respon
 
 
 def _steps() -> list[tuple[str, Step]]:
-    # subset P1+P4, nell'ordine di record.mjs (lo stato local-mode è sequenziale)
+    # subset P1+P4+P5, nell'ordine di record.mjs (lo stato local-mode è sequenziale)
     steps: list[tuple[str, Step]] = [
         ("health-pre", lambda c, s: c.get("/api/health")),
         ("recommend-en", _recommend_en),
@@ -70,6 +70,10 @@ def _steps() -> list[tuple[str, Step]]:
     steps.append(("explain-fallback", explain_fallback))
     steps.extend(
         [
+            ("chat-503", lambda c, s: c.post("/api/chat", json={
+                "username": USER, "lang": "en", "messages": [{"role": "user", "content": "hi"}]}
+            )),
+            ("setup-status", lambda c, s: c.get("/api/setup/status")),
             ("config", lambda c, s: c.get("/api/config")),
             ("app-update", lambda c, s: c.get("/api/app-update")),
             # error-403: come record.mjs usa http con Host forzato; qui httpx accetta l'header esplicito
@@ -77,6 +81,9 @@ def _steps() -> list[tuple[str, Step]]:
             ("error-400-username", lambda c, s: c.post("/api/recommend", json={"username": "bad name!"})),
             ("error-400-q", lambda c, s: c.post("/api/lookup", json={"username": USER, "q": "m"})),
             ("error-400-ids", lambda c, s: c.post("/api/explain", json={"username": USER, "ids": []})),
+            ("error-400-chat", lambda c, s: c.post("/api/chat", json={
+                "username": USER, "lang": "en", "messages": [{"role": "assistant", "content": "hi"}]}
+            )),
             ("localmode-off", lambda c, s: c.post("/api/local-mode", json={"auto": False})),
             ("health-post", lambda c, s: c.get("/api/health")),
             (

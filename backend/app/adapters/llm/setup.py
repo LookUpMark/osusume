@@ -1,7 +1,8 @@
-"""Helper di processo condivisi — subset di ``src/server/setup.ts`` utile a P3.
+"""Helper di processo condivisi — subset di ``src/server/setup.ts`` (completo da P5).
 
-Completamento (resolveLms/resolveOmlx/job) in P5; qui solo ciò che client ed
-explain consumano: auth headers e llm.log.
+Qui solo la famiglia di chiavi: auth headers e lettura in-memory di ~/.omlx/settings.json
+(porta server + api_key, MAI persistite né loggate). Il resto del porting (hardware,
+catalogo, job singleton, ensure) vive in ``app/adapters/system/setup.py``.
 """
 
 from __future__ import annotations
@@ -13,20 +14,34 @@ from datetime import datetime, timezone
 from app.core import config
 
 
+def _omlx_settings() -> dict:
+    """Contenuto di ~/.omlx/settings.json o ``{}`` (file assente/corrotto → silenzio)."""
+    try:
+        with open(os.path.join(os.path.expanduser("~"), ".omlx", "settings.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def read_omlx_key() -> str | None:
     """The oMLX API key never leaves the server: read in-memory, used as auth header only.
 
-    ponytail: versione minima (env + ~/.omlx/settings.json) — la logica completa
-    (resolve omlx bin/model) arriva in P5.
+    ``readOmlxKey`` (setup.ts righe 108-117): env OMLX_API_KEY > settings.json auth.api_key.
     """
     if os.environ.get("OMLX_API_KEY"):
         return os.environ["OMLX_API_KEY"]
-    try:
-        with open(os.path.join(os.path.expanduser("~"), ".omlx", "settings.json"), encoding="utf-8") as f:
-            key = (json.load(f).get("auth") or {}).get("api_key")
-        return key if isinstance(key, str) and len(key) > 0 else None
-    except Exception:
-        return None
+    key = (_omlx_settings().get("auth") or {}).get("api_key")
+    return key if isinstance(key, str) and len(key) > 0 else None
+
+
+def read_omlx_port() -> str | None:
+    """Port from ~/.omlx/settings.json — the oMLX CLI writes there; probing the wrong
+    port costs a full HTTP timeout on every status/ensure round (setup.ts righe 90-98)."""
+    p = (_omlx_settings().get("server") or {}).get("port")
+    if isinstance(p, (int, float)) and not isinstance(p, bool) and p > 0:
+        return str(p)
+    return None
 
 
 def llm_auth_headers() -> dict[str, str]:
@@ -39,6 +54,15 @@ def llm_auth_headers() -> dict[str, str]:
         if key:
             return {"authorization": f"Bearer {key}"}
     return {}
+
+
+def omlx_auth_headers() -> dict[str, str]:
+    """``omlxAuthHeaders`` (setup.ts righe 215-218) — oMLX probes authenticate whenever
+    a key exists — NOT only when the config already says backend "omlx": during the
+    wizard the config is still empty and a keyless probe gets a 401, making a live
+    server look unreachable."""
+    key = read_omlx_key()
+    return {"authorization": f"Bearer {key}"} if key else {}
 
 
 def log_llm(line: str) -> None:

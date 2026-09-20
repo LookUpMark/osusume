@@ -49,7 +49,13 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-def build_env(tmp: Path, port: int, fixture_dir: str = "fixtures") -> dict[str, str]:
+def build_env(
+    tmp: Path,
+    port: int,
+    fixture_dir: str = "fixtures",
+    drop: tuple[str, ...] = (),
+    overrides: dict[str, str] | None = None,
+) -> dict[str, str]:
     cache_dir = tmp / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     # fake lms (stesso pattern di tests/setup.test.ts): logga e esce 0 — mai un backend vero
@@ -73,15 +79,27 @@ def build_env(tmp: Path, port: int, fixture_dir: str = "fixtures") -> dict[str, 
         OMLX_BASE_URL="http://127.0.0.1:1/v1",
         PORT=str(port),
     )
+    # test setup wizard: niente LLM_BASE_URL (l'ensure deve girare) e fake lms propri
+    for key in drop:
+        env.pop(key, None)
+    env.update(overrides or {})
     return env
 
 
 class ServerHandle:
     """Server come subprocess reale (ladder di kill inclusa). Usabile come async context."""
 
-    def __init__(self, tmp: Path | None = None, fixture_dir: str = "fixtures") -> None:
+    def __init__(
+        self,
+        tmp: Path | None = None,
+        fixture_dir: str = "fixtures",
+        drop: tuple[str, ...] = (),
+        overrides: dict[str, str] | None = None,
+    ) -> None:
         self.tmp = Path(tmp) if tmp else Path(tempfile.mkdtemp(prefix="osusume-py-"))
         self.fixture_dir = fixture_dir
+        self.drop = drop
+        self.overrides = overrides or {}
         self.port = free_port()
         self.proc: asyncio.subprocess.Process | None = None
 
@@ -98,7 +116,7 @@ class ServerHandle:
             "python",
             str(BACKEND / "run_dev.py"),
             cwd=REPO_ROOT,  # fixture relative a cwd, come record.mjs
-            env=build_env(self.tmp, self.port, self.fixture_dir),
+            env=build_env(self.tmp, self.port, self.fixture_dir, self.drop, self.overrides),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,  # killpg colpisce uv + figli

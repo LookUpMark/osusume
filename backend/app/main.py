@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
@@ -40,7 +41,16 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        # bootstrap di src/server/index.ts righe 30-31: fire-and-forget + teardown
+        from app.adapters.system import setup
+
+        setup.cleanup_on_exit()  # the LLM backend lives and dies with the app
+        setup.ensure_llm_server()  # no-op unless the setup wizard completed
+        yield
+
+    app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None, lifespan=_lifespan)
     app.add_middleware(HostAllowlistMiddleware)
     register_handlers(app)
     app.include_router(router, prefix="/api")
