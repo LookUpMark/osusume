@@ -1,7 +1,7 @@
 import type { Lang } from "../lib/i18n.ts";
 import { tr } from "../lib/i18n.ts";
 import { badgeKey, metaJoin, score110 } from "../lib/logic/display.ts";
-import type { ScoredReco } from "../../../src/shared/types.ts";
+import type { ScoredReco } from "../lib/types.ts";
 
 export function Hero(props: {
   reco: ScoredReco;

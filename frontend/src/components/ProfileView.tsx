@@ -1,6 +1,6 @@
 import type { Lang } from "../lib/i18n.ts";
 import { tr } from "../lib/i18n.ts";
-import type { DimValue, TasteProfile } from "../../../src/shared/types.ts";
+import type { DimValue, TasteProfile } from "../lib/types.ts";
 
 const KIND_KEY: Record<DimValue["dim"], string> = {
   tag: "dimTag",

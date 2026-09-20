@@ -1,4 +1,4 @@
-import type { RecoResult, ScoredReco } from "../../../../src/shared/types.ts";
+import type { RecoResult, ScoredReco } from "../types.ts";
 
 export type SortKey = "final" | "gem" | "affinity";
 

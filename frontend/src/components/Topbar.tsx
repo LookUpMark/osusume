@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Lang } from "../lib/i18n.ts";
 import { tr } from "../lib/i18n.ts";
 import { score110 } from "../lib/logic/display.ts";
-import type { ScoredReco } from "../../../src/shared/types.ts";
+import type { ScoredReco } from "../lib/types.ts";
 import { VIEW_LABEL, type View } from "../views/index.ts";
 
 /** Topbar: page title, ANIME search (any title, scored against the taste

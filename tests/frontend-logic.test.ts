@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { MediaLite, RecoResult, ScoredReco } from "../src/shared/types.ts";
+import type { MediaLite, RecoResult, ScoredReco } from "../frontend/src/lib/types.ts";
 import { badgeKey, communityBar, metaJoin, score110 } from "../frontend/src/lib/logic/display.ts";
 import { errorMessage } from "../frontend/src/lib/logic/errors.ts";
 import { applyFilters, gemRank, gemsOf, topGenres } from "../frontend/src/lib/logic/recos.ts";

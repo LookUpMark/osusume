@@ -1,4 +1,4 @@
-import type { Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../../../src/shared/types.ts";
+import type { Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
 
 const json = async (res: Response): Promise<any> => {
   const body = await res.json().catch(() => ({}));
@@ -79,7 +79,7 @@ export const lookupMedia = (
   username: string,
   q: string,
   lang: Lang,
-): Promise<{ recos: import("../../../src/shared/types.ts").ScoredReco[] }> =>
+): Promise<{ recos: import("../lib/types.ts").ScoredReco[] }> =>
   fetch("/api/lookup", {
     method: "POST",
     headers: { "content-type": "application/json" },

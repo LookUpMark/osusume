@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tr, type Lang } from "./lib/i18n.ts";
-import type { RecoResult, ScoredReco, SetupStatus } from "../../src/shared/types.ts";
+import type { RecoResult, ScoredReco, SetupStatus } from "./lib/types.ts";
 import {
   fetchAppUpdate,
   fetchHealth,

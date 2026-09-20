@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { tr, type Lang } from "../lib/i18n.ts";
-import type { RecoResult, ScoredReco } from "../../../src/shared/types.ts";
+import type { RecoResult, ScoredReco } from "../lib/types.ts";
 import { postChat, type ChatMsg } from "../lib/api.ts";
 
 /** Titles among the current recos that the reply mentions by name — clickable

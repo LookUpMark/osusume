@@ -1,7 +1,7 @@
 import type { Lang } from "../lib/i18n.ts";
 import { tr } from "../lib/i18n.ts";
 import { metaJoin } from "../lib/logic/display.ts";
-import type { WhyNot } from "../../../src/shared/types.ts";
+import type { WhyNot } from "../lib/types.ts";
 
 export function AvoidList(props: { items: WhyNot[]; lang: Lang }) {
   const lang = props.lang;

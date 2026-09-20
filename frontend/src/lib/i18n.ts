@@ -1,4 +1,4 @@
-import type { Lang } from "../../../src/shared/types.ts";
+import type { Lang } from "../lib/types.ts";
 export type { Lang };
 
 type Dict = Record<string, string>;
