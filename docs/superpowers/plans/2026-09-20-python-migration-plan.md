@@ -113,6 +113,8 @@ Consolidamento dei fatti verificati (4 ricerche con fonti, esecuzioni live inclu
 
 **Anti-pattern**: cambiare l'ordine delle fasi della pipeline; dedupe dopo MMR; applicare communityCap solo in scoreAll e non in accumulo (o viceversa).
 
+**Payload** (da review P2): i campi optional `links`/`mmRank` vanno OMITTI dal JSON (semantica `undefined` TS), `rootId`/`droppedId`/`entryPointId` restano `null` esplicito — exclude_none selettivo campo per campo, il golden compare becca chiavi in più.
+
 ## P5 — Commands (setup/config/chat/app-update)
 
 **Cosa fare** — portare `src/server/setup.ts` + `update.ts` + router setup di `api.ts` in `app/commands/`+`app/queries/setup_status.py`: detectHardware (sysctl su mac x64, ramGb round, os map), suggestModel + MODELS literal (RAM_TRESHOLD_GB typo conservato), needsSetupVersion, resolveLms/resolveOmlx, runLms kill-ladder, job singleton con jobGen, logTail ring 2000, install-cli stringhe fisse, startDownload (MODEL_KEY_RE, flag --mlx/--gguf case-insensitive, timeout 1h), omlx-download (whitelist, HEAD content-length, streaming aiter_bytes), cancel (jobGen++ + abort + SIGTERM→SIGKILL +5s), ensureLlmServer (short-circuit order spec §2.3, probe 4s, sequenza lms, run omlx detached process group), autoPickBackend, downloadedModels stale-while-revalidate 10s, /setup/finish ordine branch (skipped→invalid_model→baseUrl custom→omlx→lmstudio), /setup/reset (unlink ENOENT ok), config endpoints, /api/chat route (history normalize: trim content 4000, ultime 12, ultima user, extra slice 5 non-in-recos), app-update (memo 5min anche fallimenti, fresh=1, cmpVersion, senza APP_VERSION no rete).
