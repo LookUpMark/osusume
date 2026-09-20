@@ -70,6 +70,19 @@ Chi non ha endpoint dedicati ma solo shape: `GET /api/profile/:username` applica
 `encodeURIComponent` lato client (`src/ui/api.ts`); il server non decodifica nomi con caratteri
 fuori whitelist (già rifiutati da `USERNAME_RE`).
 
+## Static/SPA — deviazione del port Python (P1)
+
+Il backend TypeScript in produzione serviva `dist/index.html` a prescindere dall'header `Accept`
+(serveStatic + fallback). Il port Python/FastAPI (`app.frontend(fallback="index.html")`) negozia
+sull'`Accept` per un `GET` su un path **non-API** non noto:
+
+- `Accept: text/html` (browser) → `200 index.html` (SPA fallback, invariato);
+- `Accept` non-HTML (es. `*/*`, client API) → `404 {"error":"not_found"}`.
+
+`not_found` non esiste nella mappa errori TS: è un codice del solo port, deviazione
+migliorativa (i client API ricevono un 404 JSON invece di HTML). Le richieste `/api/*`
+sono sempre gestite prima del static.
+
 ## Shape congelati (`src/shared/types.ts`)
 
 ```ts
