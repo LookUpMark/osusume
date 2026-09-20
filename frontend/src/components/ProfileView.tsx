@@ -1,6 +1,6 @@
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { DimValue, TasteProfile } from "../../shared/types.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import type { DimValue, TasteProfile } from "../../../src/shared/types.ts";
 
 const KIND_KEY: Record<DimValue["dim"], string> = {
   tag: "dimTag",

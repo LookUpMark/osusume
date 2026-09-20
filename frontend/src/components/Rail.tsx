@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { AppUpdate, LocalMode } from "../api.ts";
-import { VIEW_LABEL, type View } from "../views.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import type { AppUpdate, LocalMode } from "../lib/api.ts";
+import { VIEW_LABEL, type View } from "../views/index.ts";
 
 const ICONS: Record<View, ReactElement> = {
   home: <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z" />,

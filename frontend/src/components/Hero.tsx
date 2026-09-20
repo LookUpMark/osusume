@@ -1,6 +1,7 @@
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { ScoredReco } from "../../shared/types.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import { badgeKey, metaJoin, score110 } from "../lib/logic/display.ts";
+import type { ScoredReco } from "../../../src/shared/types.ts";
 
 export function Hero(props: {
   reco: ScoredReco;
@@ -21,7 +22,7 @@ export function Hero(props: {
         </>
       )}
       <div className="hero-scrim" aria-hidden="true" />
-      <span className="hero-score mono">{Math.round(r.final * 100)}/110</span>
+      <span className="hero-score mono">{score110(r.final)}/110</span>
       <div className="hero-body">
         <p className="eyebrow">{tr(lang, "heroTop", { u: props.user })}</p>
         <h1>
@@ -32,15 +33,13 @@ export function Hero(props: {
         <div className="chips">
           {r.badges.map((b) => (
             <span key={b} className={`chip-badge ${b === "HIDDEN_GEM" ? "gem" : b === "ENTRY_POINT" ? "entry" : ""}`}>
-              {tr(lang, `badge${b.split("_").map((w) => w[0] + w.slice(1).toLowerCase()).join("")}`)}
+              {tr(lang, badgeKey(b))}
             </span>
           ))}
           {r.groupSize > 1 && <span className="chip-badge">{tr(lang, "moreInSeries", { n: r.groupSize - 1 })}</span>}
         </div>
         <p className="hero-meta">
-          {[m.seasonYear, m.format, m.studio, m.averageScore != null ? `${m.averageScore}/100 AniList` : null]
-            .filter(Boolean)
-            .join(" · ")}
+          {metaJoin([m.seasonYear, m.format, m.studio, m.averageScore != null ? `${m.averageScore}/100 AniList` : null])}
         </p>
         <p className="hero-why">{r.why}</p>
         <div className="hero-cta">

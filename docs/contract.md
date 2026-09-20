@@ -1,7 +1,7 @@
 # Contratto HTTP congelato (P0 migrazione Python/FastAPI)
 
 Fonte: `src/server/api.ts`, `src/server/index.ts`, `src/server/setup.ts`, `src/server/update.ts`,
-`src/shared/types.ts`, `src/ui/api.ts`. Questo documento DESCRIVE il comportamento del backend
+`src/shared/types.ts`, `frontend/src/lib/api.ts`. Questo documento DESCRIVE il comportamento del backend
 TypeScript attuale — non lo specifica ex novo. La porta Python deve produrre, a parità di input,
 gli stessi status e gli stessi body JSON (golden master: `tests/golden/record.mjs`).
 
@@ -67,7 +67,7 @@ conforme a `^[A-Za-z0-9][A-Za-z0-9._/-]*$` o mancante), `400 {"error":"invalid_u
 | 18 | POST `/api/setup/reset` | `{}` | `{ok:true}` (cancella config + stato job) | 500 `reset_failed` |
 
 Chi non ha endpoint dedicati ma solo shape: `GET /api/profile/:username` applica
-`encodeURIComponent` lato client (`src/ui/api.ts`); il server non decodifica nomi con caratteri
+`encodeURIComponent` lato client (`frontend/src/lib/api.ts`); il server non decodifica nomi con caratteri
 fuori whitelist (già rifiutati da `USERNAME_RE`).
 
 ## Static/SPA — deviazione del port Python (P1)

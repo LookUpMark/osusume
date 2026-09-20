@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { tr, type Lang } from "../../shared/strings.ts";
+import { tr, type Lang } from "../lib/i18n.ts";
 
 const VALID = /^[A-Za-z0-9_-]{1,32}$/;
 

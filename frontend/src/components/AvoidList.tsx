@@ -1,6 +1,7 @@
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { WhyNot } from "../../shared/types.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import { metaJoin } from "../lib/logic/display.ts";
+import type { WhyNot } from "../../../src/shared/types.ts";
 
 export function AvoidList(props: { items: WhyNot[]; lang: Lang }) {
   const lang = props.lang;
@@ -19,7 +20,7 @@ export function AvoidList(props: { items: WhyNot[]; lang: Lang }) {
             <div className="t">
               {a.media.title}{" "}
               <span className="mono" style={{ color: "var(--muted)", fontWeight: 400, fontSize: "11.5px" }}>
-                · {[a.media.seasonYear, a.media.format, a.media.studio].filter(Boolean).join(" · ")}
+                · {metaJoin([a.media.seasonYear, a.media.format, a.media.studio])}
               </span>
             </div>
             <p className="r">{a.reason}</p>

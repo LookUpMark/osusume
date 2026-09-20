@@ -1,10 +1,7 @@
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { ScoredReco } from "../../shared/types.ts";
-
-/** NEXT_STEP → "badgeNextStep" (i18n key, same scheme as the scoring server). */
-const badgeKey = (b: string) =>
-  `badge${b.split("_").map((w) => w[0] + w.slice(1).toLowerCase()).join("")}`;
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import { badgeKey, metaJoin, score110 } from "../lib/logic/display.ts";
+import type { ScoredReco } from "../../../src/shared/types.ts";
 
 export function MediaCard(props: {
   reco: ScoredReco;
@@ -39,10 +36,10 @@ export function MediaCard(props: {
             {m.title[0] ?? "?"}
           </span>
         )}
-        <span className="score-tag mono">{Math.round(r.final * 100)}/110</span>
+        <span className="score-tag mono">{score110(r.final)}/110</span>
         <span className="ovl">
           <span className="t">{m.title}</span>
-          <span className="m">{[m.seasonYear, m.format].filter(Boolean).join(" · ")}</span>
+          <span className="m">{metaJoin([m.seasonYear, m.format])}</span>
         </span>
       </span>
       <span className="sub">

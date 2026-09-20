@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { tr, type Lang } from "../shared/strings.ts";
-import type { RecoResult, ScoredReco, SetupStatus } from "../shared/types.ts";
+import { tr, type Lang } from "./lib/i18n.ts";
+import type { RecoResult, ScoredReco, SetupStatus } from "../../src/shared/types.ts";
 import {
   fetchAppUpdate,
   fetchHealth,
@@ -12,7 +12,19 @@ import {
   postSetup,
   type AppUpdate,
   type LocalMode,
-} from "./api.ts";
+} from "./lib/api.ts";
+import { errorMessage } from "./lib/logic/errors.ts";
+import { score110 } from "./lib/logic/display.ts";
+import {
+  applyFilters,
+  carouselPicks,
+  formatsOf,
+  gemsOf,
+  heroPick,
+  topGenres,
+  topPicksOf,
+  type SortKey,
+} from "./lib/logic/recos.ts";
 import { AvoidList } from "./components/AvoidList.tsx";
 import { Carousel } from "./components/Carousel.tsx";
 import { ChatPanel } from "./components/ChatPanel.tsx";
@@ -24,15 +36,7 @@ import { Rail } from "./components/Rail.tsx";
 import { LoginModal } from "./components/LoginModal.tsx";
 import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
-import type { View } from "./views.ts";
-
-type SortKey = "final" | "gem" | "affinity";
-
-const VIEW_ORDER: View[] = ["home", "recos", "gems", "chat", "profile", "avoid", "settings"];
-const gemRank = (r: ScoredReco): number =>
-  r.badges.includes("HIDDEN_GEM")
-    ? r.breakdown.affinity - r.media.popularity / 1_000_000
-    : Number.NEGATIVE_INFINITY; // outside the value domain — no config coupling
+import { VIEW_ORDER, type View } from "./views/index.ts";
 
 export function App() {
   const [lang, setLang] = useState<Lang>(
@@ -159,13 +163,6 @@ export function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const errorMessage = (e: unknown): string =>
-    e instanceof Error && e.message === "user_not_found"
-      ? tr(lang, "errUserNotFound")
-      : e instanceof Error && e.message === "anilist_error"
-        ? tr(lang, "errAnilistDown")
-        : tr(lang, "errGeneric");
-
   async function run(username: string): Promise<boolean> {
     setUsername(username);
     setError(null);
@@ -185,7 +182,7 @@ export function App() {
       // explanations are ON-DEMAND now: fetched per-title when a detail opens
       // (DetailDialog), not for the whole list in one giant LLM prompt
     } catch (e) {
-      setError(errorMessage(e));
+      setError(errorMessage(lang, e));
       setPhase("idle");
       return false;
     } finally {
@@ -234,37 +231,15 @@ export function App() {
     setDialog(r);
   };
 
-  const recos = useMemo(() => {
-    if (!result) return [];
-    let list = result.recos;
-    if (gemsOnly) list = list.filter((r) => r.badges.includes("HIDDEN_GEM"));
-    if (format !== "all") list = list.filter((r) => r.media.format === format);
-    if (genre !== "all") list = list.filter((r) => r.media.genres.includes(genre));
-    const sorted = [...list];
-    if (sort === "gem") sorted.sort((a, b) => gemRank(b) - gemRank(a));
-    else if (sort === "affinity") sorted.sort((a, b) => b.breakdown.affinity - a.breakdown.affinity);
-    else sorted.sort((a, b) => (a.mmRank ?? 1e6) - (b.mmRank ?? 1e6)); // server's diversified default order
-    return sorted;
-  }, [result, gemsOnly, format, genre, sort]);
+  const recos = useMemo(
+    () => applyFilters(result?.recos ?? [], { gemsOnly, format, genre, sort }),
+    [result, gemsOnly, format, genre, sort],
+  );
 
-  const topPicks = useMemo(() => (result ? [...result.recos].sort((a, b) => b.final - a.final) : []), [result]);
-  const gems = useMemo(
-    () =>
-      result
-        ? result.recos.filter((r) => r.badges.includes("HIDDEN_GEM")).sort((a, b) => b.breakdown.affinity - a.breakdown.affinity)
-        : [],
-    [result],
-  );
-  const genres = useMemo(() => {
-    if (!result) return [];
-    const freq = new Map<string, number>();
-    for (const r of result.recos) for (const g of r.media.genres) freq.set(g, (freq.get(g) ?? 0) + 1);
-    return [...freq].sort((a, b) => b[1] - a[1]).slice(0, 9).map(([g]) => g);
-  }, [result]);
-  const formats = useMemo(
-    () => [...new Set((result?.recos ?? []).map((r) => r.media.format).filter(Boolean))] as string[],
-    [result],
-  );
+  const topPicks = useMemo(() => topPicksOf(result), [result]);
+  const gems = useMemo(() => gemsOf(result), [result]);
+  const genres = useMemo(() => topGenres(result), [result]);
+  const formats = useMemo(() => formatsOf(result), [result]);
 
   const resetFilters = () => {
     setSort("final");
@@ -308,7 +283,7 @@ export function App() {
     );
   }
 
-  const hero = topPicks[0] ?? null;
+  const hero = heroPick(topPicks);
 
   return (
     <>
@@ -392,7 +367,7 @@ export function App() {
                   <button className="more" type="button" onClick={() => showView("recos")}>{tr(lang, "seeAll")}</button>
                 </div>
                 <Carousel label={tr(lang, "sectionPicks")} prev={tr(lang, "carPrev")} next={tr(lang, "carNext")}>
-                  {topPicks.slice(0, 8).map((r) => (
+                  {carouselPicks(topPicks).map((r) => (
                     <MediaCard key={r.media.id} reco={r} lang={lang} eager onOpen={setDialog} />
                   ))}
                 </Carousel>
@@ -418,7 +393,7 @@ export function App() {
                   <div className="stat"><div className="num">{result.profile.meanScore}</div><div className="lbl">{tr(lang, "statMean", { n: result.profile.scoredCount })}</div></div>
                   <div className="stat"><div className="num">{result.profile.counts.COMPLETED}</div><div className="lbl">{tr(lang, "statDone")}</div></div>
                   <div className="stat"><div className="num">{gems.length}</div><div className="lbl">{tr(lang, "statGems")}</div></div>
-                  <div className="stat"><div className="num">{Math.round(hero.final * 100)}<small>/110</small></div><div className="lbl">{tr(lang, "statTop")}</div></div>
+                  <div className="stat"><div className="num">{score110(hero.final)}<small>/110</small></div><div className="lbl">{tr(lang, "statTop")}</div></div>
                 </div>
               </>
             ) : (

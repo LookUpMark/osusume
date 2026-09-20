@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { ScoredReco } from "../../shared/types.ts";
-import { VIEW_LABEL, type View } from "../views.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import { score110 } from "../lib/logic/display.ts";
+import type { ScoredReco } from "../../../src/shared/types.ts";
+import { VIEW_LABEL, type View } from "../views/index.ts";
 
 /** Topbar: page title, ANIME search (any title, scored against the taste
  *  profile — the dropdown opens the detail and joins the chat context), and
@@ -93,7 +94,7 @@ export function Topbar(props: {
                   <span>
                     {r.media.title}
                     <em>
-                      {Math.round(r.final * 100)}/110 · {r.media.seasonYear ?? "?"}
+                      {score110(r.final)}/110 · {r.media.seasonYear ?? "?"}
                     </em>
                   </span>
                 </button>

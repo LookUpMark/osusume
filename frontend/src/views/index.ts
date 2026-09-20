@@ -10,3 +10,6 @@ export const VIEW_LABEL: Record<View, string> = {
   avoid: "navAvoid",
   settings: "navSettings",
 };
+
+/** Rail + boot validation order (localStorage "alr-view" is accepted only if listed here). */
+export const VIEW_ORDER: View[] = ["home", "recos", "gems", "chat", "profile", "avoid", "settings"];

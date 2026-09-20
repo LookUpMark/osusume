@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { tr, type Lang } from "../../shared/strings.ts";
-import type { SetupStatus } from "../../shared/types.ts";
-import { fetchSetupStatus, postSetup } from "../api.ts";
+import { tr, type Lang } from "../lib/i18n.ts";
+import type { SetupStatus } from "../../../src/shared/types.ts";
+import { fetchSetupStatus, postSetup } from "../lib/api.ts";
 
 const osLabel = (s: SetupStatus, lang: Lang): string =>
   s.hardware.os === "mac"

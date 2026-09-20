@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { Lang } from "../../shared/strings.ts";
-import { tr } from "../../shared/strings.ts";
-import type { ScoredReco } from "../../shared/types.ts";
-import { fetchExplain } from "../api.ts";
+import type { Lang } from "../lib/i18n.ts";
+import { tr } from "../lib/i18n.ts";
+import { badgeKey, communityBar, metaJoin, score110 } from "../lib/logic/display.ts";
+import type { ScoredReco } from "../../../src/shared/types.ts";
+import { fetchExplain } from "../lib/api.ts";
 
 const clean = (html: string | null): string | null => {
   if (!html) return null;
@@ -104,15 +105,13 @@ export function DetailDialog(props: {
             <div>
               <h2 id="dlg-title">{m.title}</h2>
               <p className="meta">
-                {[
+                {metaJoin([
                   m.seasonYear,
                   m.format,
                   m.studio,
                   m.averageScore != null ? `${m.averageScore}/100 AniList` : null,
                   `${Math.round(m.popularity / 1000)}k`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                ])}
               </p>
             </div>
             <button ref={closeRef} className="dlg-close" type="button" onClick={props.onClose} aria-label={tr(lang, "closeDialog")}>
@@ -122,7 +121,7 @@ export function DetailDialog(props: {
           <div className="chips">
             {r.badges.map((b) => (
               <span key={b} className={`chip-badge ${b === "HIDDEN_GEM" ? "gem" : b === "ENTRY_POINT" ? "entry" : ""}`}>
-                {tr(lang, `badge${b.split("_").map((w) => w[0] + w.slice(1).toLowerCase()).join("")}`)}
+                {tr(lang, badgeKey(b))}
               </span>
             ))}
             {r.groupSize > 1 && <span className="chip-badge">{tr(lang, "moreInSeries", { n: r.groupSize - 1 })}</span>}
@@ -131,13 +130,13 @@ export function DetailDialog(props: {
             ))}
           </div>
           <div className="score-line">
-            <span className="n">{Math.round(r.final * 100)}</span>
+            <span className="n">{score110(r.final)}</span>
             <span className="m">/ 110</span>
           </div>
           <div className="brk">
             <BrkRow k={tr(lang, "kAffinity")} cls="taste" v={r.breakdown.affinity} />
             <BrkRow k={tr(lang, "kQuality")} cls="quality" v={r.breakdown.quality} />
-            <BrkRow k={tr(lang, "kCommunity")} cls="community" v={r.breakdown.community / 0.1} />
+            <BrkRow k={tr(lang, "kCommunity")} cls="community" v={communityBar(r.breakdown.community)} />
             {(r.breakdown.mood ?? 0) > 0.0001 && (
               <BrkRow k={tr(lang, "kMood")} cls="taste" v={r.breakdown.mood!} />
             )}
