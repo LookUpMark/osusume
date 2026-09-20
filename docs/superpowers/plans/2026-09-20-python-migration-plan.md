@@ -109,7 +109,7 @@ Consolidamento dei fatti verificati (4 ricerche con fonti, esecuzioni live inclu
 - `app/queries/`: recommend, profile (cache lista 1h), explain (ids filter/dedup, staleOk, scoreArbitrary per missing), lookup (MUSIC escluso, riordino per indice ricerca), local-mode state (core/: pin env, auto-fallback ≠404 +1 retry, setAutoFallback(false)→setLocalMode(false)).
 - Test: golden compare FULL `recommend en+it, lookup, explain-fallback, local-mode, health-post` su fixtures + fixtures-real.
 
-**Gate**: `python tests/golden/compare.py --suite full` exit 0 su ENTRAMBI i dataset; `uv run pytest backend/tests` exit 0.
+**Gate**: `python tests/golden/compare.py <actual> tests/golden/fixtures --only <17 file scope P1+P4>` exit 0 su ENTRAMBI i dataset (il flag `--suite full` NON esiste; i file `chat-503`, `error-400-chat`, `setup-status` sono scope P5 e entrano nel gate P5); `uv run pytest backend/tests` exit 0.
 
 **Anti-pattern**: cambiare l'ordine delle fasi della pipeline; dedupe dopo MMR; applicare communityCap solo in scoreAll e non in accumulo (o viceversa).
 
