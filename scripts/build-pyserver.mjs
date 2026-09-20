@@ -11,9 +11,12 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const out = join(root, "build", "pyserver");
 const venv = join(out, ".venv");
-const uv = process.env.UV || join(process.env.HOME || "", ".local", "bin", "uv");
-const PYINSTALLER = "6.22.3";
 const win = process.platform === "win32";
+// POSIX: explicit default (official installer location) so the script works even
+// with uv off the PATH. Windows: PATH lookup — $HOME is undefined there, and
+// setup-uv / the standalone installer both put uv.exe on the PATH.
+const uv = process.env.UV || (win ? "uv" : join(process.env.HOME || "", ".local", "bin", "uv"));
+const PYINSTALLER = "6.22.3";
 const vbin = join(venv, win ? "Scripts" : "bin");
 const exe = win ? "osusume-server.exe" : "osusume-server";
 

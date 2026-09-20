@@ -11,3 +11,7 @@ release/
 
 # Python sidecar build (P7)
 build/pyserver/
+
+# Python dev env + caches (uv sync --project backend)
+.venv/
+__pycache__/

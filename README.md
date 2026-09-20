@@ -60,17 +60,19 @@ Full mode wires an Ollama container automatically (`LLM_BASE_URL` env) and pulls
 
 **macOS**: Docker runs Linux in a VM without GPU — if you already run LM Studio on the host, prefer app-only mode (see the header of `compose.yaml`): the wizard then points at `http://host.docker.internal:1234/v1`.
 
-### Node (local dev)
+### From source (dev)
 
-Requires Node ≥ 22.18 and pnpm (or `corepack enable`).
+Requires Node ≥ 22.18 and pnpm (`corepack enable`) for the UI and the Electron shell, plus [uv](https://docs.astral.sh/uv/) for the backend — it provisions Python 3.12 by itself.
 
 ```bash
 pnpm install
-pnpm dev
-# open http://127.0.0.1:3000
+pnpm dev        # backend: FastAPI on http://127.0.0.1:3000 (uv creates backend/.venv on first run)
+pnpm dev:ui     # second shell: Vite dev server for the React UI (hot reload)
 ```
 
-The desktop shell (`pnpm app`) additionally spawns the Python server: install [uv](https://docs.astral.sh/uv/) and run `uv sync --project backend` once to provision `backend/.venv`.
+The backend serves the *built* UI from `dist/` — run `pnpm build` once to get the full app on :3000 without Vite. The desktop shell is `pnpm app` (builds the UI, bundles the Electron main and spawns the Python server out of `backend/.venv`); installers via `pnpm dist:mac` / `dist:win` / `dist:linux`.
+
+Architecture in one breath: a React UI (`frontend/`, built with Vite) talks to a FastAPI backend (`backend/app`, the Python port of the legacy TS server kept in `src/server` as the test/parity oracle), and the Electron shell (`desktop/main.ts`) spawns that backend as a PyInstaller sidecar (`scripts/build-pyserver.mjs`) and loads it on localhost — the packaged app is self-contained, no Node at runtime.
 
 On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) 4-bit (~21 GB, MoE with 3B active params: fast and strong in ~200 languages) on ≥32 GB machines, [Gemma 4 12B](https://huggingface.co/google/gemma-4-12B-it) 4-bit (~8 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
 
@@ -84,8 +86,9 @@ Language: English by default, Italiano via the toggle (covers UI strings and exp
 ## Offline mode / tests
 
 ```bash
-pnpm test                                  # unit + API smoke tests on synthetic fixtures
-ANILIST_FIXTURES=fixtures pnpm dev         # run the app without touching AniList
+pnpm test                                  # unit + API smoke tests (TS parity suite on synthetic fixtures)
+uv run --project backend pytest backend/tests -q   # backend suite: unit + e2e, all offline on fixtures
+ANILIST_FIXTURES=fixtures pnpm dev         # run the backend without touching AniList
 pnpm record-fixtures <username>            # record your real list as fixtures (API must be up)
 ```
 
@@ -101,7 +104,7 @@ pnpm record-fixtures <username>            # record your real list as fixtures (
 
 ## How scoring works
 
-Deterministic, all weights in `src/server/config.ts` (`WEIGHTS`), full math in `docs/architecture.md`:
+Deterministic, all weights in `backend/app/shared/weights.py` (`WEIGHTS`, mirrored in `src/server/config.ts`), full math in `docs/architecture.md`:
 
 ```
 sentiment(entry) = clamp(statusBase + (score − yourMean)/40 + repeatBonus)

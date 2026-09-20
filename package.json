@@ -10,9 +10,9 @@
   },
   "main": "dist-electron/main.mjs",
   "scripts": {
-    "dev": "node src/server/index.ts",
+    "dev": "uv run --project backend run_dev.py",
+    "dev:ui": "vite",
     "build": "vite build",
-    "start": "NODE_ENV=production node src/server/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.ts",
     "record-fixtures": "node scripts/record-fixtures.mjs",

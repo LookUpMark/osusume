@@ -80,7 +80,6 @@ async function start(): Promise<void> {
     cwd: root, // fixtures/ resolve cwd-relative (config.fixtures_available)
     env: {
       ...process.env,
-      NODE_ENV: "production",
       PORT: String(port),
       // the .app bundle is read-only (App Translocation): all runtime data goes
       // to ~/Library/Application Support/<productName>/
@@ -167,6 +166,9 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     quitting = true;
     stopServer();
     void new Promise<void>((resolve) => {
+      // server already dead (e.g. the /api/shutdown POST beat us): no exit event
+      // is coming — don't wait out the 2s grace
+      if (server == null || server.exitCode != null) return resolve();
       const t = setTimeout(() => {
         server?.kill("SIGKILL");
         resolve();

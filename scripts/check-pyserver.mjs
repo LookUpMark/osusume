@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// POSIX-only (mac/linux gate): spawns the bare binary name and derives the repo
+// root from `new URL(..).pathname` — both break on Windows.
 // P7 gate: sidecar standalone, run the way Electron runs it — health 200 within
 // 15s, /api/shutdown → exit 0 within 5s. Fixtures fallback is proven with a dead
 // ANILIST_ENDPOINT: `ANILIST_ENDPOINT=http://127.0.0.1:9 node scripts/check-pyserver.mjs`
