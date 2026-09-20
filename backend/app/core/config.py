@@ -177,46 +177,6 @@ CACHE_TTL_LIST_MS = 60 * 60 * 1000  # 1h — lists change while you watch
 CACHE_TTL_MEDIA_MS = 7 * 24 * 60 * 60 * 1000  # 7d — metadata is stable
 CACHE_TTL_EXPL_MS = 7 * 24 * 60 * 60 * 1000
 
-WEIGHTS = {
-    # candidate affinity mix (sums to 1 over the -1..1 core)
-    "tag": 0.5,
-    "genre": 0.3,
-    "studio": 0.12,
-    "era": 0.08,
-    # final score mix
-    "affinity": 0.6,
-    "quality": 0.28,
-    "franchiseBonus": 0.12,
-    "communityPerHit": 0.03,
-    "communityCap": 0.1,
-    "mood": 0.04,  # continuity bonus: shares themes/plot with the last 5 completed
-    # quality mix
-    "qualityScore": 0.8,
-    "qualityPop": 0.2,
-    # gem score
-    "gemAffinity": 0.65,
-    "gemQuality": 0.35,
-    "gemPopPenalty": 0.3,
-    "gemMaxPopularity": 40_000,
-    "gemMinScore": 72,
-    "gemMinGemScore": 0.45,
-    # sentiment
-    "scoreSpread": 40,  # points from your mean = full ±1 weight
-    "statusBase": {
-        "COMPLETED": 0,
-        "CURRENT": 0.1,
-        "REPEATING": 0.15,
-        "PAUSED": -0.25,
-        "DROPPED": -0.6,
-    },
-    "repeatBonus": 0.1,
-    "repeatCap": 3,
-    # profile thresholds
-    "lovedMin": 0.05,
-    "supportMin": 2,
-    "supportShrink": 10,
-    "topTags": 20,
-    "topGenres": 8,
-    "topStudios": 5,
-    "topDisliked": 10,
-}
+# Costanti PURE: vivono in shared/weights (zero import) perché il dominio le usi
+# senza trascinare l'I/O di questo modulo (.env + os.environ a import time).
+from app.shared.weights import WEIGHTS  # noqa: E402  (re-export: fonte unica dei valori)

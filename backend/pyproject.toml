@@ -8,6 +8,8 @@ dependencies = [
     "fastapi>=0.141",
     "uvicorn>=0.30",
     "httpx>=0.27",
+    # \p{L}/\p{M} del tokenizer non esistono nella stdlib re (spec §2.2.5)
+    "regex>=2024.4.16",
 ]
 
 [dependency-groups]
