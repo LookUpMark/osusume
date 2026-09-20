@@ -1,0 +1,55 @@
+{
+  "status": 200,
+  "body": {
+    "setupDone": false,
+    "needsSetup": true,
+    "customEnv": true,
+    "hardware": {
+      "os": null,
+      "chip": null,
+      "ramGb": null,
+      "appleSilicon": null
+    },
+    "suggested": {
+      "model": "lmstudio-community/Qwen3.6-35B-A3B-GGUF",
+      "sizeGb": 21.5,
+      "mlx": {
+        "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
+        "sizeGb": 19.5
+      },
+      "mlxLms": {
+        "model": "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit",
+        "sizeGb": 19.5
+      }
+    },
+    "lms": {
+      "installed": true,
+      "path": null,
+      "serverUp": false
+    },
+    "omlx": {
+      "installed": false,
+      "serverUp": false,
+      "models": [],
+      "downloadable": [
+        {
+          "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
+          "sizeGb": 19.5
+        },
+        {
+          "model": "mlx-community/gemma-4-12B-it-4bit",
+          "sizeGb": 6.3
+        }
+      ]
+    },
+    "downloadedModels": [],
+    "job": {
+      "state": "idle",
+      "model": null,
+      "logTail": ""
+    },
+    "llm": {
+      "state": "off"
+    }
+  }
+}

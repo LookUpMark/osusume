@@ -1,0 +1,9 @@
+{
+  "status": 200,
+  "body": {
+    "current": null,
+    "latest": null,
+    "url": null,
+    "available": false
+  }
+}

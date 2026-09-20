@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "local": {
+      "on": true,
+      "available": true,
+      "auto": false
+    }
+  }
+}

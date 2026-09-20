@@ -1,0 +1,6 @@
+{
+  "status": 503,
+  "body": {
+    "error": "llm_unavailable"
+  }
+}
