@@ -15,7 +15,7 @@ import regex as re  # \p{L} non esiste nella stdlib re (spec §2.2.5)
 
 from app.domain.franchise import is_spin_off
 from app.shared.weights import WEIGHTS
-from app.domain.js_compat import js_num_str, to_locale_string
+from app.domain.js_compat import js_log10, js_num_str, to_locale_string
 from app.domain.profile import clamp
 from app.shared.models import (
     Badge,
@@ -66,8 +66,12 @@ def affinity_map(p: TasteProfile) -> dict[str, float]:
 
 
 def pop_norm(m: MediaLite) -> float:
-    """``popNorm``: 0 (pop ~100) → 1 (pop ~100k+): gems and mainstream separate."""
-    return clamp((math.log10(m.popularity + 1) - 2) / 4, 0, 1)
+    """``popNorm``: 0 (pop ~100) → 1 (pop ~100k+): gems and mainstream separate.
+
+    ``Math.log10`` di V8, NON la libm di CPython: divergono fino a 1 ULP
+    (js_compat ha il dettaglio) e i golden bloccano il bit.
+    """
+    return clamp((js_log10(m.popularity + 1) - 2) / 4, 0, 1)
 
 
 def affinity_of(m: MediaLite, p: TasteProfile) -> Affinity:

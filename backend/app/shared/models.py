@@ -157,3 +157,14 @@ class ScoredReco(JsModel):
 class Explanation(JsModel):
     text: str
     source: Literal["llm", "cache", "fallback"]
+
+
+class WhyNot(JsModel):
+    media: MediaLite
+    reason: str
+
+
+class RecoResult(JsModel):
+    profile: TasteProfile
+    recos: list[ScoredReco]
+    avoided: list[WhyNot]
