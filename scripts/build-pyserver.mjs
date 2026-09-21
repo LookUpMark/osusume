@@ -13,15 +13,22 @@ const out = join(root, "build", "pyserver");
 const venv = join(out, ".venv");
 const win = process.platform === "win32";
 // POSIX: explicit default (official installer location) so the script works even
-// with uv off the PATH. Windows: PATH lookup — $HOME is undefined there, and
-// setup-uv / the standalone installer both put uv.exe on the PATH.
-const uv = process.env.UV || (win ? "uv" : join(process.env.HOME || "", ".local", "bin", "uv"));
+// with uv off the PATH, falling back to PATH lookup when the default is absent
+// (GitHub runners: setup-uv puts uv on the PATH, not in ~/.local/bin).
+// Windows: PATH lookup — $HOME is undefined there, and setup-uv / the standalone
+// installer both put uv.exe on the PATH.
+const uvDefault = join(process.env.HOME || "", ".local", "bin", "uv");
+const uv = process.env.UV || (win || !existsSync(uvDefault) ? "uv" : uvDefault);
 const PYINSTALLER = "6.22.3";
 const vbin = join(venv, win ? "Scripts" : "bin");
 const exe = win ? "osusume-server.exe" : "osusume-server";
 
 function run(cmd, args, env = {}) {
   const r = spawnSync(cmd, args, { stdio: "inherit", cwd: root, env: { ...process.env, ...env } });
+  if (r.error) {
+    console.error(`build-pyserver: cannot run ${cmd}: ${r.error.message}`);
+    process.exit(1);
+  }
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
