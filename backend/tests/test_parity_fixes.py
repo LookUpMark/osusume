@@ -196,16 +196,22 @@ async def test_setup_finish_empty_body_invalid_model(client_m: httpx.AsyncClient
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_metodo_sbagliato_fallback_spa(client_m: httpx.AsyncClient):
+async def test_metodo_sbagliato_fallback_spa(tmp_path):
     """Nel TS il metodo sbagliato non matchava Hono: GET/HEAD → SPA 200 text/html,
-    altri metodi → 404 default text/plain."""
-    res = await client_m.get("/api/recommend")
-    assert res.status_code == 200
-    assert res.headers["content-type"].startswith("text/html")
-    assert "<div" in res.text
-    res = await client_m.request("PUT", "/api/profile/abc")
-    assert res.status_code == 404
-    assert res.headers["content-type"].startswith("text/plain")
+    altri metodi → 404 default text/plain. dist indicata via DIST_DIR: il test è
+    deterministico anche dove il frontend non viene buildato (CI python job)."""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><div id=\"root\"></div>", encoding="utf-8")
+    async with ServerHandle(overrides={"DIST_DIR": str(dist)}) as server:
+        async with httpx.AsyncClient(trust_env=False, base_url=server.base, timeout=15.0) as c:
+            res = await c.get("/api/recommend")
+            assert res.status_code == 200
+            assert res.headers["content-type"].startswith("text/html")
+            assert "<div" in res.text
+            res = await c.request("PUT", "/api/profile/abc")
+            assert res.status_code == 404
+            assert res.headers["content-type"].startswith("text/plain")
 
 
 @pytest.mark.asyncio(loop_scope="module")
