@@ -7,11 +7,19 @@ Unico campo extra ammesso: ``message`` (solo ``anilist_error``).
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+def _spa_index() -> Path:
+    """index.html della SPA, stessa risoluzione di ``app.main.dist_dir`` (DIST_DIR
+    override o dist/ cwd-relative) — import da main evitato (circolare)."""
+    override = os.environ.get("DIST_DIR")
+    return (Path(override) if override else Path("dist")) / "index.html"
 
 
 class ApiError(Exception):
@@ -59,7 +67,7 @@ def register_handlers(app: FastAPI) -> None:
         if exc.status_code == 405:
             if request.method in ("GET", "HEAD"):
                 try:
-                    return HTMLResponse(Path("dist/index.html").read_text("utf-8"))
+                    return HTMLResponse(_spa_index().read_text("utf-8"))
                 except OSError:
                     pass
             return PlainTextResponse("404 Not Found", status_code=404)
