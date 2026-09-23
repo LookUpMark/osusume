@@ -63,6 +63,11 @@ async def _served_model_ids() -> list[str] | None:
         return None
 
 
+async def served_models() -> list[str] | None:
+    """Public view of ``GET {base}/models`` for the settings UI; None = unreachable."""
+    return await _served_model_ids()
+
+
 async def llm_health() -> bool:
     ids = await _served_model_ids()
     if ids is None:

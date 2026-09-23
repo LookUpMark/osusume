@@ -42,10 +42,14 @@ def _expl_dir() -> str:
 
 
 def cache_key(recos: list[ScoredReco], profile: TasteProfile, lang: str, username: str) -> str:
-    """``createHash().update(prefix).update(ids.join(","))`` del TS."""
+    """``createHash().update(prefix).update(ids.join(","))`` del TS.
+
+    `systemPromptExtra` entra nella key: cambiare le istruzioni personali deve
+    invalidare le spiegazioni cachate, non servire la voce vecchia per 7 giorni."""
     ids = ",".join(str(r.media.id) for r in sorted(recos, key=lambda r: r.media.id))
+    extra_hash = hashlib.sha1(config.system_prompt_extra().strip().encode("utf-8")).hexdigest()[:12]
     return hashlib.sha256(
-        f"{username}|{profile.hash}|{lang}|{config.llm_model()}|{config.llm_base_url()}|{PROMPT_VERSION}|{ids}".encode("utf-8")
+        f"{username}|{profile.hash}|{lang}|{config.llm_model()}|{config.llm_base_url()}|{PROMPT_VERSION}|{extra_hash}|{ids}".encode("utf-8")
     ).hexdigest()
 
 

@@ -11,6 +11,7 @@ import re
 from typing import Any
 
 from app.adapters.anilist.media import ReviewLite
+from app.core import config
 from app.domain.js_compat import js_num_str, js_round
 from app.domain.scoring import loved_overlap
 from app.shared.models import Lang, ScoredReco, TasteProfile
@@ -56,6 +57,19 @@ COMPARISON_STANDARD = """THE COMPARISON STANDARD (what separates you from a fan 
 
 # la variante inline del chat system: COMPARISON_STANDARD.split("\n").slice(1).join(" ")
 _COMPARISON_INLINE = " ".join(COMPARISON_STANDARD.split("\n")[1:])
+
+
+def _owner_extra() -> str:
+    """Settings UI → config `systemPromptExtra`: istruzioni personali APPESSE in
+    coda alla dottrina (mai in replace — la voce esperto resta la base)."""
+    extra = config.system_prompt_extra().strip()
+    if not extra:
+        return ""
+    return (
+        "\n\nOWNER NOTES (the viewer's personal preferences — honor them in your voice; "
+        "they never override the output format rules):\n"
+        f"{extra}"
+    )
 
 
 def _themes_of(media: Any) -> str:
@@ -111,7 +125,8 @@ def build_prompt(
         f"{COMPARISON_STANDARD}\n"
         "Point out the pattern in their taste (what kinds of stories they gravitate to) and how this title fits or stretches it.\n"
         "Use ONLY the facts provided plus general knowledge of these exact titles; never invent plot. If the plot text is missing, speak about the themes. "
-        f"NEVER mention scores, percentages, \"affinity\", \"quality\", \"match\", the app or any algorithm — a real expert does not talk like that.\n\n{items_text}\n\n"
+        f"NEVER mention scores, percentages, \"affinity\", \"quality\", \"match\", the app or any algorithm — a real expert does not talk like that."
+        f"{_owner_extra()}\n\n{items_text}\n\n"
         f"Reply with ONLY a JSON array: [{{\"id\":<media id>,\"why\":\"<explanation>\"}}] — every \"why\" MUST be written in {LANG_NAME[lang]}."
     )
 
@@ -177,4 +192,5 @@ def build_chat_system(
         + (f"TITLES THEY WATCHED AND LOVED (cite these by name): {', '.join(watched)}.\n" if watched else "")
         + f"\nCURRENT RECOMMENDATIONS:\n{recos_text or '(none yet)'}"
         + (f"\n\nTITLES SUGGESTED TO AVOID (do not recommend): {avoided}" if avoided else "")
+        + _owner_extra()
     )

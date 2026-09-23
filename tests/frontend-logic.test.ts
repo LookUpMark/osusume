@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { MediaLite, RecoResult, ScoredReco } from "../frontend/src/lib/types.ts";
 import { badgeKey, communityBar, metaJoin, score110 } from "../frontend/src/lib/logic/display.ts";
 import { errorMessage } from "../frontend/src/lib/logic/errors.ts";
+import { detectLang } from "../frontend/src/lib/logic/lang.ts";
 import { applyFilters, gemRank, gemsOf, topGenres } from "../frontend/src/lib/logic/recos.ts";
 
 const media = (over: Partial<MediaLite> = {}): MediaLite => ({
@@ -94,4 +95,14 @@ test("errorMessage: user_not_found / anilist_error / generic", () => {
   assert.equal(errorMessage("it", new Error("anilist_error")), "AniList non raggiungibile al momento. Riprova tra poco.");
   assert.equal(errorMessage("en", new Error("qualunque")), "Something went wrong. Try again.");
   assert.equal(errorMessage("en", "not an error"), "Something went wrong. Try again.");
+});
+
+test("detectLang: saved wins, OS language fallback", () => {
+  assert.equal(detectLang(null, "it-IT"), "it");
+  assert.equal(detectLang(null, "en-US"), "en");
+  assert.equal(detectLang(null, "fr-FR"), "en");
+  assert.equal(detectLang("it", "en-US"), "it"); // saved preference wins
+  assert.equal(detectLang("en", "it-IT"), "en");
+  assert.equal(detectLang("crash", "it-IT"), "it"); // invalid saved → OS
+  assert.equal(detectLang(null, ""), "en");
 });

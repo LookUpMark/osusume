@@ -153,6 +153,13 @@ def llm_model() -> str:
     return model if model is not None else "qwen3:8b"
 
 
+def system_prompt_extra() -> str:
+    """User's custom prompt additions (settings UI) — appended to the chat and
+    explain system prompts. Empty when unset; non-string config → ignored."""
+    value = _file_config.get("systemPromptExtra")
+    return value if isinstance(value, str) else ""
+
+
 def llm_base_url() -> str:
     """Read per call (tests repoint the env at a fake server)."""
     env = os.environ.get("LLM_BASE_URL")

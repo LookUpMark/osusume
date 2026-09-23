@@ -111,3 +111,28 @@ export const postSetup = (
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body ?? {}),
   }).then(json);
+
+export interface Settings {
+  baseUrl: string;
+  model: string | null; // null = server fallback default
+  defaultModel: string;
+  systemPromptExtra: string;
+  envOverride: boolean; // LLM_BASE_URL/LLM_MODEL env win over these settings
+}
+
+export const fetchSettings = (): Promise<Settings> => fetch("/api/settings").then(json);
+
+/** Key present = change; key absent = untouched. model:"" reverts to the default,
+ *  systemPromptExtra:"" clears. Undefined fields are dropped by JSON.stringify. */
+export const patchSettings = (
+  patch: Partial<Pick<Settings, "baseUrl" | "model" | "systemPromptExtra">>,
+): Promise<Settings> =>
+  fetch("/api/settings", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(patch),
+  }).then(json);
+
+/** Live backend reachability + model ids (settings UI test button). 503 llm_unavailable. */
+export const fetchLlmModels = (): Promise<{ models: string[]; configured: string | null }> =>
+  fetch("/api/llm/models").then(json);

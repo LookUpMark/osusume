@@ -502,6 +502,19 @@ button:disabled { opacity: 0.5; cursor: default; }
 .set-row small { color: var(--muted); font-size: 0.75rem; }
 .set-row small.ok { color: var(--ok, #6ee7a0); }
 .set-row small.err { color: var(--ring); }
+.set-row.set-row-top { align-items: flex-start; }
+.set-row.set-row-top > span { padding-top: 8px; }
+.set-form { justify-items: end; max-width: 440px; }
+.set-form input[type="text"], .set-form select, .set-form textarea {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+  color: inherit; border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 0.85rem;
+}
+.set-form input:focus-visible, .set-form select:focus-visible, .set-form textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.set-form textarea { resize: vertical; min-height: 76px; }
+.set-presets { display: flex; gap: 12px; }
+.set-model-line { display: flex; align-items: center; gap: 12px; width: 100%; }
+.set-model-line select { flex: 1; min-width: 0; }
+.set-save { justify-self: end; }
 .set-check { display: inline-flex; align-items: center; gap: 7px; }
 .set-check svg { width: 14px; height: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }

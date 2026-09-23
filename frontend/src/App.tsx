@@ -14,6 +14,7 @@ import {
   type LocalMode,
 } from "./lib/api.ts";
 import { errorMessage } from "./lib/logic/errors.ts";
+import { detectLang } from "./lib/logic/lang.ts";
 import { score110 } from "./lib/logic/display.ts";
 import {
   applyFilters,
@@ -34,13 +35,14 @@ import { MediaCard } from "./components/MediaCard.tsx";
 import { ProfileView } from "./components/ProfileView.tsx";
 import { Rail } from "./components/Rail.tsx";
 import { LoginModal } from "./components/LoginModal.tsx";
+import { LlmSettings } from "./components/LlmSettings.tsx";
 import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
 import { VIEW_ORDER, type View } from "./views/index.ts";
 
 export function App() {
-  const [lang, setLang] = useState<Lang>(
-    localStorage.getItem("lang") === "it" ? "it" : "en", // validate, never cast
+  const [lang, setLang] = useState<Lang>(() =>
+    detectLang(localStorage.getItem("lang"), typeof navigator === "undefined" ? "" : navigator.language),
   );
   const [view, setView] = useState<View>(() => {
     const v = localStorage.getItem("alr-view");
@@ -625,6 +627,8 @@ export function App() {
                 </button>
               </div>
             </div>
+
+            <LlmSettings lang={lang} onSaved={refreshHealth} />
           </section>
 
           <footer className="pagefoot" data-od-id="footer">

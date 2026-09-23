@@ -13,7 +13,7 @@ from pydantic import BaseModel, StrictBool
 
 from app.adapters.anilist.client import AniListError
 from app.adapters.llm.chat import chat_reply
-from app.adapters.llm.client import LlmError, llm_health
+from app.adapters.llm.client import LlmError, llm_health, served_models
 from app.adapters.system import setup as setup_mod
 from app.adapters.system.setup import setup_router
 from app.adapters.system.update import app_update_status
@@ -149,6 +149,73 @@ async def local_mode(body: LocalModeBody) -> dict:
 @router.get("/config")
 async def get_config() -> dict:
     return {"llm": {"model": config.llm_model()}}
+
+
+# --- settings UI (nuovo, non nel TS): GET/PATCH /api/settings + GET /api/llm/models.
+# Le chiavi sono le stesse del wizard (model/baseUrl): wizard e settings condividono lo stato.
+
+
+class SettingsBody(BaseModel):
+    # chiave ASSENTE = non toccare (model_fields_set); chiave presente:
+    # baseUrl/model stringa validata, "" su model = torna al default del server,
+    # "" su systemPromptExtra = cancella (update_config(None) dropa la chiave)
+    baseUrl: str | None = None
+    model: str | None = None
+    systemPromptExtra: str | None = None
+
+
+def _settings_payload() -> dict:
+    # valori DEL FILE (quelli che il form edita): con env LLM_* attivo il file
+    # non vince a runtime — il flag envOverride lo dice, il form resta editabile
+    cfg = config.read_config_file()
+    base = cfg.get("baseUrl")
+    model = cfg.get("model")
+    return {
+        "baseUrl": base if isinstance(base, str) else config.llm_base_url(),
+        "model": model if isinstance(model, str) else None,
+        "defaultModel": "qwen3:8b",
+        "systemPromptExtra": config.system_prompt_extra(),
+        "envOverride": config.has_custom_env(),
+    }
+
+
+@router.get("/settings")
+async def get_settings() -> dict:
+    return _settings_payload()
+
+
+_BASE_URL_RE = re.compile(r"\Ahttps?://\S+\Z")
+
+
+@router.patch("/settings")
+async def patch_settings(body: SettingsBody) -> dict:
+    patch: dict = {}
+    if "baseUrl" in body.model_fields_set:
+        url = js_trim(body.baseUrl or "").rstrip("/")
+        if not url or len(url) > 200 or not _BASE_URL_RE.match(url):
+            raise ApiError(400, "invalid_request")
+        patch["baseUrl"] = url
+    if "model" in body.model_fields_set:
+        model = js_trim(body.model or "")
+        if len(model) > 120 or "\n" in model:
+            raise ApiError(400, "invalid_request")
+        patch["model"] = model if model else None  # "" → cancella: fallback al default
+    if "systemPromptExtra" in body.model_fields_set:
+        extra = (body.systemPromptExtra or "").strip()
+        if len(extra) > 4000:
+            raise ApiError(400, "invalid_request")
+        patch["systemPromptExtra"] = extra if extra else None
+    if patch:
+        config.update_config(patch)
+    return _settings_payload()
+
+
+@router.get("/llm/models")
+async def llm_models() -> dict:
+    ids = await served_models()
+    if ids is None:
+        raise ApiError(503, "llm_unavailable")
+    return {"models": sorted({m for m in ids if m}), "configured": config.configured_llm_model()}
 
 
 _shutdown_tasks: set[asyncio.Task] = set()
