@@ -23,10 +23,7 @@
     "dist:win": "pnpm build && pnpm build:pyserver && pnpm build:electron && electron-builder --win",
     "dist:linux": "pnpm build && pnpm build:pyserver && pnpm build:electron && electron-builder --linux"
   },
-  "dependencies": {
-    "@hono/node-server": "^1.14.0",
-    "hono": "^4.7.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",

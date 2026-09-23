@@ -408,7 +408,9 @@ def tokenize(text: str) -> dict[str, None]:
     return dict.fromkeys(
         w
         for w in re.split(r"\s+", re.sub(r"[^\p{L}\s]", " ", unicodedata.normalize("NFKD", text.lower())))
-        if len(w) > 3 and w not in STOP_WORDS
+        # `String.length` è in unità UTF-16, non code point: un token di 2-3 code
+        # point astrali (CJK ext-B) conta 4-6 e passa il filtro come nel TS
+        if len(w.encode("utf-16-le")) // 2 > 3 and w not in STOP_WORDS
     )
 
 

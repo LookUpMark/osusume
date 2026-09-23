@@ -10,6 +10,7 @@ costruzione (contract §1). Opzionalità replicata dal TS:
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 from pydantic import BaseModel, model_serializer
@@ -24,6 +25,9 @@ def _js_numbers(value: Any) -> Any:
         return {k: _js_numbers(v) for k, v in value.items()}
     if isinstance(value, list):
         return [_js_numbers(v) for v in value]
+    # JSON.stringify: NaN/Infinity → null (es. final NaN da popularity negative in fixture)
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     return js_number(value)
 
 

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from typing import Any, Awaitable, Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StrictBool
 
@@ -19,6 +20,7 @@ from app.adapters.system.update import app_update_status
 from app.core import config
 from app.core.errors import ApiError
 from app.domain import pipeline
+from app.domain.js_compat import js_length, js_trim
 # alias "recommend_query": la route POST /recommend si chiama `recommend` e
 # ombreggerebbe il modulo nello scope del file
 from app.queries import explain_query, profile_query
@@ -27,8 +29,28 @@ from app.queries import recommend as recommend_query
 router = APIRouter()
 router.include_router(setup_router, prefix="/setup")
 
-USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+# `\A…\Z` (NON `^…$`): il `$` Python accetta un `\n` finale, il `$` JS no —
+# "abc\n" deve restare invalid_username come nel TS
+USERNAME_RE = re.compile(r"\A[A-Za-z0-9_-]{1,32}\Z")
 LANGS: frozenset[str] = frozenset({"en", "it"})
+
+
+def _reject_constant(c: str) -> Any:
+    """JSON.parse rifiuta i letterali NaN/Infinity: il decoder stdlib li accetta."""
+    raise ValueError(f"non-JSON constant: {c}")
+
+
+async def _js_body(request: Request) -> Any:
+    """``await c.req.json().catch(() => null)`` del TS: parse STRICT (NaN/Infinity → None),
+    qualunque fallimento → None. Il valore non-oggetto resta tale (nel TS è truthy) —
+    ogni endpoint gli applica la propria navigazione ``body?.``, vedi i singoli handler."""
+    raw = await request.body()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw, parse_constant=_reject_constant)
+    except Exception:
+        return None
 
 
 def _lang(value: Any) -> Any:
@@ -136,8 +158,9 @@ class UsernameBody(BaseModel):
     # `username: str` con default "": manca → "" → invalid_username (come il TS,
     # `body?.username ?? ""`). Un username NON stringa è invece 400 invalid_request
     # (deviazione: la regex TS .test() coerce a stringa) — stesso preambolo di LocalModeBody.
+    # `lang: Any`: nel TS un lang non-stringa NON è un errore, `_lang` lo manda a "en".
     username: str = ""
-    lang: str | None = None
+    lang: Any = None
 
 
 class ExplainBody(UsernameBody):
@@ -159,9 +182,10 @@ async def profile(username: str):
 
 
 @router.post("/recommend")
-async def recommend(body: UsernameBody | None = None):
-    if body is None:
-        body = UsernameBody()
+async def recommend(request: Request):
+    raw = await _js_body(request)
+    # TS: body null/non-oggetto → `body?.username ?? ""` → invalid_username (mai invalid_request)
+    body = UsernameBody(**raw) if isinstance(raw, dict) else UsernameBody()
     if not USERNAME_RE.match(body.username):
         return _invalid_username()
     try:
@@ -173,9 +197,10 @@ async def recommend(body: UsernameBody | None = None):
 
 
 @router.post("/explain")
-async def explain(body: ExplainBody | None = None):
-    if body is None:
-        body = ExplainBody()
+async def explain(request: Request):
+    raw = await _js_body(request)
+    # TS: null → `body?.ids ?? []` → size 0 → invalid_request (stesso codice del bad username)
+    body = ExplainBody(**raw) if isinstance(raw, dict) else ExplainBody()
     ids = explain_query.normalize_ids(body.ids)
     if not USERNAME_RE.match(body.username) or len(ids) == 0:
         return _invalid_request()
@@ -189,11 +214,14 @@ async def explain(body: ExplainBody | None = None):
 
 
 @router.post("/lookup")
-async def lookup(body: LookupBody | None = None):
-    if body is None:
-        body = LookupBody()
-    q = body.q.strip()
-    if not USERNAME_RE.match(body.username) or len(q) < 2 or len(q) > 80:
+async def lookup(request: Request):
+    raw = await _js_body(request)
+    # TS: null → q "" → invalid_request
+    body = LookupBody(**raw) if isinstance(raw, dict) else LookupBody()
+    # trim() e length sono quelli JS (whitelist whitespace ECMA, unità UTF-16) —
+    # str.strip()/len() divergono su NEL/\x1c-\x1f/BOM e sui token astrali
+    q = js_trim(body.q)
+    if not USERNAME_RE.match(body.username) or js_length(q) < 2 or js_length(q) > 80:
         return _invalid_request()
     try:
         return await with_local_fallback(lambda: recommend_query.lookup(body.username, q, _lang(body.lang)))
@@ -207,7 +235,7 @@ class ChatBody(BaseModel):
     validazione pydantic — un turno malformato va scartato, non rifiutato in 422."""
 
     username: str = ""
-    lang: str | None = None
+    lang: Any = None
     extra: list[Any] = []
     messages: list[dict[str, Any]] = []
 
@@ -250,9 +278,10 @@ async def _chat_turn(username: str, lang: str, history: list[dict[str, str]], ex
 
 
 @router.post("/chat")
-async def chat(body: ChatBody | None = None):
-    if body is None:
-        body = ChatBody()
+async def chat(request: Request):
+    raw = await _js_body(request)
+    # TS: body null/non-oggetto → username "" → invalid_username
+    body = ChatBody(**raw) if isinstance(raw, dict) else ChatBody()
     if not USERNAME_RE.match(body.username):
         return _invalid_username()
     history = _normalize_history(body.messages)

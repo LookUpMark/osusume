@@ -18,4 +18,12 @@ backend/.venv/
 __pycache__/
 .pytest_cache/
 release/
-build/pyserver/
+# mai nel build context: dati utente reali locali + roba non COPYata (desktop/
+# scripts/ contano solo per electron, non per l'immagine)
+fixtures-real/
+tests/golden/fixtures-real/
+tests/
+build/
+desktop/
+scripts/
+dist-electron/

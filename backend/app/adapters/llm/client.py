@@ -56,7 +56,9 @@ async def _served_model_ids() -> list[str] | None:
             )
         if not (200 <= res.status_code < 300):
             return None
-        return [m.get("id") or "" for m in res.json().get("data") or []]
+        # il TS tollera entry non-oggetto (`m.id ?? ""` su una stringa → undefined → ""):
+        # una sola entry sporca non deve spegnere il chip né rompere il leaf-match
+        return [m.get("id") or "" for m in res.json().get("data") or [] if isinstance(m, dict)]
     except Exception:
         return None
 
@@ -135,6 +137,10 @@ async def llm_chat(messages: list[dict[str, str]], model: str, max_tokens: int |
     # templates without the kwarg may still reason inline — strip what we can
     content = ((choice or {}).get("message") or {}).get("content") or ""
     content = _THINK_RE.sub("", content).strip()
+    # lone surrogate (escape \ud800 dal JSON LLM): utf-8 non la codifica → 500 su
+    # chat/explain e cache mai scritta; il TS la ri-escapava (well-formed stringify) —
+    # qui il code point si scarta, il testo resta sempre encodabile
+    content = "".join(ch for ch in content if not 0xD800 <= ord(ch) <= 0xDFFF)
     if not content:
         raise LlmError("LLM returned empty content")
     return content

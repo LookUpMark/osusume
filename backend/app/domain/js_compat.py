@@ -22,6 +22,31 @@ def js_round(x: float) -> int:
     return math.floor(x + 0.5)
 
 
+# WhiteSpace + LineTerminator di ECMA-262 (String.prototype.trim): differisce da
+# str.strip() sia in più (\x1c-\x1f, \x85 sono whitespace Python, non JS) sia in
+# meno (﻿ è ZWNBSP/WhiteSpace JS, non whitespace Python)
+_JS_WS = (
+    "\t\n\v\f\r \u00a0\u1680"
+    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a"
+    "\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
+
+
+def js_trim(s: str) -> str:
+    """``String.prototype.trim``: taglia SOLO i whitespace ECMA-262."""
+    start, end = 0, len(s)
+    while start < end and s[start] in _JS_WS:
+        start += 1
+    while end > start and s[end - 1] in _JS_WS:
+        end -= 1
+    return s[start:end]
+
+
+def js_length(s: str) -> int:
+    """``String.length``: unità UTF-16, NON code point (\"🦈\".repeat(41).length = 82)."""
+    return len(s.encode("utf-16-le")) // 2
+
+
 def js_number(x: float | int) -> float | int:
     """Numero JS come valore Python: un float integrale diventa ``int``.
 
@@ -198,6 +223,10 @@ def _v8_log(x: float) -> float:
 
 def js_log10(x: float) -> float:
     """``Math.log10`` di V8 (fdlibm e_log10), per ``popNorm`` — vedi sopra."""
+    # x negativo: fdlibm lavora sull'high word CON segno (hx < 0 → ramo subnormali)
+    # e V8 produce NaN; qui il confronto è su unsigned → gestire il segno a parte
+    if x < 0:
+        return math.nan
     hx = _high_word(x)
     k = 0
     if hx < 0x00100000:  # subnormali: irraggiungibili con popularity+1

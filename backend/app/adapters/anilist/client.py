@@ -29,6 +29,25 @@ class AniListError(Exception):
         self.status = status
 
 
+def _reject_constant(c: str) -> Any:
+    """``JSON.parse`` rifiuta i letterali NaN/Infinity: devono cadere nel ramo
+    «non-JSON body» della retry ladder (retry + AniListError → fallback/502)."""
+    raise ValueError(f"non-JSON constant: {c}")
+
+
+def _null_non_finite(value: Any) -> Any:
+    """``JSON.stringify`` scrive NaN/Infinity come null: un numero tipo ``1e999``
+    passa il parse (→ inf) ma non deve esplodere alla scrittura cache (allow_nan=False)
+    né nella risposta — normalizza a None come faceva il TS a monte."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {k: _null_non_finite(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_null_non_finite(v) for v in value]
+    return value
+
+
 # --- rate limiting -------------------------------------------------------------
 
 _tokens = 3.0
@@ -117,7 +136,7 @@ async def _gql_fetch(query: str, variables: dict[str, Any]) -> Any:
             await sleep_ms(1000 * 2**attempt)
             continue
         try:
-            json_body = res.json()
+            json_body = _null_non_finite(json.loads(res.text, parse_constant=_reject_constant))
         except ValueError:
             if attempt < _MAX_RETRIES:
                 await sleep_ms(1000 * 2**attempt)

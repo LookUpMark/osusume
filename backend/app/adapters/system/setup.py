@@ -1029,9 +1029,16 @@ async def setup_download(request: Request) -> dict:
 @setup_router.post("/finish")
 async def setup_finish(request: Request) -> dict:
     """Ordine branch di ``/finish`` (setup.ts righe 826-867)."""
-    body = await _body(request)
-    if not body:
+    # qui il TS naviga il body SENZA il guard dict degli altri endpoint: `{}`/`[]`/
+    # "str"/5 sono TRUTHY e arrivano a `if (!body.model)` → invalid_model; solo
+    # null / body non decodificabile → invalid_request
+    try:
+        raw = await request.json()
+    except Exception:
+        raw = None
+    if raw is None:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
+    body: dict = raw if isinstance(raw, dict) else {}
     version = {"setupDone": True, "setupVersion": config.APP_VERSION}
     if body.get("backend") == "skipped":
         # an LLM the user declined must not keep receiving prompts through a stale model/baseUrl

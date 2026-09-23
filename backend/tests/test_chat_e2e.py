@@ -98,7 +98,9 @@ async def test_chat_errori_400(tmp_path):
         (empty, "invalid_request"),
         (no_messages, "invalid_request"),
         (bad_user, "invalid_username"),
-        (junk, "invalid_request"),
+        # `{not json` → body null → username "" → invalid_username (api.ts 145-155,
+        # NON invalid_request: il path null del TS passa prima dalla regex username)
+        (junk, "invalid_username"),
     ):
         assert res.status_code == 400, res.text
         assert res.json() == {"error": code}

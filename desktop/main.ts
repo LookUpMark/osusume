@@ -93,6 +93,12 @@ async function start(): Promise<void> {
   server.on("exit", (code) => {
     if (!quitting) fail("The local server stopped unexpectedly.", `Exit code ${code}.`);
   });
+  // ENOENT/EACCES (binario mancante, quarantena Gatekeeper, venv assente): spawn emette
+  // SOLO "error", mai "exit" — senza handler il main loop resta appeso su waitHealth
+  // e l'app muore zombie senza finestra né dialogo
+  server.on("error", (e) => {
+    fail("The local server could not be launched.", String(e));
+  });
 
   if (!(await waitHealth(port))) {
     fail("The local server did not start.", "Check the log output and reopen the app.");

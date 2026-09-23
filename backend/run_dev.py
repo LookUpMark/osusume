@@ -19,7 +19,11 @@ HOST = os.environ.get("HOST") or "127.0.0.1"
 
 
 def main() -> None:
-    server = uvicorn.Server(uvicorn.Config(app, host=HOST, port=config.PORT, log_level="info"))
+    # timeout_graceful_shutdown come pyserver_main.py: il contratto vuole exit 0
+    # entro ~3s da /api/shutdown anche con richieste in volo (LLM lento non trattiene)
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=HOST, port=config.PORT, log_level="info", timeout_graceful_shutdown=3)
+    )
     set_server(server)
     print(f"osusume on http://127.0.0.1:{config.PORT}", flush=True)
     server.run()

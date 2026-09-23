@@ -6,9 +6,11 @@ Unico campo extra ammesso: ``message`` (solo ``anilist_error``).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -50,7 +52,17 @@ def register_handlers(app: FastAPI) -> None:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
     @app.exception_handler(StarletteHTTPException)
-    async def on_http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def on_http_exception(request: Request, exc: StarletteHTTPException) -> Response:
+        # Metodo sbagliato su route nota: nel TS non matchava Hono e cadeva nel
+        # fallback statico di index.ts (use "/*" + get "/*" → SPA 200 per GET/HEAD;
+        # gli altri metodi arrivavano al 404 default "404 Not Found" text/plain).
+        if exc.status_code == 405:
+            if request.method in ("GET", "HEAD"):
+                try:
+                    return HTMLResponse(Path("dist/index.html").read_text("utf-8"))
+                except OSError:
+                    pass
+            return PlainTextResponse("404 Not Found", status_code=404)
         # il dettaglio è SEMPRE il codice snake_case, mai testo
         code = _STATUS_CODE.get(exc.status_code, "internal_error")
         return JSONResponse({"error": code}, status_code=exc.status_code)
