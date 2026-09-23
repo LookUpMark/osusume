@@ -1,4 +1,4 @@
-import type { RecoResult, ScoredReco } from "../types.ts";
+import type { ChatCard, RecoResult, ScoredReco } from "../types.ts";
 
 export type SortKey = "final" | "gem" | "affinity";
 
@@ -51,3 +51,33 @@ export const topGenres = (result: RecoResult | null): string[] => {
 /** Formats present in the list (toolbar filter), first-seen order. */
 export const formatsOf = (result: RecoResult | null): string[] =>
   [...new Set((result?.recos ?? []).map((r) => r.media.format).filter(Boolean))] as string[];
+
+/** Chat card → ScoredReco for the detail flow. A card whose id is in the pool
+ *  (recos + chat lookups) resolves to the real object (full breakdown/why);
+ *  anything else gets a neutral shell — DetailDialog fetches its explanation
+ *  on demand anyway. */
+export const cardToReco = (card: ChatCard, pool: ScoredReco[]): ScoredReco =>
+  pool.find((r) => r.media.id === card.id) ?? {
+    media: {
+      id: card.id,
+      title: card.title,
+      format: card.format ?? "TV",
+      seasonYear: card.seasonYear,
+      genres: [],
+      tags: [],
+      studio: null,
+      averageScore: null,
+      popularity: 0,
+      coverImage: card.coverImage,
+      coverColor: card.coverColor,
+      siteUrl: card.siteUrl,
+      description: null,
+      relations: [],
+    },
+    final: (card.score ?? 0) / 100,
+    breakdown: { affinity: 0, quality: 0, community: 0 },
+    badges: [],
+    rootId: null,
+    groupSize: 1,
+    why: "",
+  };

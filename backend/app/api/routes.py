@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StrictBool
 
 from app.adapters.anilist.client import AniListError
-from app.adapters.llm.chat import chat_reply
+from app.adapters.llm.chat import card_payload, chat_reply, recommended_cards
 from app.adapters.llm.client import LlmError, llm_health, served_models
 from app.adapters.system import setup as setup_mod
 from app.adapters.system.setup import setup_router
@@ -338,7 +338,11 @@ async def _chat_turn(username: str, lang: str, history: list[dict[str, str]], ex
         # titles opened via the chat lookup join the context (bounded, never duplicates)
         extra_ids = chat_extra_ids(extra, result.recos)
         extras = (await pipeline.score_arbitrary(extra_ids, username, lang))[1] if extra_ids else []
-        return {"reply": await chat_reply(result, lang, history, extras)}
+        reply = await chat_reply(result, lang, history, extras)
+        # card = titoli che il modello ha GRASSETTATO, matchati sullo stesso pool
+        # che il system prompt gli mostra (prompts.build_chat_system)
+        pool = [*result.recos[:12], *extras[:5]]
+        return {"reply": reply, "cards": [card_payload(r) for r in recommended_cards(reply, pool)]}
     except LlmError as e:
         setup_mod.log_llm(f"chat: LLM error ({e}) per model={config.llm_model()}")
         raise ApiError(503, "llm_unavailable")

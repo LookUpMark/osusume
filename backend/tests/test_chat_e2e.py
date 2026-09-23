@@ -52,7 +52,7 @@ async def test_chat_storia_normalizzata_e_reply(tmp_path):
                     json={"username": USER, "lang": "en", "messages": _turns()},
                 )
     assert res.status_code == 200
-    assert res.json() == {"reply": "reply ok"}
+    assert res.json() == {"reply": "reply ok", "cards": []}
     assert len(chat_bodies) == 1, "un solo POST /chat/completions"
     messages = chat_bodies[0]["messages"]
     history = messages[1:]
@@ -137,3 +137,46 @@ async def test_chat_extra_non_in_recos_entranco_nel_prompt(tmp_path):
     assert items == len(reco_ids) + len(out_of_list), (items, len(reco_ids), len(out_of_list))
     assert "Test Series S3" in system or "Dropped Show S2" in system or "Unseen Series S2" in system, \
         "i lookup fuori lista entrano nel contesto chat"
+
+
+async def test_chat_cards_da_bold_nel_markdown(tmp_path):
+    """Il modello grassetta i titoli raccomandati: la reply ritorna intatta e le
+    card derivano SOLO dai bold matchati nel pool — bold fuori pool ignorato.
+
+    Due server: il primo (LLM morto) fornisce i titoli reali delle fixture via
+    /api/recommend, il secondo risponde con markdown che li grassetta."""
+    async with ServerHandle(tmp=tmp_path) as dead:
+        async with httpx.AsyncClient(trust_env=False, base_url=dead.base, timeout=15.0) as c:
+            recos = (await c.post("/api/recommend", json={"username": USER, "lang": "en"})).json()["recos"]
+    first = recos[0]["media"]
+    first_final = recos[0]["final"]
+
+    chat_bodies: list[dict] = []
+    reply = (
+        f"Since you loved those, start with **{first['title']}** — same pulse. "
+        f"**Cowboy Bebop** is a classic too, and *Vinland* deserves a nod."
+    )
+
+    async def handler(req):
+        if req.path.endswith("/models"):
+            return Response({"data": [{"id": config.llm_model()}]})
+        chat_bodies.append(req.json())
+        return Response({"choices": [{"message": {"content": reply}}]})
+
+    async with FakeServer(handler) as llm:
+        async with ServerHandle(overrides={"LLM_BASE_URL": f"{llm.url}/v1"}) as server:
+            async with httpx.AsyncClient(trust_env=False, base_url=server.base, timeout=15.0) as c:
+                res = await c.post(
+                    "/api/chat",
+                    json={"username": USER, "lang": "en", "messages": [{"role": "user", "content": "what next?"}]},
+                )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["reply"] == reply, "il testo markdown arriva intatto"
+    assert len(body["cards"]) == 1, body["cards"]
+    card = body["cards"][0]
+    assert card["id"] == first["id"]
+    assert card["title"] == first["title"]
+    assert card["score"] == round(first_final * 100)
+    for key in ("coverImage", "coverColor", "seasonYear", "format", "siteUrl"):
+        assert key in card

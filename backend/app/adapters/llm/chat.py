@@ -6,15 +6,66 @@ extraRecos: titoli cercati fuori dalla lista raccomandati, comunque discussabili
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.adapters.anilist.media import ReviewLite, gather_reviews
 from app.adapters.llm.client import is_truncation, llm_chat, resolve_served_model
 from app.adapters.llm.prompts import build_chat_system
+from app.domain.js_compat import js_round
 from app.shared.models import Lang, ScoredReco
 
 # safety net — thinking is off at the source
 _CHAT_RETRY_TOKENS = 4000
+
+# titoli raccomandati dal modello = grassetto nel markdown (il prompt lo prescrive)
+_BOLD_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+CARDS_MAX = 4
+
+
+def _norm_title(s: str) -> str:
+    return " ".join(s.split()).lower()
+
+
+def recommended_cards(reply: str, pool: list[ScoredReco]) -> list[ScoredReco]:
+    """Titoli in **bold** nella reply matchati contro il pool — lo STESSO elenco
+    che il system prompt mostra (``[*recos[:12], *extras[:5]]``), quindi il modello
+    può segnalare solo ciò che ha visto. Esatto case-insensitive, poi contains
+    bidirezionale con guard >=4 (stesso standard di mentioned_titles). Dedup per
+    id, ordine di apparizione, cap CARDS_MAX. Mai inventare: solo match reali."""
+    out: list[ScoredReco] = []
+    seen: set[int] = set()
+    for bold in _BOLD_RE.findall(reply):
+        text = _norm_title(bold)
+        if len(text) < 4:
+            continue
+        for r in pool:
+            title = _norm_title(r.media.title)
+            if len(title) < 4:
+                continue
+            if text == title or ((text in title or title in text) and len(text) >= 4):
+                if r.media.id not in seen:
+                    seen.add(r.media.id)
+                    out.append(r)
+                break
+        if len(out) >= CARDS_MAX:
+            break
+    return out
+
+
+def card_payload(r: ScoredReco) -> dict:
+    """Payload minimale per la card frontend (lo ScoredReco ricco lo ha già
+    il client quando l'id è locale — questo è il fallback per id assenti)."""
+    return {
+        "id": r.media.id,
+        "title": r.media.title,
+        "coverImage": r.media.coverImage,
+        "coverColor": r.media.coverColor,
+        "seasonYear": r.media.seasonYear,
+        "format": r.media.format,
+        "score": js_round(r.final * 100),
+        "siteUrl": r.media.siteUrl,
+    }
 
 
 def mentioned_titles(

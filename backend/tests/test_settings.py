@@ -196,7 +196,7 @@ async def test_llm_models_e_chat_prompt_con_extra():
                     },
                 )
                 assert res.status_code == 200
-                assert res.json() == {"reply": "Ecco cosa ti consiglio."}
+                assert res.json() == {"reply": "Ecco cosa ti consiglio.", "cards": []}
     assert chats, "il server non ha chiamato il LLM"
     system = chats[0]["messages"][0]
     assert system["role"] == "system"

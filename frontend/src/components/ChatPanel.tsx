@@ -2,21 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { tr, type Lang } from "../lib/i18n.ts";
 import type { RecoResult, ScoredReco } from "../lib/types.ts";
 import { postChat, type ChatMsg } from "../lib/api.ts";
-
-/** Titles among the current recos that the reply mentions by name — clickable
- *  cards under the message (substring match; the prompt makes the model cite
- *  titles verbatim). */
-function mentionedRecos(text: string, recos: ScoredReco[]): ScoredReco[] {
-  const hay = text.toLowerCase();
-  return recos.filter((r) => r.media.title.length >= 4 && hay.includes(r.media.title.toLowerCase()));
-}
+import { cardToReco } from "../lib/logic/recos.ts";
+import { Markdown } from "./Markdown.tsx";
 
 export function ChatPanel(props: {
   lang: Lang;
   result: RecoResult | null;
   llmOn: boolean | null;
   username: string;
-  extraIds: number[];
+  /** Chat lookups (titles opened from the topbar search): card resolution pool + postChat ids. */
+  extras: ScoredReco[];
   onOpen: (reco: ScoredReco) => void;
 }) {
   const { lang, result } = props;
@@ -58,10 +53,8 @@ export function ChatPanel(props: {
     setBusy(true);
     setErr(false);
     try {
-      // looked-up titles (opened from the topbar search) ride along as extra
-      // context so the model can answer questions about non-recommended anime
-      const r = await postChat(props.username, lang, history.slice(-12), props.extraIds);
-      setMsgs([...history, { role: "assistant", content: r.reply }]);
+      const r = await postChat(props.username, lang, history.slice(-12), props.extras.map((r) => r.media.id));
+      setMsgs([...history, { role: "assistant", content: r.reply, cards: r.cards ?? [] }]);
     } catch {
       setErr(true);
     } finally {
@@ -81,15 +74,30 @@ export function ChatPanel(props: {
         ) : (
           msgs.map((m, i) => (
             <div key={i} style={{ display: "contents" }}>
-              <div className={`chat-msg ${m.role}`} aria-label={m.role}>
-                <p>{m.content.replace(/\*/g, "")}</p>
+              <div className={`chat-msg ${m.role}${m.role === "assistant" ? " chat-md" : ""}`} aria-label={m.role}>
+                {m.role === "assistant" ? (
+                  <Markdown text={m.content} />
+                ) : (
+                  <p>{m.content}</p>
+                )}
               </div>
-              {m.role === "assistant" && props.result && mentionedRecos(m.content, props.result.recos).length > 0 && (
+              {m.role === "assistant" && (m.cards?.length ?? 0) > 0 && (
                 <div className="chat-cards">
-                  {mentionedRecos(m.content, props.result.recos).map((r) => (
-                    <button key={r.media.id} className="chat-card" type="button" onClick={() => props.onOpen(r)}>
-                      {r.media.coverImage && <img src={r.media.coverImage} alt="" />}
-                      <span>{r.media.title}</span>
+                  {m.cards!.map((c) => (
+                    <button
+                      key={c.id}
+                      className="chat-card"
+                      type="button"
+                      onClick={() => props.onOpen(cardToReco(c, [...(props.result?.recos ?? []), ...props.extras]))}
+                    >
+                      {c.coverImage && <img src={c.coverImage} alt="" />}
+                      <span>
+                        {c.title}
+                        <em>
+                          {c.score != null ? `${c.score}/110` : "?"}
+                          {c.seasonYear != null ? ` · ${c.seasonYear}` : ""}
+                        </em>
+                      </span>
                     </button>
                   ))}
                 </div>

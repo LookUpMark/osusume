@@ -138,3 +138,17 @@ export interface SetupStatus {
   };
   llm: { state: "up" | "starting" | "off" };
 }
+
+/** Anime card attached to a chat reply: titles the model itself bolded as
+ *  recommendations, extracted server-side against the prompt pool. Minimal
+ *  payload — the client resolves the full ScoredReco locally when it can. */
+export interface ChatCard {
+  id: number;
+  title: string;
+  coverImage: string | null;
+  coverColor: string | null;
+  seasonYear: number | null;
+  format: string | null;
+  score: number | null; // 0..110 (round(final*100)), same display scale as score110
+  siteUrl: string | null;
+}

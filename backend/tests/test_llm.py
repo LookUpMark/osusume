@@ -357,3 +357,55 @@ async def test_explain_errore_llm_break_non_continue(hermetic, monkeypatch):
     log = (pathlib.Path(config.DATA_DIR) / "llm.log").read_text(encoding="utf-8")
     assert log.count("explain: LLM error") == 1, "BREAK: il secondo batch non è tentato"
     assert "prose deterministiche in uso" in log
+
+
+# --- markdown card extraction (nuovo: chat UI) --------------------------------------
+
+
+def test_recommended_cards_bold_match_e_filtri():
+    """Bold esatto case-insensitive; fallback contains >=4; fuori pool ignorato;
+    *italic* non è card; dedup per id; cap 4; niente bold → []."""
+    from app.adapters.llm.chat import CARDS_MAX, card_payload, recommended_cards
+
+    pool = [make_reco(i) for i in range(1, 7)]
+    for i, r in enumerate(pool):
+        r.media.title = ["Vinland Saga", "Monster", "Series Three", "Series Four", "Series Five", "Series Six"][i]
+
+    # esatto case-insensitive + contiene
+    out = recommended_cards("Try **VINLAND SAGA** and **Monster**.", pool)
+    assert [r.media.id for r in out] == [1, 2]
+    # contains bidirezionale: bold parziale ("Vinland") trova "Vinland Saga"
+    out = recommended_cards("Start with **Vinland**.", pool)
+    assert [r.media.id for r in out] == [1]
+    # fuori pool / italic / bold corto: nessuna card
+    assert recommended_cards("**Cowboy Bebop** and *Vinland Saga* and **ab**.", pool) == []
+    # dedup + ordine di apparizione
+    out = recommended_cards("**Monster** first, then **Monster** again.", pool)
+    assert [r.media.id for r in out] == [2]
+    # cap CARDS_MAX
+    reply = " ".join(f"**{pool[i].media.title}**" for i in range(6))
+    assert len(recommended_cards(reply, pool)) == CARDS_MAX
+    # bold cross-riga non matcha (regex esclude \n)
+    assert recommended_cards("**Vinland\nSaga**", pool) == []
+
+
+def test_card_payload_campi_minimi():
+    from app.adapters.llm.chat import card_payload
+
+    reco = make_reco(1)
+    reco.media.title = "Monster"
+    reco.final = 0.875
+    card = card_payload(reco)
+    assert set(card) == {"id", "title", "coverImage", "coverColor", "seasonYear", "format", "score", "siteUrl"}
+    assert card["score"] == 88, "js_round(final*100) = Math.round del frontend"
+
+
+def test_chat_system_prompt_markdown_rules():
+    """Le nuove regole markdown nel prompt chat; il vecchio ban liste è andato."""
+    result = Result(make_profile(hash_="h-md"), [make_reco(1)])
+    sys_en = build_chat_system(result, "en")
+    assert "EVERY anime you recommend in **bold**" in sys_en
+    assert "exact title as listed in CURRENT RECOMMENDATIONS" in sys_en
+    assert "NEVER use headings" in sys_en and "code blocks" in sys_en
+    assert "No bullet lists unless asked" not in sys_en, "rilassato: liste brevi ammesse"
+    assert "BANNED" in sys_en and "English" in sys_en, "dottrina e lingua intatte"

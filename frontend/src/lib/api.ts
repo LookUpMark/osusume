@@ -1,4 +1,4 @@
-import type { Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
+import type { ChatCard, Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
 
 const json = async (res: Response): Promise<any> => {
   const body = await res.json().catch(() => ({}));
@@ -60,14 +60,16 @@ export const fetchExplain = (
     body: JSON.stringify({ username, ids, lang }),
   }).then(json);
 
-export type ChatMsg = { role: "user" | "assistant"; content: string };
+// cards is client-only: _normalize_history (routes.py) strips it from the wire,
+// so past assistant turns reach the model as plain role/content again
+export type ChatMsg = { role: "user" | "assistant"; content: string; cards?: ChatCard[] };
 
 export const postChat = (
   username: string,
   lang: Lang,
   messages: ChatMsg[],
   extra: number[] = [],
-): Promise<{ reply: string }> =>
+): Promise<{ reply: string; cards?: ChatCard[] }> =>
   fetch("/api/chat", {
     method: "POST",
     headers: { "content-type": "application/json" },

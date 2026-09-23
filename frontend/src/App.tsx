@@ -512,7 +512,7 @@ export function App() {
               result={result}
               llmOn={llmOn}
               username={result?.profile.userName ?? username}
-              extraIds={extraRecos.map((r) => r.media.id)}
+              extras={extraRecos}
               onOpen={onOpenChat}
             />
           </section>
