@@ -1,6 +1,6 @@
 [project]
 name = "osusume-backend"
-version = "1.0.2"
+version = "1.0.3"
 description = "Osusume backend (Python/FastAPI port of src/server)"
 requires-python = ">=3.12"
 dependencies = [
