@@ -19,3 +19,6 @@ Every entry links the mechanism that owns it and the code that defines it.
 - **Setup wizard states** — `needsSetup`, job `idle|installing-cli|downloading|done|error`, backend `up|starting|off|skipped|custom`. [07-setup-wizard.md](meccanismi/07-setup-wizard.md).
 - **envOverride** — settings-UI flag: `LLM_BASE_URL`/`LLM_MODEL` env vars beat file config at runtime. `backend/app/core/config.py:174-176`, `routes.py:167-179`.
 - **Owner notes** — user's `systemPromptExtra` appended to both LLM prompts as OWNER NOTES; never replaces the doctrine. `backend/app/adapters/llm/prompts.py:62-72`.
+- **StreamPhase / on_phase** — the 9 pipeline phases observed (never reordered) by the SSE endpoint and the UI stepper. [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), `frontend/src/lib/logic/progress.ts`.
+- **AniList OAuth flow** — authorization code + fixed-port loopback callback; token server-side only, `state` as CSRF defense. [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
+- **`anilist_auth`** — 401 error code for a missing/expired AniList token; carved out of the local fallback (an auth failure is not an outage). `routes.py:69-81`, [05-api-server.md](meccanismi/05-api-server.md).

@@ -33,6 +33,16 @@ Paginazione SOLO via `pageInfo { hasNextPage }` (total/lastPage NON affidabili).
 - → NO mirror del catalogo: solo query mirate (~13-16/utente) sui top generi/tag del profilo; cache con TTL; sezione compliance nel README.
 - OAuth: Authorization Code / Implicit grant, niente PKCE, token 1 anno senza refresh — NON serve in v1 (liste pubbliche leggibili senza token).
 
+## OAuth (v1.1+ — liste private e watchlist)
+
+Authorization Code grant, implementato in `backend/app/adapters/anilist/auth.py`:
+
+- Registrazione app su anilist.co/settings/developer con redirect URI **fissa** `http://127.0.0.1:47321/callback` (override test: env `ANILIST_OAUTH_CALLBACK_PORT`).
+- Authorize: `https://anilist.co/api/v2/oauth/authorize?client_id=&redirect_uri=&response_type=code&state=` — il backend apre un listener loopback SOLO durante il flow (timeout 600 s); il `state` monouso (confronto costante) è la difesa CSRF: AniList non supporta PKCE.
+- Token: `POST https://anilist.co/api/v2/oauth/token` `{grant_type:"authorization_code", client_id, client_secret, redirect_uri, code}` → `{access_token, expires_in}` (1 anno, NO refresh — scaduto → `anilist_auth` 401 e ricollegamento).
+- Il token vive solo server-side (config.json `anilistToken`/`anilistUser`, override env `ANILIST_TOKEN`); le query con token hanno cache key salata `auth|<hash>|` — mai collisioni con le risposte anonime.
+- Watchlist: mutation `SaveMediaListEntry { mediaId, status: PLANNING }` via `gql_uncached` (mai in cache).
+
 ## Fixtures
 
 `ANILIST_FIXTURES=fixtures` → il client legge `fixtures/userlist.json` (ListEntry[]), `fixtures/candidates.json` (MediaLite[]), `fixtures/recommendations.json` (Record<mediaId, {targetId, rating}[]>) invece della rete. `pnpm record-fixtures <username>` registra dalla API reale.

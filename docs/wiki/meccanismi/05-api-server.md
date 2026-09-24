@@ -11,6 +11,8 @@ Serve the React UI and any API client exactly like the original Hono server did:
 - `GET /health` (`routes.py:119-130`) — throttled `ensure_llm_server()` re-kick + llm/local state.
 - `GET /app-update`, `POST /local-mode` (`routes.py:133-145`), `GET /config` (disclosure-minimal, no baseUrl) (`routes.py:149-151`).
 - `GET|PATCH /settings`, `GET /llm/models` (`routes.py:182-218`) — settings UI backend (see below).
+- `GET /recommend/stream` — SSE progress (`event: phase` × 9 per [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), then `event: done` with the body IDENTICAL to `POST /recommend`, or `event: error` with the shared `_error_payload` vocabulary; cache hit → `done` only; client disconnect does NOT cancel the computation).
+- `GET|PATCH /auth/anilist`, `POST /auth/anilist/start|disconnect`, `GET /watchlist/status`, `POST /watchlist` — the OAuth surface, owned by [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
 - `GET /profile/{username}` (`routes.py:241-248`), `POST /recommend` (`routes.py:251-263`), `POST /explain` (`routes.py:266-280`), `POST /lookup` (`routes.py:283-296`), `POST /chat` (`routes.py:351-366`, details in [06-llm-layer.md](meccanismi/06-llm-layer.md)), `POST /shutdown` (`routes.py:369-383`).
 
 ## Request parsing parity
@@ -26,7 +28,7 @@ Serve the React UI and any API client exactly like the original Hono server did:
 - `ApiError(status, code, message)` (`errors.py:25-32`) — the snake_case codes ARE the error UI.
 - `RequestValidationError` → 400 `invalid_request`, never FastAPI's 422 detail (`errors.py:57-60`).
 - 405 → TS-shaped fallback: GET/HEAD on a known API path serve the SPA index (`_spa_index()`, DIST_DIR-aware, `errors.py:18-22,62-73`); other methods → plain-text 404.
-- Route-level `AniListError` 404 → `user_not_found`, else `anilist_error` 502 (`routes.py:69-75`).
+- Route-level `_error_payload` (`routes.py:69-81`): AniList 404 → `user_not_found`, **401 → `anilist_auth`** (expired token, [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md)), else `anilist_error` 502; non-AniList → `internal_error`. `with_local_fallback` (`routes.py:83-106`) never masks 404 **or 401** — an expired token is not an outage.
 
 ## Middleware & app shell
 

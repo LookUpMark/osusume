@@ -17,14 +17,15 @@ Talk to `graphql.anilist.co` politely (AniList enforces rate limits), keep respo
 
 ## Key actors
 
-- `gql(query, variables, ttl_ms)` — `client.py:157-159`
+- `gql(query, variables, ttl_ms, token=None)` — `client.py:162-172`: with `token` the cache key is salted `auth|<sha256[:8]>|` so private responses never collide with anonymous ones (or with other accounts); `gql_uncached` (`client.py:175-179`) bypasses the cache entirely for mutations/Viewer.
 - `cache_wrap(path, ttl_ms, fetch)` — `cache.py:38-64`
 - `take_token()` — `client.py:59-69`; `reset_bucket_for_tests()` — `client.py:72-76`
 - `map_media(m) -> MediaLite` — `backend/app/adapters/anilist/media.py:48-82` (title fallback romaji→english→`(id N)`, spoiler tags filtered, description truncated to 500, relations restricted to PREQUEL/SEQUEL/SIDE_STORY/SPIN_OFF/PARENT)
-- `fetch_user_list` — `media.py:88-125` (≤22 chunks × 500; status lists win over custom-list duplicates)
+- `fetch_user_list` — `media.py:88-131` (≤22 chunks × 500; status lists win over custom-list duplicates; live branch attaches the OAuth token when the requested user is the connected one — [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md))
+- `fetch_media_list_status(user, media_id)` — `media.py` tail: entry status for the watchlist UI (failure → None = "not in list")
 - `fetch_media_reviews` / `gather_reviews` — `media.py:197-231` (any failure → `data=None`, reviews never block explain/chat)
 - `read_fixture(name)` — `backend/app/adapters/anilist/fixtures.py:12-16`
-- GraphQL documents byte-identical to the TS originals (part of the cache key) — `backend/app/adapters/anilist/queries.py:1-7`
+- GraphQL documents byte-identical to the TS originals (part of the cache key) — `backend/app/adapters/anilist/queries.py:1-7` (plus `VIEWER_QUERY` / `SAVE_PLANNING_MUTATION` / `MEDIA_LIST_STATUS_QUERY` appended for OAuth)
 
 ## Data & states
 
@@ -41,6 +42,7 @@ Talk to `graphql.anilist.co` politely (AniList enforces rate limits), keep respo
 
 - Config: `ANILIST_ENDPOINT`, `RATE_PER_MIN`, `CACHE_DIR` ([05-api-server.md](meccanismi/05-api-server.md) — settings & config).
 - Consumed by the recommendation pipeline ([03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md)) and the LLM layer for reviews ([06-llm-layer.md](meccanismi/06-llm-layer.md)).
+- OAuth token wiring: [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
 - JS-parity helpers for keys/trims: [04-js-parity-golden.md](meccanismi/04-js-parity-golden.md).
 
 ## Files covered

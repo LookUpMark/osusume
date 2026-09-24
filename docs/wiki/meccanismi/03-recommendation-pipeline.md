@@ -21,6 +21,10 @@ Answer "what should I watch next?" from the user's list only: targeted candidate
 11. **Deterministic why / why-not**: `loved_overlap` (max 2 dims, rank ≥ 60 tags, `aff > 0.05` threshold) → expert-voice why; `deterministic_why_not` needs honest negative evidence (`aff < -0.3` disliked hits or a dropped prequel), max 3 `WhyNot` (`scoring.py:144-252`; `pipeline.py:326-355`).
 12. Returns `RecoResult` (`pipeline.py:357`).
 
+## Progress observation (`on_phase`, added post-port)
+
+`recommend_for(username, lang, on_phase)` and `get_recommendation(..., on_phase)` accept a throw-free observer callback (`pipeline.py:211-217`, `:175-199`): 9 phase events — `list, profile, candidates, franchise, community, mood, scoring, links, whynot` — emitted at the exact boundaries above, NEVER reordering the work. Cache hit or inflight join → no callback (the caller receives only the final result). The SSE endpoint turns these into stream events ([05-api-server.md](meccanismi/05-api-server.md)); the UI renders a stepper ([08-frontend-app.md](meccanismi/08-frontend-app.md)).
+
 ## Result cache (`get_recommendation`, `pipeline.py:170-208`)
 
 - In-memory, TTL 10 min, key `username:lang:mode` — mode (local/live) in the key so fixture results never resurface after returning live (`pipeline.py:182`).

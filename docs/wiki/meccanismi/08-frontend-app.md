@@ -12,8 +12,10 @@ Render the taste profile, recommendations, gems, chat, and settings — all stat
 - `fetchSetupStatus()` gates the render: null → splash, "error" → retry page, `needsSetup && !customEnv` → `<SetupWizard>` (`App.tsx:254-286`).
 - Fake login: stored username auto-runs once (`App.tsx:81-88`); `login()` persists only on success.
 - Health: `/api/health` on mount + every 60 s (`App.tsx:120-136`) — feeds the LLM chip and the chat lock.
-- `run(username)` (`App.tsx:168-194`): reset state → `fetchProfile` → `fetchRecommend` → `setResult`; `finally refreshHealth()` because the server may auto-switch to local mode mid-request. Language switch re-runs it (`App.tsx:90-99`) — why/narrations are per-language.
-- Chat extras: `onOpenChat(r)` (`App.tsx:229-234`) adds looked-up titles to `extraRecos` (dedup) and opens the dialog; `onWhy` (`App.tsx:219-225`) folds fetched explanations back into the lists.
+- `run(username)` (`App.tsx`): reset state (closing any live stream via `esRef`) → `fetchProfile` (fast-fail JSON) → `streamRecommend(username, lang, setPhase)` — the SSE stream of [05-api-server.md](meccanismi/05-api-server.md) whose `done` resolves with the same `RecoResult`; `finally` closes the stream and `refreshHealth()` (the server may auto-switch to local mode mid-request). Language switch re-runs it — why/narrations are per-language.
+- Progress UI: `phase` state holds the 9 stream phases; the loading branch renders `<Progress>` (label + `n/9` bar, `frontend/src/components/Progress.tsx`; keys `phaseKey`/`phaseStep` in `frontend/src/lib/logic/progress.ts`). Cache hit / local mode = single flush → renders as done, no artifacts.
+- Chat extras: `onOpenChat(r)` adds looked-up titles to `extraRecos` (dedup) and opens the dialog; `onWhy` folds fetched explanations back into the lists.
+- AniList OAuth: `auth` state (fetched on mount, polled 1500 ms while `flow === "pending"`), `startOauth` opens the authorize URL; the login modal grows a connect button ONLY when `auth.configured` (`LoginModal.tsx` — `oauthConfigured/oauthPending/onOauth`); settings hosts `<AniListAuthPanel>` (`frontend/src/components/AniListAuth.tsx`); the detail dialog gets `watchStatus/watchBusy/onAddToWatchlist` (fetched on dialog open, PLANNING after add) — the full flow is [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
 
 ## Data flow (`frontend/src/lib/api.ts` + `lib/logic/`)
 
@@ -56,8 +58,8 @@ Render the taste profile, recommendations, gems, chat, and settings — all stat
 
 - `frontend/src/App.tsx`, `frontend/src/main.tsx`, `frontend/src/views/index.ts`
 - `frontend/src/lib/api.ts`, `frontend/src/lib/types.ts`, `frontend/src/lib/i18n.ts`
-- `frontend/src/lib/logic/recos.ts`, `display.ts`, `errors.ts`, `lang.ts`
-- `frontend/src/components/*.tsx` (except ChatPanel/Markdown → [09])
+- `frontend/src/lib/logic/recos.ts`, `display.ts`, `errors.ts`, `lang.ts`, `progress.ts`
+- `frontend/src/components/*.tsx` (except ChatPanel/Markdown → [09], AniListAuth → [11])
 - `frontend/src/design-system/tokens.css`, `frontend/src/styles.css`
 
 ## Studio

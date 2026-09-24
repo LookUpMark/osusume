@@ -34,6 +34,10 @@ Convenzioni comuni a tutti gli endpoint `/api/*`:
 | `forbidden` | 403 | header `Host` fuori allowlist loopback |
 | `user_not_found` | 404 | AniList risponde 404 per la lista utente |
 | `anilist_error` | 502 | errore AniList diverso da 404; body `{"error":"anilist_error","message":"..."}` |
+| `anilist_auth` | 401 | token AniList assente/scaduto (watchlist, liste private) — solo endpoint OAuth |
+| `oauth_not_configured` | 400 | `/auth/anilist/start` senza client id/secret |
+| `oauth_busy` | 409 | flow OAuth già in attesa di callback |
+| `oauth_port_busy` | 409 | porta callback loopback (default 47321) occupata |
 | `llm_unavailable` | 503 | solo `/api/chat`: il backend LLM è irraggiungibile / errore LLM |
 | `internal_error` | 500 | qualsiasi errore non classificato |
 
@@ -65,6 +69,12 @@ conforme a `^[A-Za-z0-9][A-Za-z0-9._/-]*$` o mancante), `400 {"error":"invalid_u
 | 16 | POST `/api/setup/omlx-download` | `{model:string}` | `{ok:true}` | 400 `invalid_request`/`unsupported_repo`, 409 `busy` |
 | 17 | POST `/api/setup/cancel` | `{}` | `{ok:true}` | — |
 | 18 | POST `/api/setup/reset` | `{}` | `{ok:true}` (cancella config + stato job) | 500 `reset_failed` |
+| 19 | GET `/api/recommend/stream` | query `username`, `lang` | SSE `text/event-stream`: `event: phase` `{phase}` ×9 (`list,profile,candidates,franchise,community,mood,scoring,links,whynot` nell'ordine), poi `event: done` col body IDENTICO alla riga 6; oppure `event: error` `{"error": code}`. Cache hit → solo `done`. Username invalido → 400 JSON pre-stream | stream: `error` event; pre-stream: 400 `invalid_username` |
+| 20 | GET/PATCH `/api/settings` | PATCH `{baseUrl?, model?, systemPromptExtra?}` (chiave assente = intatta, `""` su model = default server, `""` su extra = cancella) | `{baseUrl, model, defaultModel, systemPromptExtra, envOverride}` | 400 `invalid_request` |
+| 21 | GET `/api/llm/models` | — | `{models: string[], configured: string\|null}` (modelli live del backend, dedup+sort) | 503 `llm_unavailable` |
+| 22 | GET/PATCH `/api/auth/anilist` | PATCH `{clientId?, clientSecret?}` (assente = intatto, `""` = cancella) | `{configured, authenticated, username, flow, flowError, redirectUri, tokenExpiresAt}` — MAI token/secret | 400 `invalid_request` |
+| 23 | POST `/api/auth/anilist/start` · `/disconnect` | `{}` | start → `{url}` (authorize AniList; listener loopback su porta fissa); disconnect → `{ok:true}` | start: 400 `oauth_not_configured`, 409 `oauth_busy`/`oauth_port_busy` |
+| 24 | GET `/api/watchlist/status` · POST `/api/watchlist` | status query `username`,`mediaId`; POST `{mediaId:number}` (utente collegato via OAuth) | status → `{"status": string\|null}`; POST → `{ok:true, status:"PLANNING"}` | 400 `invalid_request`/`invalid_username`, 401 `anilist_auth`, 502 `anilist_error` |
 
 Chi non ha endpoint dedicati ma solo shape: `GET /api/profile/:username` applica
 `encodeURIComponent` lato client (`frontend/src/lib/api.ts`); il server non decodifica nomi con caratteri

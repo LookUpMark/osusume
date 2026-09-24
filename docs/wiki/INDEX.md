@@ -1,6 +1,6 @@
 # Osusume — Code Wiki
 
-> Synced at commit `4f956af` · 2026-09-23 · generator: code-wiki (agent reports, orchestrator synthesis)
+> Synced at commit `86c4757` · 2026-09-24 · generator: code-wiki (agent reports, orchestrator synthesis)
 
 Navigable wiki of the codebase: one page per mechanism, each claim traced to `path:line`. Regenerated incrementally by SYNC (diff from the commit above), never by hand-edits to tracked sections.
 
@@ -18,6 +18,7 @@ Navigable wiki of the codebase: one page per mechanism, each claim traced to `pa
 | 08 | [Frontend app & views](meccanismi/08-frontend-app.md) | shell, data flow, components, i18n, tokens |
 | 09 | [Chat UI: markdown & cards](meccanismi/09-chat-ui.md) | markdown subset renderer, bold→card protocol |
 | 10 | [Desktop packaging & CI/CD](meccanismi/10-desktop-packaging.md) | Electron shell, PyInstaller, builder, workflows |
+| 11 | [AniList OAuth & watchlist](meccanismi/11-anilist-oauth.md) | authorization code flow, loopback callback, token wiring, PLANNING mutation |
 
 ## Mechanism map
 
@@ -34,6 +35,8 @@ flowchart TD
   PIPE --> ANI[01 AniList adapter]
   PIPE --> PAR
   LLM --> ANI
+  OAUTH[11 AniList OAuth] --> ANI
+  OAUTH --> API
   SET --> BACK[(LLM backend)]
   ANI --> AN[(graphql.anilist.co)]
   PACK[10 Packaging] --> UI
