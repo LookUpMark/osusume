@@ -15,3 +15,4 @@ build/pyserver/
 # Python dev env + caches (uv sync --project backend)
 .venv/
 __pycache__/
+__tmp__/
