@@ -1,6 +1,6 @@
 # Osusume — Code Wiki
 
-> Synced at commit `86c4757` · 2026-09-24 · generator: code-wiki (agent reports, orchestrator synthesis)
+> Synced at commit `d1fc973` · 2026-09-24 · generator: code-wiki (agent reports, orchestrator synthesis)
 
 Navigable wiki of the codebase: one page per mechanism, each claim traced to `path:line`. Regenerated incrementally by SYNC (diff from the commit above), never by hand-edits to tracked sections.
 
