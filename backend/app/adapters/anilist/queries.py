@@ -100,3 +100,18 @@ query ($id: Int) {
     }
   }
 }"""
+
+VIEWER_QUERY = """
+query {
+  Viewer { name }
+}"""
+
+SAVE_PLANNING_MUTATION = """
+mutation ($mediaId: Int) {
+  SaveMediaListEntry(mediaId: $mediaId, status: PLANNING) { id status }
+}"""
+
+MEDIA_LIST_STATUS_QUERY = """
+query ($userName: String, $mediaId: Int) {
+  MediaList(userName: $userName, mediaId: $mediaId) { status }
+}"""

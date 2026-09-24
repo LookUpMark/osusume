@@ -1,4 +1,5 @@
 import type { ChatCard, Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
+import type { StreamHandle, StreamPhase } from "./logic/progress.ts";
 
 const json = async (res: Response): Promise<any> => {
   const body = await res.json().catch(() => ({}));
@@ -48,6 +49,57 @@ export const fetchRecommend = (username: string, lang: Lang): Promise<RecoResult
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ username, lang }),
   }).then(json);
+
+/** Streaming generation progress (SSE). `done` resolves with the same payload
+ *  POST /api/recommend returns; `close()` must be called on completion/error —
+ *  EventSource would otherwise auto-reconnect into a fresh run. */
+export const streamRecommend = (
+  username: string,
+  lang: Lang,
+  onPhase: (phase: StreamPhase) => void,
+): StreamHandle => {
+  const es = new EventSource(`/api/recommend/stream?username=${encodeURIComponent(username)}&lang=${lang}`);
+  let closed = false;
+  let rejectFn!: (e: Error) => void;
+  const done = new Promise<RecoResult>((resolve, reject) => {
+    rejectFn = reject;
+    es.addEventListener("phase", (ev) => {
+      const phase = (ev as MessageEvent).data ? (JSON.parse((ev as MessageEvent).data as string).phase as StreamPhase) : "";
+      if (phase) onPhase(phase);
+    });
+    es.addEventListener("done", (ev) => {
+      closed = true;
+      es.close();
+      resolve(JSON.parse((ev as MessageEvent).data as string) as RecoResult);
+    });
+    es.addEventListener("error", (ev) => {
+      // a named server event, NOT the connection failure (that fires plain "error" too)
+      const code = (ev as MessageEvent).data ? (JSON.parse((ev as MessageEvent).data as string).error as string) : null;
+      if (code) {
+        closed = true;
+        es.close();
+        reject(new Error(code));
+      }
+    });
+    es.onerror = () => {
+      // connection-level failure (or server closed early); if we are already
+      // finished this is the browser complaining after close() — ignore
+      if (!closed && es.readyState === EventSource.CLOSED) {
+        closed = true;
+        reject(new Error("errGeneric"));
+      }
+    };
+  });
+  return {
+    done,
+    close: () => {
+      if (!closed) {
+        closed = true;
+        es.close();
+      }
+    },
+  };
+};
 
 export const fetchExplain = (
   username: string,
@@ -138,3 +190,41 @@ export const patchSettings = (
 /** Live backend reachability + model ids (settings UI test button). 503 llm_unavailable. */
 export const fetchLlmModels = (): Promise<{ models: string[]; configured: string | null }> =>
   fetch("/api/llm/models").then(json);
+
+// --- AniList OAuth + watchlist -------------------------------------------------
+
+export interface AniListAuth {
+  configured: boolean;
+  authenticated: boolean;
+  username: string | null;
+  flow: "idle" | "pending" | "ok" | "error";
+  flowError: string | null;
+  redirectUri: string;
+  tokenExpiresAt: string | null;
+}
+
+export const fetchAniListAuth = (): Promise<AniListAuth> => fetch("/api/auth/anilist").then(json);
+
+/** Key present = change; "" clears. The secret never round-trips. */
+export const patchAniListAuth = (patch: { clientId?: string; clientSecret?: string }): Promise<AniListAuth> =>
+  fetch("/api/auth/anilist", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(patch),
+  }).then(json);
+
+export const startAniListLogin = (): Promise<{ url: string }> =>
+  fetch("/api/auth/anilist/start", { method: "POST" }).then(json);
+
+export const disconnectAniList = (): Promise<{ ok: boolean }> =>
+  fetch("/api/auth/anilist/disconnect", { method: "POST" }).then(json);
+
+export const watchlistStatus = (username: string, mediaId: number): Promise<{ status: string | null }> =>
+  fetch(`/api/watchlist/status?username=${encodeURIComponent(username)}&mediaId=${mediaId}`).then(json);
+
+export const addToWatchlist = (mediaId: number): Promise<{ ok: boolean; status: string }> =>
+  fetch("/api/watchlist", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mediaId }),
+  }).then(json);

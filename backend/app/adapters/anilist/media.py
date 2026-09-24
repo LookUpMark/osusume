@@ -95,9 +95,15 @@ async def fetch_user_list(user_name: str) -> UserList:
         )
     entries: dict[int, dict[str, Any]] = {}
     media: dict[int, MediaLite] = {}
+    # OAuth: quando il token dell'utente c'è, la lista arriva private inclusa
+    from app.adapters.anilist import auth
+
+    token = auth.token_for(user_name)
     # ponytail: API ceiling is 11k entries (22 chunks of 500) — beyond that we miss tail entries
     for chunk in range(22):
-        data = await gql(queries.LIST_LIST_QUERY, {"userName": user_name, "chunk": chunk}, config.CACHE_TTL_LIST_MS)
+        data = await gql(
+            queries.LIST_LIST_QUERY, {"userName": user_name, "chunk": chunk}, config.CACHE_TTL_LIST_MS, token=token
+        )
         for list_ in data["MediaListCollection"]["lists"]:
             for e in list_.get("entries") or []:
                 mid = e["media"]["id"]
@@ -244,3 +250,22 @@ __all__ = [
     "fetch_media_reviews",
     "gather_reviews",
 ]
+
+
+async def fetch_media_list_status(user_name: str, media_id: int) -> str | None:
+    """Stato dell'entry `media_id` nella lista dell'utente (per la watchlist UI).
+    None = non in lista. Token usato quando disponibile (liste private)."""
+    from app.adapters.anilist import auth
+
+    try:
+        data = await gql(
+            queries.MEDIA_LIST_STATUS_QUERY,
+            {"userName": user_name, "mediaId": media_id},
+            config.CACHE_TTL_LIST_MS,
+            token=auth.token_for(user_name),
+        )
+    except AniListError:
+        return None  # entry assente = 404/404-graphql: per la UI è "non in lista"
+    entry = data.get("MediaList") if isinstance(data, dict) else None
+    status = entry.get("status") if isinstance(entry, dict) else None
+    return status if isinstance(status, str) else None

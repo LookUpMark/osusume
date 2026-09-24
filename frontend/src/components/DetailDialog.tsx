@@ -34,6 +34,10 @@ export function DetailDialog(props: {
   onWhy: (id: number, text: string, source: "llm" | "cache") => void;
   onClose: () => void;
   onSimilar: () => void;
+  /** Watchlist (OAuth): null status = not in any list → "add" button. */
+  watchStatus?: string | null;
+  watchBusy?: boolean;
+  onAddToWatchlist?: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const r = props.reco;
@@ -167,6 +171,19 @@ export function DetailDialog(props: {
             <button className="btn-line" type="button" onClick={props.onSimilar}>
               {tr(lang, "similar")}
             </button>
+            {props.onAddToWatchlist !== undefined && (
+              <>
+                {props.watchStatus === null ? (
+                  <button className="btn-line" type="button" disabled={props.watchBusy} onClick={props.onAddToWatchlist}>
+                    {tr(lang, "watchlistAdd")}
+                  </button>
+                ) : (
+                  <span className="chip-badge">
+                    {props.watchStatus === "PLANNING" ? tr(lang, "watchlistPlanning") : tr(lang, "watchlistInList", { status: props.watchStatus ?? "" })}
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

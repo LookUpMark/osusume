@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import Callable
 from typing import Any
 
 from app.adapters.anilist.cache import now_ms
@@ -172,12 +173,17 @@ async def get_recommendation(
     lang: Lang,
     refresh: bool = False,
     stale_ok: bool = False,
+    on_phase: Callable[[str], None] | None = None,
 ) -> RecoResult:
     """``getRecommendation`` (recommend.ts righe 67-100).
 
     La modalità è nella chiave: un risultato in local mode non deve riaffiorare
     dopo il ritorno ai dati live. Ordine dei check con ``!refresh``: hit fresco →
     hit scaduto + staleOk → inflight. ``refresh`` bypassa le letture.
+
+    ``on_phase`` osserva le fasi di ``recommend_for`` (mai le riordina) e scatta
+    solo quando la computazione parte davvero: su cache hit o inflight join il
+    chiamante riceve solo il risultato finale.
     """
     cache_key = f"{username}:{lang}:{'local' if _local_mode() else 'live'}"
     if not refresh:
@@ -190,7 +196,7 @@ async def get_recommendation(
         pending = _inflight.get(cache_key)
         if pending is not None:
             return await pending
-    task = asyncio.ensure_future(recommend_for(username, lang))
+    task = asyncio.ensure_future(recommend_for(username, lang, on_phase=on_phase))
     _inflight[cache_key] = task
     task.add_done_callback(lambda _t: _inflight.pop(cache_key, None))
     try:
@@ -208,15 +214,25 @@ async def get_recommendation(
     return result
 
 
-async def recommend_for(username: str, lang: Lang) -> RecoResult:
-    """``recommendFor`` (recommend.ts righe 102-240)."""
+async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], None] | None = None) -> RecoResult:
+    """``recommendFor`` (recommend.ts righe 102-240).
+
+    ``on_phase`` osserva i confini di fase (stream progress): chiamate throw-free,
+    mai riordinano il lavoro — l'ordine è quello del docstring di modulo.
+    """
+    if on_phase is not None:
+        on_phase("list")
     ul = await fetch_user_list(username)
+    if on_phase is not None:
+        on_phase("profile")
     profile = build_profile(ul.entries, ul.mediaById, username)
     list_ids = {e.mediaId for e in ul.entries}
     list_map: dict[int, Any] = {e.mediaId: e for e in ul.entries}
 
     # 1st franchise pass: sequel chains collapse to their entry point.
     # epMap: entryPointId → superseded candidate (the sequel shown instead must go).
+    if on_phase is not None:
+        on_phase("candidates")
     candidates0 = await fetch_candidates(profile, list_ids)
     franchise0 = analyze_franchises(candidates0, list_map)
     ep_map: dict[int, int] = {}
@@ -242,6 +258,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
     ] + [m for m in extra if not any(c.id == m.id for c in candidates0)]
     # 2nd franchise pass: the pool is final now, classifications are stable
     franchise = analyze_franchises(candidates, list_map)
+    if on_phase is not None:
+        on_phase("franchise")
     # an entry point pulled in for a superseded sequel earns the badge unless
     # its own analysis already classified it (NEXT_STEP when its prequels are seen)
     for ep_id in ep_map:
@@ -263,6 +281,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
             return []
 
     rec_lists = await asyncio.gather(*(community_fetch(e) for e in top5)) if top5 else []
+    if on_phase is not None:
+        on_phase("community")
     for recs in rec_lists:
         for rec in recs:
             target_id, rating = rec["targetId"], rec["rating"]
@@ -274,6 +294,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
 
     # mood continuity (scoring v2): the last 5 completed titles shape what feels
     # like a natural "next watch" — small bonus on candidates sharing their vocabulary
+    if on_phase is not None:
+        on_phase("mood")
     recent = [
         e
         for e in ul.entries
@@ -300,6 +322,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
                 mood[c.id] = WEIGHTS["mood"]
 
     # scoreAll: the EXCLUDED candidates never enter scoring (they surface as avoided)
+    if on_phase is not None:
+        on_phase("scoring")
     scored = score_all(
         [c for c in candidates if (f := franchise.get(c.id)) is None or f.kind != "EXCLUDED"],
         profile,
@@ -314,6 +338,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
 
     # plot-text links (scoring v2): connect each recommendation to positively-rated
     # watched titles through shared plot vocabulary — grounds LLM chat/explanations
+    if on_phase is not None:
+        on_phase("links")
     corpus = _seen_corpus_for(ul.entries, ul.mediaById, profile.meanScore)
     if len(corpus) > 0:
         for r in with_groups:
@@ -323,6 +349,8 @@ async def recommend_for(username: str, lang: Lang) -> RecoResult:
 
     # anti-recommendations: weakest affinity candidates + dropped-series sequels,
     # with honest negative evidence, never duplicating something already recommended
+    if on_phase is not None:
+        on_phase("whynot")
     shown_ids = {r.media.id for r in with_groups}
     bottom = [r for r in scored if r.media.id not in shown_ids]
     bottom.sort(key=lambda r: r.breakdown.affinity)  # crescente, stabile come Array.sort

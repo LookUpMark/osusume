@@ -550,6 +550,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .chat-scroll { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
 .chat-msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
 .chat-msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.progress { display: grid; gap: 8px; justify-items: center; padding: 32px 0; }
+.progress .bar { height: 3px; max-width: 320px; width: 100%; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.progress .fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s ease; }
 .chat-md p + p, .chat-md ul { margin-top: 8px; }
 .chat-md ul { padding-left: 18px; }
 .chat-md li { margin: 3px 0; }

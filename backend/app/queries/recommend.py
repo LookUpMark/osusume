@@ -6,6 +6,8 @@ assenti (``undefined``), ``rootId: null`` esplicito quando STANDALONE.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.domain import pipeline
 from app.domain.js_compat import js_number
 from app.shared.models import Lang, RecoResult, ScoredReco
@@ -48,9 +50,10 @@ async def get_recommendation(
     lang: Lang,
     refresh: bool = False,
     stale_ok: bool = False,
+    on_phase: "Callable[[str], None] | None" = None,
 ) -> dict:
     """``getRecommendation`` + serializzazione (result cache in pipeline)."""
-    result = await pipeline.get_recommendation(username, lang, refresh=refresh, stale_ok=stale_ok)
+    result = await pipeline.get_recommendation(username, lang, refresh=refresh, stale_ok=stale_ok, on_phase=on_phase)
     return result_payload(result)
 
 

@@ -3,12 +3,17 @@ import { tr, type Lang } from "../lib/i18n.ts";
 
 const VALID = /^[A-Za-z0-9_-]{1,32}$/;
 
-/** Fake single-user login: pick the AniList username once, everything stays local. */
+/** Fake single-user login: pick the AniList username once, everything stays local.
+ *  When AniList OAuth is configured, a connect button opens the system browser —
+ *  without credentials the modal is byte-for-byte the username-only one. */
 export function LoginModal(props: {
   lang: Lang;
   busy: boolean;
   error: string | null;
   current?: string;
+  oauthConfigured?: boolean;
+  oauthPending?: boolean;
+  onOauth?: () => void;
   onLogin: (username: string) => void;
 }) {
   const { lang } = props;
@@ -63,6 +68,14 @@ export function LoginModal(props: {
             {props.busy ? "…" : tr(lang, "loginGo")}
           </button>
         </form>
+        {props.oauthConfigured && (
+          <>
+            <p className="hint">{tr(lang, "loginOr")}</p>
+            <button type="button" className="btn btn-line" disabled={props.busy} onClick={() => props.onOauth?.()}>
+              {props.oauthPending ? tr(lang, "oauthPending") : tr(lang, "loginOauth")}
+            </button>
+          </>
+        )}
         {props.error && (
           <p className="error" role="alert">
             {props.error}

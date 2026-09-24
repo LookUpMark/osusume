@@ -4,6 +4,7 @@ import type { MediaLite, RecoResult, ScoredReco } from "../frontend/src/lib/type
 import { badgeKey, communityBar, metaJoin, score110 } from "../frontend/src/lib/logic/display.ts";
 import { errorMessage } from "../frontend/src/lib/logic/errors.ts";
 import { detectLang } from "../frontend/src/lib/logic/lang.ts";
+import { PHASES, phaseKey, phaseStep } from "../frontend/src/lib/logic/progress.ts";
 import { applyFilters, gemRank, gemsOf, topGenres } from "../frontend/src/lib/logic/recos.ts";
 
 const media = (over: Partial<MediaLite> = {}): MediaLite => ({
@@ -105,4 +106,27 @@ test("detectLang: saved wins, OS language fallback", () => {
   assert.equal(detectLang("en", "it-IT"), "en");
   assert.equal(detectLang("crash", "it-IT"), "it"); // invalid saved → OS
   assert.equal(detectLang(null, ""), "en");
+});
+
+test("progress: phaseKey maps all phases, unknown falls back", () => {
+  assert.equal(phaseKey("list"), "phaseList");
+  assert.equal(phaseKey("whynot"), "phaseWhynot");
+  assert.equal(phaseKey("nonsense"), "loadingRecos");
+  assert.equal(phaseKey(""), "loadingRecos");
+});
+
+test("progress: phaseStep is 1-based and strictly increasing over PHASES", () => {
+  assert.equal(phaseStep("list"), 1);
+  let prev = 0;
+  for (const p of PHASES) {
+    const s = phaseStep(p);
+    assert.ok(s > prev, `${p} not increasing`);
+    prev = s;
+  }
+  assert.equal(phaseStep("nonsense"), 0);
+});
+
+test("errorMessage: anilist_auth (token scaduto)", () => {
+  assert.equal(errorMessage("en", new Error("anilist_auth")), "AniList sign-in expired — reconnect from Settings.");
+  assert.equal(errorMessage("it", new Error("anilist_auth")), "Accesso AniList scaduto — ricollegati dalle impostazioni.");
 });

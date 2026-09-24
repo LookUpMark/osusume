@@ -10,6 +10,7 @@ NON equivale ad ``AbortSignal.timeout``), retry ladder con UN solo contatore
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import time
@@ -98,13 +99,13 @@ _MAX_RETRIES = 3
 _MAX_429_ROUNDS = 10
 
 
-async def _post(query: str, variables: dict[str, Any]) -> httpx.Response:
+async def _post(query: str, variables: dict[str, Any], headers: dict[str, str] | None = None) -> httpx.Response:
     # follow_redirects: il fetch TS segue i redirect, httpx di default no
     async with httpx.AsyncClient(follow_redirects=True) as client:
         return await asyncio.wait_for(
             client.post(
                 config.ANILIST_ENDPOINT,
-                headers={"content-type": "application/json", "accept": "application/json"},
+                headers={"content-type": "application/json", "accept": "application/json", **(headers or {})},
                 content=json.dumps({"query": query, "variables": variables}, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
                 timeout=None,  # il timeout totale è gestito da wait_for
             ),
@@ -112,13 +113,13 @@ async def _post(query: str, variables: dict[str, Any]) -> httpx.Response:
         )
 
 
-async def _gql_fetch(query: str, variables: dict[str, Any]) -> Any:
+async def _gql_fetch(query: str, variables: dict[str, Any], headers: dict[str, str] | None = None) -> Any:
     attempt = -1  # il for TS incrementa a ogni giro: qui l'incremento apre il giro
     while True:
         attempt += 1
         await take_token()
         try:
-            res = await _post(query, variables)
+            res = await _post(query, variables, headers)
         except (httpx.TransportError, asyncio.TimeoutError) as e:
             if attempt < _MAX_RETRIES:
                 await sleep_ms(1000 * 2**attempt)
@@ -154,6 +155,22 @@ async def _gql_fetch(query: str, variables: dict[str, Any]) -> Any:
         return data
 
 
-async def gql(query: str, variables: dict[str, Any], ttl_ms: int) -> Any:
-    """``gql`` TS: chiave = ``sha256(query + JSON.stringify(variables))``."""
-    return await cache.cache_wrap(js_json.sha256_key(query, variables), ttl_ms, lambda: _gql_fetch(query, variables))
+def auth_headers(token: str) -> dict[str, str]:
+    return {"authorization": f"Bearer {token}"}
+
+
+async def gql(query: str, variables: dict[str, Any], ttl_ms: int, token: str | None = None) -> Any:
+    """``gql`` TS: chiave = ``sha256(query + JSON.stringify(variables))``.
+
+    Con ``token`` la chiave è salata (``auth|<hash token>|``): le risposte
+    private non collidono con quelle anonime né fra account diversi."""
+    key = js_json.sha256_key(query, variables)
+    if token is not None:
+        key = f"auth|{hashlib.sha256(token.encode('utf-8')).hexdigest()[:8]}|{key}"
+    return await cache.cache_wrap(key, ttl_ms, lambda: _gql_fetch(query, variables, auth_headers(token) if token else None))
+
+
+async def gql_uncached(query: str, variables: dict[str, Any], token: str | None = None) -> Any:
+    """Mutazioni e Viewer: mai in cache (il precedente del TS mutazioni non esisteva —
+    questo è il nuovo punto d'accesso per le scritture)."""
+    return await _gql_fetch(query, variables, auth_headers(token) if token else None)

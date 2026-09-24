@@ -8,7 +8,7 @@ import re
 from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, StrictBool
 
 from app.adapters.anilist.client import AniListError
@@ -66,20 +66,33 @@ def _invalid_request() -> JSONResponse:
     return JSONResponse({"error": "invalid_request"}, status_code=400)
 
 
-def _error_response(e: Exception) -> JSONResponse:
-    """``errorResponse`` (api.ts righe 201-207)."""
+def _error_payload(e: Exception) -> dict:
+    """Body canonico degli errori (vocabolario ``errorResponse``): condiviso da
+    JSON e dall'evento ``error`` dello stream."""
     if isinstance(e, AniListError):
         if e.status == 404:
-            return JSONResponse({"error": "user_not_found"}, status_code=404)
-        return JSONResponse({"error": "anilist_error", "message": str(e)}, status_code=502)
-    return JSONResponse({"error": "internal_error"}, status_code=500)
+            return {"error": "user_not_found"}
+        if e.status == 401:
+            return {"error": "anilist_auth"}
+        return {"error": "anilist_error", "message": str(e)}
+    return {"error": "internal_error"}
+
+
+def _error_response(e: Exception) -> JSONResponse:
+    """``errorResponse`` (api.ts righe 201-207)."""
+    payload = _error_payload(e)
+    status = 404 if payload["error"] == "user_not_found" else 401 if payload["error"] == "anilist_auth" else 502
+    if payload["error"] == "internal_error":
+        status = 500
+    return JSONResponse(payload, status_code=status)
 
 
 async def with_local_fallback(fn: Callable[[], Awaitable[dict]]) -> dict:
     """``withLocalFallback`` (api.ts righe 58-78).
 
     AniList down + auto on + fixtures on disk → flip to local mode and retry once.
-    404 is a genuine "user not found", not an outage — never masked; il fallimento
+    404 is a genuine "user not found", not an outage — never masked; 401 è un token
+    scaduto (auth), non un outage: né fallback né mascheramento. Il fallimento
     del retry è inghiottito e risale l'errore AniList originale.
     """
     try:
@@ -87,6 +100,7 @@ async def with_local_fallback(fn: Callable[[], Awaitable[dict]]) -> dict:
     except AniListError as e:
         if (
             e.status != 404
+            and e.status != 401
             and config.auto_fallback_on()
             and not config.local_mode_on()
             and config.fixtures_available()
@@ -218,6 +232,99 @@ async def llm_models() -> dict:
     return {"models": sorted({m for m in ids if m}), "configured": config.configured_llm_model()}
 
 
+# --- OAuth AniList + watchlist (nuovo, non nel TS) ----------------------------------
+
+
+class AnilistAuthBody(BaseModel):
+    # chiave assente = non toccare; "" = cancella (come SettingsBody)
+    clientId: str | None = None
+    clientSecret: str | None = None
+
+
+_CLIENT_ID_RE = re.compile(r"\A\d{1,20}\Z")
+
+
+@router.get("/auth/anilist")
+async def anilist_auth_status() -> dict:
+    from app.adapters.anilist import auth
+
+    return auth.status_payload()  # mai token/secret nel payload
+
+
+@router.patch("/auth/anilist")
+async def anilist_auth_patch(body: AnilistAuthBody) -> dict:
+    from app.adapters.anilist import auth
+
+    patch: dict = {}
+    if "clientId" in body.model_fields_set:
+        cid = js_trim(body.clientId or "")
+        if cid and not _CLIENT_ID_RE.match(cid):
+            raise ApiError(400, "invalid_request")
+        patch["anilistClientId"] = cid if cid else None
+    if "clientSecret" in body.model_fields_set:
+        secret = js_trim(body.clientSecret or "")
+        if secret and not 8 <= len(secret) <= 200:
+            raise ApiError(400, "invalid_request")
+        patch["anilistClientSecret"] = secret if secret else None
+    if patch:
+        config.update_config(patch)
+    return auth.status_payload()
+
+
+@router.post("/auth/anilist/start")
+async def anilist_auth_start() -> dict:
+    from app.adapters.anilist import auth
+
+    return {"url": await auth.start_flow()}
+
+
+@router.post("/auth/anilist/disconnect")
+async def anilist_auth_disconnect() -> dict:
+    from app.adapters.anilist import auth
+
+    auth.disconnect()
+    return {"ok": True}
+
+
+class WatchlistBody(BaseModel):
+    mediaId: int
+
+
+@router.get("/watchlist/status")
+async def watchlist_status(username: str = "", mediaId: int = 0) -> dict:
+    from app.adapters.anilist.media import fetch_media_list_status
+
+    if not USERNAME_RE.match(username) or mediaId <= 0:
+        return _invalid_request()
+    try:
+        return {"status": await fetch_media_list_status(username, mediaId)}
+    except Exception as e:
+        return _error_response(e)
+
+
+@router.post("/watchlist")
+async def watchlist_add(body: WatchlistBody) -> dict:
+    """Aggiunge alla watchlist (PLANNING) per l'utente collegato via OAuth."""
+    from app.adapters.anilist import auth, queries
+    from app.adapters.anilist.client import AniListError, gql_uncached
+
+    if body.mediaId <= 0:
+        return _invalid_request()
+    token = auth.anilist_token()
+    if token is None:
+        raise ApiError(401, "anilist_auth")
+    try:
+        data = await gql_uncached(queries.SAVE_PLANNING_MUTATION, {"mediaId": body.mediaId}, token=token)
+    except AniListError as e:
+        setup_mod.log_llm(f"watchlist: AniList error ({e})")
+        if e.status == 401:
+            raise ApiError(401, "anilist_auth") from e
+        raise ApiError(502, "anilist_error") from e
+    entry = data.get("SaveMediaListEntry") if isinstance(data, dict) else None
+    status = entry.get("status") if isinstance(entry, dict) else "PLANNING"
+    return {"ok": True, "status": status}
+
+
 _shutdown_tasks: set[asyncio.Task] = set()
 
 
@@ -261,6 +368,58 @@ async def recommend(request: Request):
         )
     except Exception as e:
         return _error_response(e)
+
+
+def _sse(event: str, data: dict) -> bytes:
+    """Frame SSE (spec: righe chiuse da blank line)."""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode("utf-8")
+
+
+@router.get("/recommend/stream")
+async def recommend_stream(username: str = "", lang: str | None = None):
+    """Progress SSE della generazione (nuovo, non nel TS): eventi ``phase`` ai
+    confini di ``recommend_for`` (ordine del docstring, mai riordinato), ``done``
+    col body IDENTICO a POST /recommend, ``error`` col vocabolario condiviso.
+    Cache hit / inflight join = solo ``done``: la UI tollera il flush unico.
+    Un client che si disconnette NON cancella il task: la cache si popola comunque."""
+    if not USERNAME_RE.match(username):
+        return _invalid_username()
+    resolved = _lang(lang)
+    queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def on_phase(phase: str) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, ("phase", {"phase": phase}))
+
+    async def run_task() -> dict:
+        try:
+            body = await with_local_fallback(
+                lambda: recommend_query.get_recommendation(username, resolved, on_phase=on_phase)
+            )
+            queue.put_nowait(("done", body))
+        except Exception as e:
+            queue.put_nowait(("error", _error_payload(e)))
+        finally:
+            queue.put_nowait(None)  # termine del generatore
+
+    task = asyncio.ensure_future(run_task())
+
+    async def gen():
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield _sse(item[0], item[1])
+        finally:
+            # il generatore muore col client: il task continua e riempie la cache
+            pass
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"cache-control": "no-store", "x-accel-buffering": "no"},
+    )
 
 
 @router.post("/explain")

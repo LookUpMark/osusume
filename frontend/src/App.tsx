@@ -2,19 +2,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { tr, type Lang } from "./lib/i18n.ts";
 import type { RecoResult, ScoredReco, SetupStatus } from "./lib/types.ts";
 import {
+  addToWatchlist,
+  fetchAniListAuth,
   fetchAppUpdate,
   fetchHealth,
   fetchProfile,
-  fetchRecommend,
   fetchSetupStatus,
   lookupMedia,
   postLocalMode,
   postSetup,
+  startAniListLogin,
+  streamRecommend,
+  watchlistStatus,
+  type AniListAuth,
   type AppUpdate,
   type LocalMode,
 } from "./lib/api.ts";
+// component and type share the name: the type is aliased
+import { AniListAuth as AniListAuthPanel } from "./components/AniListAuth.tsx";
 import { errorMessage } from "./lib/logic/errors.ts";
 import { detectLang } from "./lib/logic/lang.ts";
+import type { StreamPhase } from "./lib/logic/progress.ts";
 import { score110 } from "./lib/logic/display.ts";
 import {
   applyFilters,
@@ -36,6 +44,7 @@ import { ProfileView } from "./components/ProfileView.tsx";
 import { Rail } from "./components/Rail.tsx";
 import { LoginModal } from "./components/LoginModal.tsx";
 import { LlmSettings } from "./components/LlmSettings.tsx";
+import { Progress } from "./components/Progress.tsx";
 import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
 import { VIEW_ORDER, type View } from "./views/index.ts";
@@ -52,7 +61,7 @@ export function App() {
   const [llmOn, setLlmOn] = useState<boolean | null>(null);
   const [local, setLocal] = useState<LocalMode | null>(null);
   const [update, setUpdate] = useState<AppUpdate | null>(null);
-  const [phase, setPhase] = useState<"idle" | "profile" | "recos">("idle");
+  const [phase, setPhase] = useState<"idle" | StreamPhase | "recos">("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
@@ -72,10 +81,64 @@ export function App() {
   const [genre, setGenre] = useState("all");
   const [dialog, setDialog] = useState<ScoredReco | null>(null);
   const lastView = useRef<View>("recos");
+  // AniList OAuth: null until the first status fetch answers
+  const [auth, setAuth] = useState<AniListAuth | null>(null);
+  const [watch, setWatch] = useState<{ status: string | null; busy: boolean } | null>(null);
 
   useEffect(() => {
     fetchSetupStatus().then(setSetup).catch(() => setSetup("error"));
   }, []);
+
+  // AniList OAuth status: once on mount, then only while a login flow is pending
+  const pollRef = useRef(0);
+  const refreshAuth = () => {
+    const id = ++pollRef.current;
+    fetchAniListAuth()
+      .then((a) => {
+        if (id !== pollRef.current) return;
+        setAuth(a);
+        // completed flow → sign in with the Viewer identity
+        if (a.flow === "ok" && a.username) void login(a.username);
+      })
+      .catch(() => undefined);
+  };
+  useEffect(() => {
+    fetchAniListAuth().then(setAuth).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (auth?.flow !== "pending") return;
+    const iv = setInterval(refreshAuth, 1500);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth?.flow]);
+
+  const startOauth = () => {
+    startAniListLogin()
+      .then(({ url }) => {
+        window.open(url, "_blank", "noopener");
+        setAuth((a) => (a ? { ...a, flow: "pending" } : a));
+      })
+      .catch(() => undefined);
+  };
+
+  // watchlist status for the open dialog (only when signed in via OAuth)
+  useEffect(() => {
+    if (!dialog || !auth?.authenticated) {
+      setWatch(null);
+      return;
+    }
+    setWatch(null);
+    const user = result?.profile.userName ?? username;
+    if (!user) return;
+    let alive = true;
+    watchlistStatus(user, dialog.media.id)
+      .then((r) => alive && setWatch({ status: r.status, busy: false }))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialog?.media.id, auth?.authenticated]);
 
   // fake login persistence: a known user loads straight into their recos
   const bootRef = useRef(false);
@@ -165,19 +228,30 @@ export function App() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const esRef = useRef<{ close: () => void } | null>(null);
+
+  // a stream outliving the component (or the run) would leak events — close on unmount
+  useEffect(() => () => esRef.current?.close(), []);
+
   async function run(username: string): Promise<boolean> {
+    esRef.current?.close();
+    esRef.current = null;
     setUsername(username);
     setError(null);
     setResult(null);
     setWhySource({});
     setExtraRecos([]);
     setGenre("all");
-    setPhase("profile");
+    setPhase("list");
     setLoading(true);
     showView("recos");
     try {
+      // fast-fail JSON (user_not_found) before opening the stream
       await fetchProfile(username);
-      const r = await fetchRecommend(username, lang);
+      const stream = streamRecommend(username, lang, setPhase);
+      esRef.current = stream;
+      const r = await stream.done;
+      esRef.current = null;
       setResult(r);
       setPhase("recos");
       return true;
@@ -189,6 +263,8 @@ export function App() {
       return false;
     } finally {
       setLoading(false);
+      esRef.current?.close();
+      esRef.current = null;
       refreshHealth(); // the server may have auto-switched to local mode mid-request
     }
   }
@@ -426,8 +502,8 @@ export function App() {
                   </div>
                 ))}
               </div>
-            ) : phase === "profile" ? (
-              <p className="loading">{tr(lang, "loadingProfile")}</p>
+            ) : phase !== "idle" && phase !== "recos" ? (
+              <Progress lang={lang} phase={phase} />
             ) : (
               result && (
                 <>
@@ -629,6 +705,8 @@ export function App() {
             </div>
 
             <LlmSettings lang={lang} onSaved={refreshHealth} />
+
+            <AniListAuthPanel lang={lang} onAuthChange={setAuth} />
           </section>
 
           <footer className="pagefoot" data-od-id="footer">
@@ -644,6 +722,9 @@ export function App() {
           busy={loading}
           error={error}
           current={username || undefined}
+          oauthConfigured={auth?.configured}
+          oauthPending={auth?.flow === "pending"}
+          onOauth={startOauth}
           onLogin={login}
         />
       )}
@@ -665,6 +746,21 @@ export function App() {
             setSort("affinity");
             showView(lastView.current);
           }}
+          watchStatus={auth?.authenticated ? (watch?.status ?? null) : undefined}
+          watchBusy={watch?.busy}
+          onAddToWatchlist={
+            auth?.authenticated && dialog
+              ? () => {
+                  setWatch({ status: watch?.status ?? null, busy: true });
+                  addToWatchlist(dialog.media.id)
+                    .then((r) => setWatch({ status: r.status, busy: false }))
+                    .catch((e) => {
+                      setWatch({ status: null, busy: false });
+                      setError(errorMessage(lang, e));
+                    });
+                }
+              : undefined
+          }
         />
       )}
     </>

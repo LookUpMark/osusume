@@ -78,7 +78,7 @@ def _stub_pipeline(monkeypatch, entries, pool):
 def _install_counter(monkeypatch, fail: bool = False):
     calls = {"n": 0}
 
-    async def fake_recommend_for(username, lang):
+    async def fake_recommend_for(username, lang, on_phase=None):
         calls["n"] += 1
         if fail:
             raise AniListError("boom", 502)
@@ -127,7 +127,7 @@ async def test_concorrenza_stessa_chiave_un_solo_calcolo(monkeypatch):
     calls = {"n": 0}
     gate = asyncio.Event()
 
-    async def slow(username, lang):
+    async def slow(username, lang, on_phase=None):
         calls["n"] += 1
         await gate.wait()
         return f"result-{username}-{lang}"
