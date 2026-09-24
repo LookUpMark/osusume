@@ -340,6 +340,12 @@ async def recommend_for(
     # scoreAll: the EXCLUDED candidates never enter scoring (they surface as avoided)
     if on_phase is not None:
         on_phase("scoring")
+    # collaborative signal (CF v2): attivo SOLO col modello scaricato — spento,
+    # la chiamata ritorna {} e il motore resta byte-identico (golden incluso)
+    from app.adapters import cf as cf_adapter
+
+    loved_ids = {e.mediaId for e in ul.entries if entry_sentiment(e, profile.meanScore).s > 0}
+    cf_map = cf_adapter.cf_scores([c.id for c in candidates], loved_ids)
     scored = score_all(
         [c for c in candidates if (f := franchise.get(c.id)) is None or f.kind != "EXCLUDED"],
         profile,
@@ -347,6 +353,7 @@ async def recommend_for(
         franchise,
         lang,
         mood,
+        cf_map or None,
     )
     # dedupe (canonical roots keep groups stable) then MMR-diversify: mmRank drives
     # the default order so near-duplicates don't stack at the top of the list

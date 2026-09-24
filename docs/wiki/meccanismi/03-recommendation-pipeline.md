@@ -25,6 +25,10 @@ Answer "what should I watch next?" from the user's list only: targeted candidate
 
 `recommend_for`/`get_recommendation`/`lookup_media`/`score_arbitrary` take `media_type: "ANIME" | "MANGA"`: candidates, entry points, community graph and franchise read the matching world, while the **taste profile stays anime-only by design** (single profile — dims tag/genre share AniList's vocabulary). The manga list feeds exclusions/franchise/mood. The result-cache key includes the type (`user:lang:type:mode`, `pipeline.py`) so the two worlds never bleed into each other. Candidates carry no type field — runs are per-type, never mixed.
 
+## Collaborative signal (`cf`, optional — post-port)
+
+`score_all` accepts `cf_scores` (0..1 per candidate): when the CF artifact is downloaded, a cosine between an on-the-fly user vector (mean of the loved titles' item vectors) and the candidates adds `min(cfCap, cf·cf_score)` to `final`. With NO artifact the contribution is 0 and the engine is byte-identical to the TS original (golden included). The signal never touches the serialized payload — it moves the ranking only. Offline builder: `scripts/cf/` (Turan ratings + anime-offline-database ID join, ALS, recall-gated). Loader: `backend/app/adapters/cf.py`; state/toggle endpoint `GET|PATCH /api/cf` ([05-api-server.md](meccanismi/05-api-server.md)).
+
 ## Progress observation (`on_phase`, added post-port)
 
 `recommend_for(username, lang, on_phase)` and `get_recommendation(..., on_phase)` accept a throw-free observer callback (`pipeline.py:211-217`, `:175-199`): 9 phase events — `list, profile, candidates, franchise, community, mood, scoring, links, whynot` — emitted at the exact boundaries above, NEVER reordering the work. Cache hit or inflight join → no callback (the caller receives only the final result). The SSE endpoint turns these into stream events ([05-api-server.md](meccanismi/05-api-server.md)); the UI renders a stepper ([08-frontend-app.md](meccanismi/08-frontend-app.md)).

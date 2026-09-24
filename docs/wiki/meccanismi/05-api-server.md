@@ -11,6 +11,7 @@ Serve the React UI and any API client exactly like the original Hono server did:
 - `GET /health` (`routes.py:119-130`) — throttled `ensure_llm_server()` re-kick + llm/local state.
 - `GET /app-update`, `POST /local-mode` (`routes.py:133-145`), `GET /config` (disclosure-minimal, no baseUrl) (`routes.py:149-151`).
 - `GET|PATCH /settings`, `GET /llm/models` (`routes.py:182-218`) — settings UI backend (see below).
+- `GET|PATCH /api/cf`, `POST /api/cf/download` — collaborative-signal state/toggle/download (`backend/app/adapters/cf.py`); download failures → 503 `cf_unavailable`. Throttled auto-download at startup, skipped entirely in fixture/test mode (see [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md)).
 - `GET /recommend/stream` — SSE progress (`event: phase` × 9 per [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), then `event: done` with the body IDENTICAL to `POST /recommend`, or `event: error` with the shared `_error_payload` vocabulary; cache hit → `done` only; client disconnect does NOT cancel the computation).
 - `mediaType` ("ANIME" default, silent like `_lang`) rides on recommend/stream/explain/lookup/chat bodies and the stream query — the two-worlds switch of [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md). `/profile` has no type: the taste profile is anime-only by design.
 - `GET|PATCH /auth/anilist`, `POST /auth/anilist/start|disconnect`, `GET /watchlist/status`, `POST /watchlist` — the OAuth surface, owned by [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).

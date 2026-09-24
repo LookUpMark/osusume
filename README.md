@@ -120,6 +120,10 @@ Dropped entries push their tags/genres/studios into your *disliked* profile; a d
 
 Reads only public lists and runs ~20 targeted GraphQL queries per lookup (never a catalog mirror), cached on disk with short TTLs — within AniList's API terms of use. See `docs/anilist-api.md`.
 
+## Collaborative signal (optional)
+
+The optional collaborative-filtering artifact is built offline by `scripts/cf/` from the **User-Animelist-Dataset** (CC-BY-4.0, by mramazan) with ID mapping derived from the **anime-offline-database** (ODbL/DbCL, by manami-project). Attribution and notices: `THIRD-PARTY-NOTICES.md`. Without the artifact the engine is unchanged.
+
 ## Docs
 
 `docs/README.md` is the index: decisions, architecture, competitor analysis, API facts, plan status, roadmap.

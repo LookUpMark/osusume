@@ -10,6 +10,8 @@ dependencies = [
     "httpx>=0.27",
     # \p{L}/\p{M} del tokenizer non esistono nella stdlib re (spec §2.2.5)
     "regex>=2024.4.16",
+    # CF v2: parse artefatto (ids i32 + vettori f16) e matematica dei vettori
+    "numpy>=2.0",
 ]
 
 [dependency-groups]

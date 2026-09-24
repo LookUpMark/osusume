@@ -20,6 +20,7 @@ import {
 } from "./lib/api.ts";
 // component and type share the name: the type is aliased
 import { AniListAuth as AniListAuthPanel } from "./components/AniListAuth.tsx";
+import { CfSettings } from "./components/CfSettings.tsx";
 import { errorMessage } from "./lib/logic/errors.ts";
 import { detectLang } from "./lib/logic/lang.ts";
 import type { StreamPhase } from "./lib/logic/progress.ts";
@@ -736,6 +737,8 @@ export function App() {
             <LlmSettings lang={lang} onSaved={refreshHealth} />
 
             <AniListAuthPanel lang={lang} onAuthChange={setAuth} />
+
+            <CfSettings lang={lang} />
           </section>
 
           <footer className="pagefoot" data-od-id="footer">

@@ -262,21 +262,28 @@ def score_all(
     franchise: dict[int, FranchiseInfo],
     lang: Lang,
     mood: dict[int, float] | None = None,
+    cf_scores: dict[int, float] | None = None,
 ) -> list[ScoredReco]:
     """``scoreAll`` (scoring.ts righe 158-201).
 
     final = clamp(0.6 aff + 0.28 quality + community (cap 0.1) + mood
-                  + (NEXT_STEP ? 0.12 : 0), 0, 1.1).
+                  + (NEXT_STEP ? 0.12 : 0) + cf (cap 0.1, solo col modello), 0, 1.1).
     Badge order push: NEXT_STEP, ENTRY_POINT, SPIN_OFF, HIDDEN_GEM;
     ENTRY_POINT prende il badge SENZA bonus; rootId null se STANDALONE.
+
+    ``cf_scores`` è il segnale collaborativo (CF v2, 0..1 per candidato): None =
+    segnale spento (nessun modello) → contributo 0 e risultato byte-identico al TS.
+    Non entra nel breakdown serializzato: sposta il ranking, il dialog resta com'è.
     """
     mood = mood if mood is not None else {}
+    cf = cf_scores if cf_scores is not None else {}
     out: list[ScoredReco] = []
     for m in candidates:
         a = affinity_of(m, p)
         quality = quality_of(m)
         comm = min(WEIGHTS["communityCap"], community.get(m.id, 0))
         mood_bonus = mood.get(m.id, 0)
+        cf_bonus = min(WEIGHTS["cfCap"], WEIGHTS["cf"] * cf.get(m.id, 0))
         f = franchise.get(m.id)
         badges: list[Badge] = []
         if f is not None and f.kind == "NEXT_STEP":
@@ -294,6 +301,7 @@ def score_all(
             + WEIGHTS["quality"] * quality
             + comm
             + mood_bonus
+            + cf_bonus
             + (WEIGHTS["franchiseBonus"] if "NEXT_STEP" in badges else 0),
             0,
             1.1,

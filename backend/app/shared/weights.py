@@ -20,6 +20,10 @@ WEIGHTS = {
     "communityPerHit": 0.03,
     "communityCap": 0.1,
     "mood": 0.04,  # continuity bonus: shares themes/plot with the last 5 completed
+    # collaborative signal (post-port): attivo SOLO col modello scaricato —
+    # senza artefatto il contributo è 0 e il motore resta byte-identico
+    "cf": 0.1,
+    "cfCap": 0.1,
     # quality mix
     "qualityScore": 0.8,
     "qualityPop": 0.2,

@@ -240,6 +240,38 @@ async def llm_models() -> dict:
     return {"models": sorted({m for m in ids if m}), "configured": config.configured_llm_model()}
 
 
+# --- Collaborative signal (CF v2, nuovo) --------------------------------------------
+
+
+class CfBody(BaseModel):
+    enabled: StrictBool
+
+
+@router.get("/cf")
+async def cf_status() -> dict:
+    from app.adapters import cf
+
+    return cf.state()
+
+
+@router.patch("/cf")
+async def cf_patch(body: CfBody) -> dict:
+    from app.adapters import cf
+
+    cf.set_enabled(body.enabled)
+    return cf.state()
+
+
+@router.post("/cf/download")
+async def cf_download() -> dict:
+    from app.adapters import cf
+
+    ok = await cf.ensure_cf_model(force=True)
+    if not ok:
+        raise ApiError(503, "cf_unavailable")
+    return cf.state()
+
+
 # --- OAuth AniList + watchlist (nuovo, non nel TS) ----------------------------------
 
 

@@ -16,3 +16,7 @@ build/pyserver/
 .venv/
 __pycache__/
 __tmp__/
+
+# CF builder (dataset + artefatto locali)
+scripts/cf/data/
+scripts/cf/osusume-cf-*.bin

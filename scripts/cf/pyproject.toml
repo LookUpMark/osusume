@@ -1,0 +1,16 @@
+[project]
+name = "osusume-cf-build"
+version = "1.0.0"
+description = "Offline CF model builder — NOT app dependencies (dedicated env)"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "implicit>=0.7",
+    "requests>=2.32",
+    "zstandard>=0.23",
+]
+
+[tool.uv]
+# env isolato: l'app non vede mai queste dipendenze
+package = false

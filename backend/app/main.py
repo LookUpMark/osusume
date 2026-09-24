@@ -48,6 +48,9 @@ def create_app() -> FastAPI:
 
         setup.cleanup_on_exit()  # the LLM backend lives and dies with the app
         setup.ensure_llm_server()  # no-op unless the setup wizard completed
+        from app.adapters import cf
+
+        cf.ensure_cf_model()  # throttled download of the collaborative artifact (optional)
         yield
 
     app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None, lifespan=_lifespan)
