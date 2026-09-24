@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import type { Lang } from "../lib/i18n.ts";
 import { tr } from "../lib/i18n.ts";
 import type { AppUpdate, LocalMode } from "../lib/api.ts";
+import type { MediaType } from "../lib/types.ts";
 import { VIEW_LABEL, type View } from "../views/index.ts";
 
 const ICONS: Record<View, ReactElement> = {
@@ -51,6 +52,8 @@ export function Rail(props: {
   onCheckUpdates: () => void;
   onNav: (v: View) => void;
   onLang: () => void;
+  media: MediaType;
+  onMedia: (m: MediaType) => void;
 }) {
   const { lang } = props;
   const items: View[] = ["home", "recos", "gems", "chat", "profile", "avoid", "settings"];
@@ -140,6 +143,13 @@ export function Rail(props: {
             )}
           </>
         )}
+        <div className="media-seg" role="group" aria-label={tr(lang, "mediaKind")} data-od-id="media-switch">
+          {(["ANIME", "MANGA"] as MediaType[]).map((m) => (
+            <button key={m} type="button" aria-pressed={props.media === m} onClick={() => props.onMedia(m)}>
+              {tr(lang, m === "ANIME" ? "mediaAnime" : "mediaManga")}
+            </button>
+          ))}
+        </div>
         <button type="button" className="lang-btn" onClick={props.onLang} aria-label="IT / EN" title="IT / EN">
           {lang === "en" ? "IT" : "EN"}
         </button>

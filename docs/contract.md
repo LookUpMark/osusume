@@ -80,6 +80,12 @@ Chi non ha endpoint dedicati ma solo shape: `GET /api/profile/:username` applica
 `encodeURIComponent` lato client (`frontend/src/lib/api.ts`); il server non decodifica nomi con caratteri
 fuori whitelist (già rifiutati da `USERNAME_RE`).
 
+### `mediaType` — secondo mondo (post-port, da v1.2)
+
+`recommend`/`explain`/`lookup`/`chat` (body) e `recommend/stream` (query) accettano `mediaType: "ANIME"|"MANGA"` —
+default `ANIME`, valore estraneo → default silenzioso (semantica `lang`). Il profilo gusti è SEMPRE la lista
+anime (profilo unico); la lista manga serve a esclusioni/franchise/mood. `/profile` non ha `mediaType`.
+
 ## Static/SPA — deviazione del port Python (P1)
 
 Il backend TypeScript in produzione serviva `dist/index.html` a prescindere dall'header `Accept`

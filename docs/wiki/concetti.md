@@ -22,3 +22,4 @@ Every entry links the mechanism that owns it and the code that defines it.
 - **StreamPhase / on_phase** — the 9 pipeline phases observed (never reordered) by the SSE endpoint and the UI stepper. [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), `frontend/src/lib/logic/progress.ts`.
 - **AniList OAuth flow** — authorization code + fixed-port loopback callback; token server-side only, `state` as CSRF defense. [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
 - **`anilist_auth`** — 401 error code for a missing/expired AniList token; carved out of the local fallback (an auth failure is not an outage). `routes.py:69-81`, [05-api-server.md](meccanismi/05-api-server.md).
+- **MediaType (ANIME/MANGA)** — the two worlds: every run is typed (candidates, cache keys, prompt wording), the taste profile stays anime-only. [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), [05-api-server.md](meccanismi/05-api-server.md).

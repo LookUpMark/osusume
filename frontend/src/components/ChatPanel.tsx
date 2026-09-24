@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { tr, type Lang } from "../lib/i18n.ts";
-import type { RecoResult, ScoredReco } from "../lib/types.ts";
+import type { MediaType, RecoResult, ScoredReco } from "../lib/types.ts";
 import { postChat, type ChatMsg } from "../lib/api.ts";
 import { cardToReco } from "../lib/logic/recos.ts";
 import { Markdown } from "./Markdown.tsx";
@@ -12,6 +12,7 @@ export function ChatPanel(props: {
   username: string;
   /** Chat lookups (titles opened from the topbar search): card resolution pool + postChat ids. */
   extras: ScoredReco[];
+  media: MediaType;
   onOpen: (reco: ScoredReco) => void;
 }) {
   const { lang, result } = props;
@@ -53,7 +54,7 @@ export function ChatPanel(props: {
     setBusy(true);
     setErr(false);
     try {
-      const r = await postChat(props.username, lang, history.slice(-12), props.extras.map((r) => r.media.id));
+      const r = await postChat(props.username, lang, history.slice(-12), props.extras.map((r) => r.media.id), props.media);
       setMsgs([...history, { role: "assistant", content: r.reply, cards: r.cards ?? [] }]);
     } catch {
       setErr(true);

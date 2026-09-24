@@ -21,6 +21,10 @@ Answer "what should I watch next?" from the user's list only: targeted candidate
 11. **Deterministic why / why-not**: `loved_overlap` (max 2 dims, rank ≥ 60 tags, `aff > 0.05` threshold) → expert-voice why; `deterministic_why_not` needs honest negative evidence (`aff < -0.3` disliked hits or a dropped prequel), max 3 `WhyNot` (`scoring.py:144-252`; `pipeline.py:326-355`).
 12. Returns `RecoResult` (`pipeline.py:357`).
 
+## Two worlds: `media_type` (post-manga)
+
+`recommend_for`/`get_recommendation`/`lookup_media`/`score_arbitrary` take `media_type: "ANIME" | "MANGA"`: candidates, entry points, community graph and franchise read the matching world, while the **taste profile stays anime-only by design** (single profile — dims tag/genre share AniList's vocabulary). The manga list feeds exclusions/franchise/mood. The result-cache key includes the type (`user:lang:type:mode`, `pipeline.py`) so the two worlds never bleed into each other. Candidates carry no type field — runs are per-type, never mixed.
+
 ## Progress observation (`on_phase`, added post-port)
 
 `recommend_for(username, lang, on_phase)` and `get_recommendation(..., on_phase)` accept a throw-free observer callback (`pipeline.py:211-217`, `:175-199`): 9 phase events — `list, profile, candidates, franchise, community, mood, scoring, links, whynot` — emitted at the exact boundaries above, NEVER reordering the work. Cache hit or inflight join → no callback (the caller receives only the final result). The SSE endpoint turns these into stream events ([05-api-server.md](meccanismi/05-api-server.md)); the UI renders a stepper ([08-frontend-app.md](meccanismi/08-frontend-app.md)).

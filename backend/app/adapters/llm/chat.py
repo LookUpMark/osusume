@@ -88,6 +88,7 @@ async def chat_reply(
     lang: Lang,
     history: list[dict[str, str]],
     extra_recos: list[ScoredReco] | None = None,
+    media_type: str = "ANIME",
 ) -> str:
     """``chatReply`` (chat.ts righe 104-137) — altri errori PROPAGANO."""
     extra_recos = extra_recos or []
@@ -102,7 +103,7 @@ async def chat_reply(
     focus_ids = focus_ids[:4]
     reviews: dict[int, list[ReviewLite]] = await gather_reviews(focus_ids) if focus_ids else {}
     messages = [
-        {"role": "system", "content": build_chat_system(result, lang, extra_recos, reviews)},
+        {"role": "system", "content": build_chat_system(result, lang, extra_recos, reviews, media_type)},
         *history,
     ]
     try:

@@ -58,6 +58,14 @@ def _lang(value: Any) -> Any:
     return value if isinstance(value, str) and value in LANGS else "en"
 
 
+_MEDIA_TYPES: frozenset[str] = frozenset({"ANIME", "MANGA"})
+
+
+def _media_type(value: Any) -> str:
+    """Tipo media con default silenzioso (stessa semantica di ``_lang``)."""
+    return value if isinstance(value, str) and value in _MEDIA_TYPES else "ANIME"
+
+
 def _invalid_username() -> JSONResponse:
     return JSONResponse({"error": "invalid_username"}, status_code=400)
 
@@ -335,6 +343,8 @@ class UsernameBody(BaseModel):
     # `lang: Any`: nel TS un lang non-stringa NON è un errore, `_lang` lo manda a "en".
     username: str = ""
     lang: Any = None
+    # secondo mondo manga: default ANIME, valore estraneo → ANIME (come _lang)
+    mediaType: str | None = None
 
 
 class ExplainBody(UsernameBody):
@@ -364,7 +374,7 @@ async def recommend(request: Request):
         return _invalid_username()
     try:
         return await with_local_fallback(
-            lambda: recommend_query.get_recommendation(body.username, _lang(body.lang))
+            lambda: recommend_query.get_recommendation(body.username, _lang(body.lang), media_type=_media_type(body.mediaType))
         )
     except Exception as e:
         return _error_response(e)
@@ -376,7 +386,7 @@ def _sse(event: str, data: dict) -> bytes:
 
 
 @router.get("/recommend/stream")
-async def recommend_stream(username: str = "", lang: str | None = None):
+async def recommend_stream(username: str = "", lang: str | None = None, mediaType: str | None = None):
     """Progress SSE della generazione (nuovo, non nel TS): eventi ``phase`` ai
     confini di ``recommend_for`` (ordine del docstring, mai riordinato), ``done``
     col body IDENTICO a POST /recommend, ``error`` col vocabolario condiviso.
@@ -394,7 +404,9 @@ async def recommend_stream(username: str = "", lang: str | None = None):
     async def run_task() -> dict:
         try:
             body = await with_local_fallback(
-                lambda: recommend_query.get_recommendation(username, resolved, on_phase=on_phase)
+                lambda: recommend_query.get_recommendation(
+                    username, resolved, on_phase=on_phase, media_type=_media_type(mediaType)
+                )
             )
             queue.put_nowait(("done", body))
         except Exception as e:
@@ -433,7 +445,7 @@ async def explain(request: Request):
     try:
         # stale-tolerant like /chat: the dialog explains a result the UI already shows
         return await with_local_fallback(
-            lambda: explain_query.explain(body.username, ids, _lang(body.lang))
+            lambda: explain_query.explain(body.username, ids, _lang(body.lang), _media_type(body.mediaType))
         )
     except Exception as e:
         return _error_response(e)
@@ -450,7 +462,9 @@ async def lookup(request: Request):
     if not USERNAME_RE.match(body.username) or js_length(q) < 2 or js_length(q) > 80:
         return _invalid_request()
     try:
-        return await with_local_fallback(lambda: recommend_query.lookup(body.username, q, _lang(body.lang)))
+        return await with_local_fallback(
+            lambda: recommend_query.lookup(body.username, q, _lang(body.lang), _media_type(body.mediaType))
+        )
     except Exception as e:
         return _error_response(e)
 
@@ -464,6 +478,7 @@ class ChatBody(BaseModel):
     lang: Any = None
     extra: list[Any] = []
     messages: list[dict[str, Any]] = []
+    mediaType: str | None = None
 
 
 def _normalize_history(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -489,15 +504,19 @@ def chat_extra_ids(extra: list[Any], recos: list) -> list[float | int]:
     ][:5]
 
 
-async def _chat_turn(username: str, lang: str, history: list[dict[str, str]], extra: list[Any]) -> dict:
+async def _chat_turn(
+    username: str, lang: str, history: list[dict[str, str]], extra: list[Any], media_type: str = "ANIME"
+) -> dict:
     """Corpo di ``/chat`` (api.ts righe 170-190): LlmError → 503 + log, il resto sale."""
     try:
         # stale-tolerant: a 10-minute-old result beats a full recompute mid-chat
-        result = await pipeline.get_recommendation(username, lang, stale_ok=True)
+        result = await pipeline.get_recommendation(username, lang, stale_ok=True, media_type=media_type)
         # titles opened via the chat lookup join the context (bounded, never duplicates)
         extra_ids = chat_extra_ids(extra, result.recos)
-        extras = (await pipeline.score_arbitrary(extra_ids, username, lang))[1] if extra_ids else []
-        reply = await chat_reply(result, lang, history, extras)
+        extras = (
+            (await pipeline.score_arbitrary(extra_ids, username, lang, media_type))[1] if extra_ids else []
+        )
+        reply = await chat_reply(result, lang, history, extras, media_type)
         # card = titoli che il modello ha GRASSETTATO, matchati sullo stesso pool
         # che il system prompt gli mostra (prompts.build_chat_system)
         pool = [*result.recos[:12], *extras[:5]]
@@ -518,7 +537,9 @@ async def chat(request: Request):
     if not history or history[-1]["role"] != "user":
         return _invalid_request()
     try:
-        return await with_local_fallback(lambda: _chat_turn(body.username, _lang(body.lang), history, body.extra))
+        return await with_local_fallback(
+            lambda: _chat_turn(body.username, _lang(body.lang), history, body.extra, _media_type(body.mediaType))
+        )
     except ApiError:
         raise
     except Exception as e:

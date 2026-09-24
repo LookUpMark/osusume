@@ -51,13 +51,16 @@ async def get_recommendation(
     refresh: bool = False,
     stale_ok: bool = False,
     on_phase: "Callable[[str], None] | None" = None,
+    media_type: str = "ANIME",
 ) -> dict:
     """``getRecommendation`` + serializzazione (result cache in pipeline)."""
-    result = await pipeline.get_recommendation(username, lang, refresh=refresh, stale_ok=stale_ok, on_phase=on_phase)
+    result = await pipeline.get_recommendation(
+        username, lang, refresh=refresh, stale_ok=stale_ok, on_phase=on_phase, media_type=media_type
+    )
     return result_payload(result)
 
 
-async def lookup(username: str, q: str, lang: Lang) -> dict:
+async def lookup(username: str, q: str, lang: Lang, media_type: str = "ANIME") -> dict:
     """``lookupMedia`` + serializzazione → ``{recos: [...]}``."""
-    recos = await pipeline.lookup_media(username, q, lang)
+    recos = await pipeline.lookup_media(username, q, lang, media_type)
     return {"recos": [reco_payload(r) for r in recos]}

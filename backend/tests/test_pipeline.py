@@ -57,16 +57,16 @@ def _stub_pipeline(monkeypatch, entries, pool):
     for e in entries:
         media_by_id.setdefault(e.mediaId, base_media(e.mediaId))
 
-    async def fake_list(username):
+    async def fake_list(username, media_type="ANIME"):
         return _UL(entries, media_by_id)
 
-    async def fake_pool(profile, exclude_ids):
+    async def fake_pool(profile, exclude_ids, media_type="ANIME"):
         return [m for m in pool if m.id not in exclude_ids]
 
-    async def no_extra(ids):
+    async def no_extra(ids, media_type="ANIME"):
         return []
 
-    async def no_recs(mid):
+    async def no_recs(mid, media_type="ANIME"):
         return []
 
     monkeypatch.setattr(pipeline, "fetch_user_list", fake_list)
@@ -78,7 +78,7 @@ def _stub_pipeline(monkeypatch, entries, pool):
 def _install_counter(monkeypatch, fail: bool = False):
     calls = {"n": 0}
 
-    async def fake_recommend_for(username, lang, on_phase=None):
+    async def fake_recommend_for(username, lang, on_phase=None, media_type="ANIME"):
         calls["n"] += 1
         if fail:
             raise AniListError("boom", 502)
@@ -127,7 +127,7 @@ async def test_concorrenza_stessa_chiave_un_solo_calcolo(monkeypatch):
     calls = {"n": 0}
     gate = asyncio.Event()
 
-    async def slow(username, lang, on_phase=None):
+    async def slow(username, lang, on_phase=None, media_type="ANIME"):
         calls["n"] += 1
         await gate.wait()
         return f"result-{username}-{lang}"
@@ -172,7 +172,7 @@ async def test_entry_point_pianificato_soppresso(monkeypatch):
     _stub_pipeline(monkeypatch, [entry(700, "PLANNING")], pool)
     fetched = {"n": 0}
 
-    async def no_extra(ids):
+    async def no_extra(ids, media_type="ANIME"):
         fetched["n"] += 1
         fetched["ids"] = list(ids)
         return []
@@ -192,7 +192,7 @@ async def test_entry_point_fetched_prende_il_badge(monkeypatch):
     pool = [base_media(701, relations=[rel(700, "PREQUEL")], popularity=200, averageScore=90)]
     _stub_pipeline(monkeypatch, [], pool)
 
-    async def extra(ids):
+    async def extra(ids, media_type="ANIME"):
         return [base_media(700, popularity=200, averageScore=90)]
 
     monkeypatch.setattr(pipeline, "fetch_media_by_ids", extra)

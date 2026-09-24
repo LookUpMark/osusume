@@ -26,7 +26,7 @@ from app.shared.models import Explanation as ExplanationModel
 from app.shared.models import Lang, ScoredReco, TasteProfile
 
 # bumped when the prompt voice changes — old cached explanations must not resurface
-PROMPT_VERSION = "v4-critic-2"
+PROMPT_VERSION = "v5-media"
 
 _SYSTEM_JSON = (
     "You output only valid JSON. Do not explain your reasoning — the reply must be ONLY the JSON array."
@@ -41,15 +41,16 @@ def _expl_dir() -> str:
     return os.path.join(config.CACHE_DIR, "expl")
 
 
-def cache_key(recos: list[ScoredReco], profile: TasteProfile, lang: str, username: str) -> str:
+def cache_key(recos: list[ScoredReco], profile: TasteProfile, lang: str, username: str, media_type: str = "ANIME") -> str:
     """``createHash().update(prefix).update(ids.join(","))`` del TS.
 
     `systemPromptExtra` entra nella key: cambiare le istruzioni personali deve
-    invalidare le spiegazioni cachate, non servire la voce vecchia per 7 giorni."""
+    invalidare le spiegazioni cachate, non servire la voce vecchia per 7 giorni.
+    Il TIPO (anime/manga) pure: stessi id non possono travestirsi."""
     ids = ",".join(str(r.media.id) for r in sorted(recos, key=lambda r: r.media.id))
     extra_hash = hashlib.sha1(config.system_prompt_extra().strip().encode("utf-8")).hexdigest()[:12]
     return hashlib.sha256(
-        f"{username}|{profile.hash}|{lang}|{config.llm_model()}|{config.llm_base_url()}|{PROMPT_VERSION}|{extra_hash}|{ids}".encode("utf-8")
+        f"{username}|{profile.hash}|{lang}|{media_type}|{config.llm_model()}|{config.llm_base_url()}|{PROMPT_VERSION}|{extra_hash}|{ids}".encode("utf-8")
     ).hexdigest()
 
 
@@ -83,12 +84,13 @@ async def explain_recos(
     profile: TasteProfile,
     lang: Lang,
     username: str,
+    media_type: str = "ANIME",
 ) -> dict[int, ExplanationModel]:
     out: dict[int, ExplanationModel] = {}
     pending: list[ScoredReco] = []
     fresh: dict[str, str] = {}
 
-    key = cache_key(recos, profile, lang, username)
+    key = cache_key(recos, profile, lang, username, media_type)
     cached = await _cache_get(key)
     for r in recos:
         hit = (cached or {}).get(str(r.media.id))
@@ -111,7 +113,7 @@ async def explain_recos(
             try:
                 chat = [
                     {"role": "system", "content": _SYSTEM_JSON},
-                    {"role": "user", "content": build_prompt(batch, profile, lang, reviews)},
+                    {"role": "user", "content": build_prompt(batch, profile, lang, reviews, media_type)},
                 ]
                 try:
                     raw = await llm_chat(chat, model)

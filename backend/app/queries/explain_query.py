@@ -19,21 +19,21 @@ def normalize_ids(raw: list[Any]) -> list[float | int]:
     return list(dict.fromkeys(x for x in raw if isinstance(x, (int, float)) and not isinstance(x, bool)))
 
 
-async def explain(username: str, ids: list[float | int], lang: Lang) -> dict:
+async def explain(username: str, ids: list[float | int], lang: Lang, media_type: str = "ANIME") -> dict:
     """Ordine risposta = ordine subset raccomandazioni (contract §7).
 
     ``staleOk: true`` come /chat: la dialog spiega un risultato che la UI mostra
     già — ricalcolare tutta la lista a dialog aperto sono secondi di attesa morta.
     """
-    result = await pipeline.get_recommendation(username, lang, stale_ok=True)
+    result = await pipeline.get_recommendation(username, lang, stale_ok=True, media_type=media_type)
     wanted = set(ids)
     subset = [r for r in result.recos if r.media.id in wanted]
     # ids outside the recommendation list (chat lookup) are scored on demand
     missing = [i for i in ids if not any(r.media.id == i for r in subset)]
     if len(missing) > 0:
-        _, extra = await pipeline.score_arbitrary(missing, username, lang)
+        _, extra = await pipeline.score_arbitrary(missing, username, lang, media_type)
         subset.extend(r for r in extra if r.media.id in wanted)
-    explanations = await explain_recos(subset, result.profile, lang, username)
+    explanations = await explain_recos(subset, result.profile, lang, username, media_type)
     return {
         "explanations": [
             {"id": media_id, "text": e.text, "source": e.source} for media_id, e in explanations.items()

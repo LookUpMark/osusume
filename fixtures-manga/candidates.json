@@ -1,0 +1,157 @@
+[
+  {
+    "id": 601,
+    "title": "Candidate Manga A",
+    "format": "MANGA",
+    "seasonYear": 2012,
+    "genres": [
+      "Action",
+      "Drama"
+    ],
+    "tags": [
+      {
+        "name": "Conflict",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 84,
+    "popularity": 100000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/601",
+    "description": "A action, drama manga about finding one's path.",
+    "relations": []
+  },
+  {
+    "id": 602,
+    "title": "Candidate Manga B",
+    "format": "MANGA",
+    "seasonYear": 2016,
+    "genres": [
+      "Comedy"
+    ],
+    "tags": [
+      {
+        "name": "Slice of Life",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 79,
+    "popularity": 70000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/602",
+    "description": "A comedy manga about finding one's path.",
+    "relations": []
+  },
+  {
+    "id": 603,
+    "title": "Candidate Light Novel",
+    "format": "LIGHT_NOVEL",
+    "seasonYear": 2010,
+    "genres": [
+      "Action"
+    ],
+    "tags": [
+      {
+        "name": "Conflict",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 81,
+    "popularity": 50000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/603",
+    "description": "A action manga about finding one's path.",
+    "relations": [
+      {
+        "id": 501,
+        "relationType": "PREQUEL"
+      }
+    ]
+  },
+  {
+    "id": 604,
+    "title": "Candidate One Shot",
+    "format": "ONE_SHOT",
+    "seasonYear": 2020,
+    "genres": [
+      "Drama"
+    ],
+    "tags": [
+      {
+        "name": "Psychological",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 76,
+    "popularity": 40000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/604",
+    "description": "A drama manga about finding one's path.",
+    "relations": []
+  },
+  {
+    "id": 605,
+    "title": "Candidate Manga Dropped Sequel",
+    "format": "MANGA",
+    "seasonYear": 2009,
+    "genres": [
+      "Horror"
+    ],
+    "tags": [
+      {
+        "name": "Gore",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 77,
+    "popularity": 30000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/605",
+    "description": "A horror manga about finding one's path.",
+    "relations": [
+      {
+        "id": 504,
+        "relationType": "PREQUEL"
+      }
+    ]
+  },
+  {
+    "id": 606,
+    "title": "Candidate Hidden Gem",
+    "format": "MANGA",
+    "seasonYear": 1998,
+    "genres": [
+      "Drama"
+    ],
+    "tags": [
+      {
+        "name": "Psychological",
+        "rank": 85,
+        "isSpoiler": false
+      }
+    ],
+    "studio": null,
+    "averageScore": 78,
+    "popularity": 25000,
+    "coverImage": null,
+    "coverColor": "#aa33cc",
+    "siteUrl": "https://anilist.co/manga/606",
+    "description": "A drama manga about finding one's path.",
+    "relations": []
+  }
+]

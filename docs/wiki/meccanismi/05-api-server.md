@@ -12,6 +12,7 @@ Serve the React UI and any API client exactly like the original Hono server did:
 - `GET /app-update`, `POST /local-mode` (`routes.py:133-145`), `GET /config` (disclosure-minimal, no baseUrl) (`routes.py:149-151`).
 - `GET|PATCH /settings`, `GET /llm/models` (`routes.py:182-218`) — settings UI backend (see below).
 - `GET /recommend/stream` — SSE progress (`event: phase` × 9 per [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md), then `event: done` with the body IDENTICAL to `POST /recommend`, or `event: error` with the shared `_error_payload` vocabulary; cache hit → `done` only; client disconnect does NOT cancel the computation).
+- `mediaType` ("ANIME" default, silent like `_lang`) rides on recommend/stream/explain/lookup/chat bodies and the stream query — the two-worlds switch of [03-recommendation-pipeline.md](meccanismi/03-recommendation-pipeline.md). `/profile` has no type: the taste profile is anime-only by design.
 - `GET|PATCH /auth/anilist`, `POST /auth/anilist/start|disconnect`, `GET /watchlist/status`, `POST /watchlist` — the OAuth surface, owned by [11-anilist-oauth.md](meccanismi/11-anilist-oauth.md).
 - `GET /profile/{username}` (`routes.py:241-248`), `POST /recommend` (`routes.py:251-263`), `POST /explain` (`routes.py:266-280`), `POST /lookup` (`routes.py:283-296`), `POST /chat` (`routes.py:351-366`, details in [06-llm-layer.md](meccanismi/06-llm-layer.md)), `POST /shutdown` (`routes.py:369-383`).
 

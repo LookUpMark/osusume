@@ -19,14 +19,14 @@ Explain recommendations and chat in an expert friend's voice, powered by the bac
 
 - `COMPARISON_STANDARD` (`prompts.py:51-56`): compare HOW stories work; leads are leads, not facts; ≤1-2 watched-title references; absorb reviews without ever naming reviewers; name craft.
 - `clean_text` (`prompts.py:27-45`): HTML strip + ordered entity decode + word-boundary ellipsis.
-- `build_prompt` (`prompts.py:88-131`): per-title plot/themes/reception/leads block; output contract = ONLY a JSON array; used by /explain.
-- `build_chat_system` (`prompts.py:134-197`): expert friend persona, banned algorithm-speak, pool = `[*recos[:12], *extras[:5]]`, watched list ≤12, and the MARKDOWN rule: every recommended title in `**bold**` with the exact listed title; lists ≤5 items; headings/code/tables/HTML/links forbidden (`prompts.py:189`).
+- `build_prompt` (`prompts.py`): per-title plot/themes/reception/leads block; output contract = ONLY a JSON array; used by /explain. Both prompt builders take `media_type` (`_media()` wording: anime/viewer/watched vs manga/reader/read) and drop the studio segment for manga (no studio data on AniList manga).
+- `build_chat_system` (`prompts.py`): expert friend persona, banned algorithm-speak, pool = `[*recos[:12], *extras[:5]]`, watched list ≤12, and the MARKDOWN rule: every recommended title in `**bold**` with the exact listed title; lists ≤5 items; headings/code/tables/HTML/links forbidden.
 - `_owner_extra` (`prompts.py:62-72`): settings `systemPromptExtra` appended as OWNER NOTES to both prompts — never a replacement of the doctrine.
 
 ## Explain pipeline (`backend/app/adapters/llm/explain.py`)
 
 Order is spec-locked (`explain.py:6-9`): cache key → pre-fill → model + reviews → batches ≤10 → truncation retry → corrective parse retry → break on LLM error → cache only genuine LLM text (atomic `.tmp` + `os.replace`).
-- Cache key (`explain.py:44-53`): sha256 of `username|profile.hash|lang|model|baseUrl|PROMPT_VERSION|extra_hash|sorted-ids` — changing model, backend, or personal instructions invalidates cached prose (TTL 7 d).
+- Cache key (`explain.py:44-53`): sha256 of `username|profile.hash|lang|media_type|model|baseUrl|PROMPT_VERSION|extra_hash|sorted-ids` — changing model, backend, personal instructions OR media world invalidates cached prose (TTL 7 d); `PROMPT_VERSION` (`"v5-media"` since the type-aware wording).
 - Parse (`backend/app/adapters/llm/parse.py:76-106`): string-aware balanced-bracket scan, tries spans last→first, JS `Number()` coercion, never throws (empty list on garbage).
 
 ## Chat & cards (`backend/app/adapters/llm/chat.py`)

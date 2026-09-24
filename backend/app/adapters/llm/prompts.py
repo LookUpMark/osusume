@@ -72,6 +72,17 @@ def _owner_extra() -> str:
     )
 
 
+_MEDIA_WORDS: dict[str, dict[str, str]] = {
+    "ANIME": {"noun": "anime", "person": "viewer", "consumed": "watched"},
+    "MANGA": {"noun": "manga", "person": "reader", "consumed": "read"},
+}
+
+
+def _media(media_type: str) -> dict[str, str]:
+    """Wording per tipo (anime/manga): sostantivo, persona, verbo del consumo."""
+    return _MEDIA_WORDS.get(media_type, _MEDIA_WORDS["ANIME"])
+
+
 def _themes_of(media: Any) -> str:
     tags = [t.name for t in media.tags if t.rank >= 60 and not t.isSpoiler]
     return ", ".join(tags[:5])
@@ -90,8 +101,10 @@ def build_prompt(
     profile: TasteProfile,
     lang: Lang,
     reviews: dict[int, list[ReviewLite]] | None = None,
+    media_type: str = "ANIME",
 ) -> str:
-    """``buildPrompt`` (llm.ts righe 137-191)."""
+    """``buildPrompt`` (llm.ts righe 137-191) — wording per tipo (anime/manga)."""
+    m = _media(media_type)
     reviews = reviews or {}
     loved = "; ".join(
         f"{d.value} (e.g. {', '.join(d.examples[:2]) or 'n/a'})" for d in profile.loved[:10]
@@ -107,9 +120,12 @@ def build_prompt(
         plot = clean_text(r.media.description, 400)
         plot_links = _plot_links(r)
         revs = _reception(reviews, r.media.id)
+        # lo studio non esiste per i manga: il segmento sparisce invece di stampare "?"
+        year_seg = f"{r.media.seasonYear if r.media.seasonYear is not None else '?'}"
+        studio_seg = f"{r.media.studio}; " if r.media.studio is not None and media_type != "MANGA" else ""
         item = (
-            f'- id={r.media.id} — "{r.media.title}" ({r.media.seasonYear if r.media.seasonYear is not None else "?"}, '
-            f'{r.media.studio if r.media.studio is not None else "?"}; '
+            f'- id={r.media.id} — "{r.media.title}" ({year_seg}, '
+            f'{studio_seg}'
             f'genres: {", ".join(r.media.genres[:3])}{f"; themes: {themes}" if themes else ""})\n'
             f'  plot: {plot or "not available"}\n'
             + (f"  reception: {revs}\n" if revs else "")
@@ -119,9 +135,9 @@ def build_prompt(
         items.append(item)
     items_text = "\n".join(items)
     return (
-        "You are a veteran anime critic — the friend people trust because you explain WHY a title works, never just what it contains. "
-        f"The viewer loves: {loved or 'not enough data'}. They dislike: {disliked or 'nothing notable'}.\n"
-        f"For each title below, write one rich, tight paragraph (3-5 sentences) in flawless {LANG_NAME[lang]} on why ITS STORY could hook THIS viewer.\n"
+        f"You are a veteran {m['noun']} critic — the friend people trust because you explain WHY a title works, never just what it contains. "
+        f"The {m['person']} loves: {loved or 'not enough data'}. They dislike: {disliked or 'nothing notable'}.\n"
+        f"For each title below, write one rich, tight paragraph (3-5 sentences) in flawless {LANG_NAME[lang]} on why ITS STORY could hook THIS {m['person']}.\n"
         f"{COMPARISON_STANDARD}\n"
         "Point out the pattern in their taste (what kinds of stories they gravitate to) and how this title fits or stretches it.\n"
         "Use ONLY the facts provided plus general knowledge of these exact titles; never invent plot. If the plot text is missing, speak about the themes. "
@@ -136,8 +152,10 @@ def build_chat_system(
     lang: Lang,
     extra_recos: list[ScoredReco] | None = None,
     reviews: dict[int, list[ReviewLite]] | None = None,
+    media_type: str = "ANIME",
 ) -> str:
-    """``buildChatSystem`` (chat.ts righe 13-86)."""
+    """``buildChatSystem`` (chat.ts righe 13-86) — wording per tipo (anime/manga)."""
+    m = _media(media_type)
     extra_recos = extra_recos or []
     reviews = reviews or {}
     p: TasteProfile = result.profile
@@ -153,9 +171,11 @@ def build_chat_system(
         plot_links = _plot_links(r)
         revs = _reception(reviews, r.media.id)
         badges = " [less-known gem]" if "HIDDEN_GEM" in r.badges else ""
+        year_seg = f"{r.media.seasonYear if r.media.seasonYear is not None else '?'}"
+        studio_seg = f"studio {r.media.studio}; " if r.media.studio is not None and media_type != "MANGA" else ""
         item = (
-            f'- "{r.media.title}" ({r.media.seasonYear if r.media.seasonYear is not None else "?"}, '
-            f'studio {r.media.studio if r.media.studio is not None else "?"}; '
+            f'- "{r.media.title}" ({year_seg}, '
+            f'{studio_seg}'
             f'genres: {", ".join(r.media.genres[:3])}{f"; themes: {themes}" if themes else ""}){badges}\n'
             f'  plot: {plot or "not available"}\n'
             + (f"  reception: {revs}\n" if revs else "")
@@ -177,8 +197,8 @@ def build_chat_system(
                 watched.append(ex)
     watched = watched[:12]
     return (
-        f"You are Osusume, a knowledgeable, warm anime expert chatting with {p.userName}. "
-        "They are a viewer, not a data scientist: they care about STORIES, not metrics.\n\n"
+        f"You are Osusume, a knowledgeable, warm {m['noun']} expert chatting with {p.userName}. "
+        f"They are a {m['person']}, not a data scientist: they care about STORIES, not metrics.\n\n"
         "HOW TO TALK:\n"
         '- Answer the question they ACTUALLY asked. "Why would the plot interest me?" means talk about the plot, themes, tone and emotions — not about scores or the app.\n'
         f"- {_COMPARISON_INLINE}\n"
@@ -186,11 +206,11 @@ def build_chat_system(
         "- FULLER ANSWERS when recommending or explaining why: one tight paragraph (~100-150 words) covering the story, the connection to their history, and what to expect emotionally. When you recommend SEVERAL titles at once, a short list beats prose: max 5 items, one line each. Never restate a point you already made — say everything once, then stop. Short replies only for quick factual questions.\n"
         '- BANNED words: "affinity", "quality %", "match score", "the algorithm", "prioritized", "profile" — never explain the app\'s mechanics. If strength matters, say it in words ("widely beloved", "a hidden gem many missed"). The internal match reference numbers are for you ONLY; quote them verbatim just if explicitly asked about scores.\n'
         "- Ground claims in the plot texts, themes and reception provided; general knowledge of the titles listed is fine, inventing plot points is not. If unsure about a detail, say so.\n"
-        "- MARKDOWN: write the title of EVERY anime you recommend in **bold**, using the exact title as listed in CURRENT RECOMMENDATIONS. Use *italic* sparingly for emphasis, and **bold** only for recommended titles. You may use \"- \" bullet lists when recommending several titles. NEVER use headings (#), code blocks, tables, HTML or links — conversational markdown only.\n"
+        f"- MARKDOWN: write the title of EVERY {m['noun']} you recommend in **bold**, using the exact title as listed in CURRENT RECOMMENDATIONS. Use *italic* sparingly for emphasis, and **bold** only for recommended titles. You may use \"- \" bullet lists when recommending several titles. NEVER use headings (#), code blocks, tables, HTML or links — conversational markdown only.\n"
         f"- Vary your phrasing across turns — never recycle the same sentences. Reply in flawless {LANG_NAME[lang]} only (no words from other languages).\n\n"
         f"THE USER: loves {loved or 'not enough data'}; dislikes {disliked or 'nothing notable'}; "
         f"mean score {js_num_str(p.meanScore)}, {p.counts['COMPLETED']} completed.\n"
-        + (f"TITLES THEY WATCHED AND LOVED (cite these by name): {', '.join(watched)}.\n" if watched else "")
+        + (f"TITLES THEY {m['consumed'].upper()} AND LOVED (cite these by name): {', '.join(watched)}.\n" if watched else "")
         + f"\nCURRENT RECOMMENDATIONS:\n{recos_text or '(none yet)'}"
         + (f"\n\nTITLES SUGGESTED TO AVOID (do not recommend): {avoided}" if avoided else "")
         + _owner_extra()

@@ -1,4 +1,4 @@
-import type { ChatCard, Explanation, Lang, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
+import type { ChatCard, Explanation, Lang, MediaType, RecoResult, SetupStatus, TasteProfile } from "../lib/types.ts";
 import type { StreamHandle, StreamPhase } from "./logic/progress.ts";
 
 const json = async (res: Response): Promise<any> => {
@@ -43,11 +43,11 @@ export const fetchAppUpdate = (fresh = false): Promise<AppUpdate> =>
 export const fetchProfile = (username: string): Promise<{ profile: TasteProfile }> =>
   fetch(`/api/profile/${encodeURIComponent(username)}`).then(json);
 
-export const fetchRecommend = (username: string, lang: Lang): Promise<RecoResult> =>
+export const fetchRecommend = (username: string, lang: Lang, mediaType: MediaType = "ANIME"): Promise<RecoResult> =>
   fetch("/api/recommend", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username, lang }),
+    body: JSON.stringify({ username, lang, mediaType }),
   }).then(json);
 
 /** Streaming generation progress (SSE). `done` resolves with the same payload
@@ -57,8 +57,11 @@ export const streamRecommend = (
   username: string,
   lang: Lang,
   onPhase: (phase: StreamPhase) => void,
+  mediaType: MediaType = "ANIME",
 ): StreamHandle => {
-  const es = new EventSource(`/api/recommend/stream?username=${encodeURIComponent(username)}&lang=${lang}`);
+  const es = new EventSource(
+    `/api/recommend/stream?username=${encodeURIComponent(username)}&lang=${lang}&mediaType=${mediaType}`,
+  );
   let closed = false;
   let rejectFn!: (e: Error) => void;
   const done = new Promise<RecoResult>((resolve, reject) => {
@@ -105,11 +108,12 @@ export const fetchExplain = (
   username: string,
   ids: number[],
   lang: Lang,
+  mediaType: MediaType = "ANIME",
 ): Promise<{ explanations: (Explanation & { id: number })[] }> =>
   fetch("/api/explain", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username, ids, lang }),
+    body: JSON.stringify({ username, ids, lang, mediaType }),
   }).then(json);
 
 // cards is client-only: _normalize_history (routes.py) strips it from the wire,
@@ -121,11 +125,12 @@ export const postChat = (
   lang: Lang,
   messages: ChatMsg[],
   extra: number[] = [],
+  mediaType: MediaType = "ANIME",
 ): Promise<{ reply: string; cards?: ChatCard[] }> =>
   fetch("/api/chat", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username, lang, messages, extra }),
+    body: JSON.stringify({ username, lang, messages, extra, mediaType }),
   }).then(json);
 
 /** Search any title, scored against the user's taste (chat lookup). */
@@ -133,11 +138,12 @@ export const lookupMedia = (
   username: string,
   q: string,
   lang: Lang,
+  mediaType: MediaType = "ANIME",
 ): Promise<{ recos: import("../lib/types.ts").ScoredReco[] }> =>
   fetch("/api/lookup", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ username, q, lang }),
+    body: JSON.stringify({ username, q, lang, mediaType }),
   }).then(json);
 
 const isSetupStatus = (b: unknown): b is SetupStatus =>

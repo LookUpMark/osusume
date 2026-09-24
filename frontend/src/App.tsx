@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { tr, type Lang } from "./lib/i18n.ts";
-import type { RecoResult, ScoredReco, SetupStatus } from "./lib/types.ts";
+import type { MediaType, RecoResult, ScoredReco, SetupStatus } from "./lib/types.ts";
 import {
   addToWatchlist,
   fetchAniListAuth,
@@ -49,6 +49,14 @@ import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
 import { VIEW_ORDER, type View } from "./views/index.ts";
 
+/** Localized format labels; everything else renders as the raw AniList enum. */
+const FORMAT_LABEL: Record<string, string> = {
+  MOVIE: "fmtMovie",
+  MANGA: "fmtManga",
+  LIGHT_NOVEL: "fmtLightNovel",
+  ONE_SHOT: "fmtOneShot",
+};
+
 export function App() {
   const [lang, setLang] = useState<Lang>(() =>
     detectLang(localStorage.getItem("lang"), typeof navigator === "undefined" ? "" : navigator.language),
@@ -79,6 +87,11 @@ export function App() {
   const [gemsOnly, setGemsOnly] = useState(false);
   const [format, setFormat] = useState("all");
   const [genre, setGenre] = useState("all");
+  const [media, setMedia] = useState<MediaType>(() =>
+    localStorage.getItem("alr-media") === "MANGA" ? "MANGA" : "ANIME", // validate, never cast
+  );
+  const mediaRef = useRef(media);
+  mediaRef.current = media;
   const [dialog, setDialog] = useState<ScoredReco | null>(null);
   const lastView = useRef<View>("recos");
   // AniList OAuth: null until the first status fetch answers
@@ -160,6 +173,19 @@ export function App() {
       if (username) void run(username);
     }
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem("alr-media", media);
+  }, [media]);
+
+  // world switch: format filters are type-specific — reset, then rebuild
+  const switchMedia = (m: MediaType) => {
+    if (m === media) return;
+    setMedia(m);
+    setFormat("all");
+    setGenre("all");
+    if (username) void run(username);
+  };
 
   const showView = (v: View) => {
     if (v !== "home") lastView.current = v;
@@ -248,7 +274,7 @@ export function App() {
     try {
       // fast-fail JSON (user_not_found) before opening the stream
       await fetchProfile(username);
-      const stream = streamRecommend(username, lang, setPhase);
+      const stream = streamRecommend(username, lang, setPhase, mediaRef.current);
       esRef.current = stream;
       const r = await stream.done;
       esRef.current = null;
@@ -284,7 +310,7 @@ export function App() {
     if (q.length < 2 || !username || animeSearch.busy) return;
     setAnimeSearch((s) => ({ ...s, busy: true }));
     try {
-      const r = await lookupMedia(username, q, lang);
+      const r = await lookupMedia(username, q, lang, mediaRef.current);
       setAnimeSearch({ q, busy: false, recos: r.recos });
     } catch {
       setAnimeSearch({ q, busy: false, recos: [] });
@@ -382,6 +408,8 @@ export function App() {
           onCheckUpdates={checkUpdates}
           onNav={showView}
           onLang={() => setLang(lang === "en" ? "it" : "en")}
+          media={media}
+          onMedia={switchMedia}
         />
 
         <div className="main">
@@ -519,7 +547,7 @@ export function App() {
                       <button type="button" aria-pressed={format === "all"} onClick={() => setFormat("all")}>{tr(lang, "fmtAll")}</button>
                       {formats.map((f) => (
                         <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>
-                          {f === "MOVIE" ? tr(lang, "fmtMovie") : f}
+                          {FORMAT_LABEL[f] ? tr(lang, FORMAT_LABEL[f]) : f}
                         </button>
                       ))}
                     </div>
@@ -589,6 +617,7 @@ export function App() {
               llmOn={llmOn}
               username={result?.profile.userName ?? username}
               extras={extraRecos}
+              media={media}
               onOpen={onOpenChat}
             />
           </section>
@@ -738,6 +767,7 @@ export function App() {
           }
           lang={lang}
           username={result?.profile.userName ?? username}
+          media={media}
           whySource={whySource[dialog.media.id] ?? "local"}
           onWhy={onWhy}
           onClose={() => setDialog(null)}

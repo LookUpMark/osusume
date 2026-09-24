@@ -25,7 +25,8 @@ Talk to `graphql.anilist.co` politely (AniList enforces rate limits), keep respo
 - `fetch_media_list_status(user, media_id)` — `media.py` tail: entry status for the watchlist UI (failure → None = "not in list")
 - `fetch_media_reviews` / `gather_reviews` — `media.py:197-231` (any failure → `data=None`, reviews never block explain/chat)
 - `read_fixture(name)` — `backend/app/adapters/anilist/fixtures.py:12-16`
-- GraphQL documents byte-identical to the TS originals (part of the cache key) — `backend/app/adapters/anilist/queries.py:1-7` (plus `VIEWER_QUERY` / `SAVE_PLANNING_MUTATION` / `MEDIA_LIST_STATUS_QUERY` appended for OAuth)
+- GraphQL documents byte-identical to the TS originals (part of the cache key) — `backend/app/adapters/anilist/queries.py:1-7` (plus `VIEWER_QUERY` / `SAVE_PLANNING_MUTATION` / `MEDIA_LIST_STATUS_QUERY` appended for OAuth). The four catalog/list queries take `$type: MediaType` (post-manga): the type rides in the variables, so per-type disk-cache keys come for free.
+- `_fixtures_dir(media_type)` — `media.py`: local mode reads `fixtures-manga/` (same three files) when the run is MANGA; a base dir already ending in `-manga` stays unchanged (env-pinned manga servers).
 
 ## Data & states
 

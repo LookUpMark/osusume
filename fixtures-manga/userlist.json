@@ -1,0 +1,163 @@
+{
+  "entries": [
+    {
+      "mediaId": 501,
+      "status": "COMPLETED",
+      "score": 90,
+      "repeat": 0,
+      "title": "Read Manga S1"
+    },
+    {
+      "mediaId": 502,
+      "status": "COMPLETED",
+      "score": 85,
+      "repeat": 0,
+      "title": "Read Manga S2"
+    },
+    {
+      "mediaId": 503,
+      "status": "CURRENT",
+      "score": 70,
+      "repeat": 0,
+      "title": "Reading Manga"
+    },
+    {
+      "mediaId": 504,
+      "status": "DROPPED",
+      "score": 30,
+      "repeat": 0,
+      "title": "Dropped Manga S1"
+    },
+    {
+      "mediaId": 506,
+      "status": "PLANNING",
+      "score": 0,
+      "repeat": 0,
+      "title": "Planned Manga"
+    }
+  ],
+  "media": [
+    {
+      "id": 501,
+      "title": "Read Manga S1",
+      "format": "MANGA",
+      "seasonYear": 2009,
+      "genres": [
+        "Action",
+        "Drama"
+      ],
+      "tags": [
+        {
+          "name": "Conflict",
+          "rank": 85,
+          "isSpoiler": false
+        }
+      ],
+      "studio": null,
+      "averageScore": 80,
+      "popularity": 120000,
+      "coverImage": null,
+      "coverColor": "#aa33cc",
+      "siteUrl": "https://anilist.co/manga/501",
+      "description": "A action, drama manga about finding one's path.",
+      "relations": []
+    },
+    {
+      "id": 502,
+      "title": "Read Manga S2",
+      "format": "MANGA",
+      "seasonYear": 2011,
+      "genres": [
+        "Action",
+        "Drama"
+      ],
+      "tags": [
+        {
+          "name": "Conflict",
+          "rank": 85,
+          "isSpoiler": false
+        }
+      ],
+      "studio": null,
+      "averageScore": 82,
+      "popularity": 110000,
+      "coverImage": null,
+      "coverColor": "#aa33cc",
+      "siteUrl": "https://anilist.co/manga/502",
+      "description": "A action, drama manga about finding one's path.",
+      "relations": []
+    },
+    {
+      "id": 503,
+      "title": "Reading Manga",
+      "format": "MANGA",
+      "seasonYear": 2015,
+      "genres": [
+        "Comedy"
+      ],
+      "tags": [
+        {
+          "name": "Slice of Life",
+          "rank": 85,
+          "isSpoiler": false
+        }
+      ],
+      "studio": null,
+      "averageScore": 75,
+      "popularity": 90000,
+      "coverImage": null,
+      "coverColor": "#aa33cc",
+      "siteUrl": "https://anilist.co/manga/503",
+      "description": "A comedy manga about finding one's path.",
+      "relations": []
+    },
+    {
+      "id": 504,
+      "title": "Dropped Manga S1",
+      "format": "MANGA",
+      "seasonYear": 2008,
+      "genres": [
+        "Horror"
+      ],
+      "tags": [
+        {
+          "name": "Gore",
+          "rank": 85,
+          "isSpoiler": false
+        }
+      ],
+      "studio": null,
+      "averageScore": 70,
+      "popularity": 80000,
+      "coverImage": null,
+      "coverColor": "#aa33cc",
+      "siteUrl": "https://anilist.co/manga/504",
+      "description": "A horror manga about finding one's path.",
+      "relations": []
+    },
+    {
+      "id": 506,
+      "title": "Planned Manga",
+      "format": "MANGA",
+      "seasonYear": 2018,
+      "genres": [
+        "Drama"
+      ],
+      "tags": [
+        {
+          "name": "Psychological",
+          "rank": 85,
+          "isSpoiler": false
+        }
+      ],
+      "studio": null,
+      "averageScore": 78,
+      "popularity": 60000,
+      "coverImage": null,
+      "coverColor": "#aa33cc",
+      "siteUrl": "https://anilist.co/manga/506",
+      "description": "A drama manga about finding one's path.",
+      "relations": []
+    }
+  ]
+}

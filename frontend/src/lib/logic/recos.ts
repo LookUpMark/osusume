@@ -61,7 +61,7 @@ export const cardToReco = (card: ChatCard, pool: ScoredReco[]): ScoredReco =>
     media: {
       id: card.id,
       title: card.title,
-      format: card.format ?? "TV",
+      format: card.format ?? null,
       seasonYear: card.seasonYear,
       genres: [],
       tags: [],

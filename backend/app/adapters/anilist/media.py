@@ -84,11 +84,23 @@ def map_media(m: dict[str, Any]) -> MediaLite:
 
 # --- public API ----------------------------------------------------------------
 
+MEDIA_TYPES = ("ANIME", "MANGA")
 
-async def fetch_user_list(user_name: str) -> UserList:
-    """``fetchUserList`` (anilist.ts righe 254-297)."""
+
+def _fixtures_dir(media_type: str) -> str:
+    """Dir fixture per tipo: `fixtures` per anime, `fixtures-manga` per manga
+    (stessi tre file, dati diversi) — selezione per il secondo mondo. Se il base
+    è già una dir manga (env pinato su fixtures-manga) resta invariata."""
+    base = config.fixtures_dir()
+    if media_type == "MANGA" and not base.endswith("-manga"):
+        return f"{base}-manga"
+    return base
+
+
+async def fetch_user_list(user_name: str, media_type: str = "ANIME") -> UserList:
+    """``fetchUserList`` (anilist.ts righe 254-297) — ora per tipo (anime/manga)."""
     if config.local_mode_on():
-        f = await read_fixture("userlist.json")
+        f = await read_fixture("userlist.json", _fixtures_dir(media_type))
         return UserList(
             entries=[ListEntry.model_validate(e) for e in f["entries"]],
             mediaById={m["id"]: MediaLite.model_validate(m) for m in f["media"]},
@@ -102,7 +114,10 @@ async def fetch_user_list(user_name: str) -> UserList:
     # ponytail: API ceiling is 11k entries (22 chunks of 500) — beyond that we miss tail entries
     for chunk in range(22):
         data = await gql(
-            queries.LIST_LIST_QUERY, {"userName": user_name, "chunk": chunk}, config.CACHE_TTL_LIST_MS, token=token
+            queries.LIST_LIST_QUERY,
+            {"userName": user_name, "chunk": chunk, "type": media_type},
+            config.CACHE_TTL_LIST_MS,
+            token=token,
         )
         for list_ in data["MediaListCollection"]["lists"]:
             for e in list_.get("entries") or []:
@@ -137,11 +152,12 @@ async def fetch_media_page(
     genres: list[str] | None = None,
     tags: list[str] | None = None,
     minimum_tag_rank: int | None = None,
+    media_type: str = "ANIME",
 ) -> dict[str, Any]:
     """``fetchMediaPage`` (anilist.ts righe 299-325) → ``{ media, hasNextPage }``."""
     if config.local_mode_on():
         # fixture mode ignores filters: the recorded pool is served whole
-        all_ = await read_fixture("candidates.json")
+        all_ = await read_fixture("candidates.json", _fixtures_dir(media_type))
         return {"media": [MediaLite.model_validate(m) for m in all_], "hasNextPage": False}
     data = await gql(
         queries.MEDIA_PAGE_QUERY,
@@ -151,6 +167,7 @@ async def fetch_media_page(
             "tag_in": tags,
             "sort": sort,
             "minimumTagRank": minimum_tag_rank,
+            "type": media_type,
         },
         config.CACHE_TTL_MEDIA_MS,
     )
@@ -160,35 +177,37 @@ async def fetch_media_page(
     }
 
 
-async def fetch_media_by_ids(ids: list[int]) -> list[MediaLite]:
+async def fetch_media_by_ids(ids: list[int], media_type: str = "ANIME") -> list[MediaLite]:
     """``fetchMediaByIds`` (anilist.ts righe 327-344)."""
     if len(ids) == 0:
         return []
     if config.local_mode_on():
-        all_ = await read_fixture("candidates.json")
+        all_ = await read_fixture("candidates.json", _fixtures_dir(media_type))
         return [MediaLite.model_validate(m) for m in all_ if m["id"] in ids]
     # GraphQL Page depth cap is 5000, perPage max 50 → chunk the input
     out: list[MediaLite] = []
     for i in range(0, len(ids), 50):
-        data = await gql(queries.MEDIA_BY_IDS_QUERY, {"id_in": ids[i : i + 50]}, config.CACHE_TTL_MEDIA_MS)
+        data = await gql(
+            queries.MEDIA_BY_IDS_QUERY, {"id_in": ids[i : i + 50], "type": media_type}, config.CACHE_TTL_MEDIA_MS
+        )
         out.extend(map_media(m) for m in data["Page"]["media"])
     return out
 
 
-async def fetch_media_search(q: str) -> list[MediaLite]:
+async def fetch_media_search(q: str, media_type: str = "ANIME") -> list[MediaLite]:
     """``fetchMediaSearch`` — title search for the chat lookup (top matches, adult excluded)."""
     if config.local_mode_on():
-        all_ = await read_fixture("candidates.json")
+        all_ = await read_fixture("candidates.json", _fixtures_dir(media_type))
         n = q.lower()
         return [MediaLite.model_validate(m) for m in all_ if n in m["title"].lower()][:6]
-    data = await gql(queries.MEDIA_SEARCH_QUERY, {"q": q}, config.CACHE_TTL_MEDIA_MS)
+    data = await gql(queries.MEDIA_SEARCH_QUERY, {"q": q, "type": media_type}, config.CACHE_TTL_MEDIA_MS)
     return [map_media(m) for m in data["Page"]["media"]]
 
 
-async def fetch_recommendations(media_id: int) -> list[dict[str, Any]]:
+async def fetch_recommendations(media_id: int, media_type: str = "ANIME") -> list[dict[str, Any]]:
     """``fetchRecommendations`` (anilist.ts righe 361-377) → ``{ targetId, rating }[]``."""
     if config.local_mode_on():
-        map_ = await read_fixture("recommendations.json")
+        map_ = await read_fixture("recommendations.json", _fixtures_dir(media_type))
         return map_.get(str(media_id), [])
     data = await gql(queries.RECOMMENDATIONS_QUERY, {"id": media_id}, config.CACHE_TTL_MEDIA_MS)
     return [

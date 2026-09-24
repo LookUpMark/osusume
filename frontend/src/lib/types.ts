@@ -152,3 +152,7 @@ export interface ChatCard {
   score: number | null; // 0..110 (round(final*100)), same display scale as score110
   siteUrl: string | null;
 }
+
+/** The two worlds: every run (profile view, recommendations, chat, lookup) is
+ *  typed — anime or manga, never mixed (see docs/wiki 03). */
+export type MediaType = "ANIME" | "MANGA";

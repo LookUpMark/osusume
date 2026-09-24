@@ -25,8 +25,8 @@ MEDIA_FIELDS = """
 
 LIST_LIST_QUERY = (
     """
-query ($userName: String, $chunk: Int) {
-  MediaListCollection(userName: $userName, type: ANIME, chunk: $chunk, perChunk: 500) {
+query ($userName: String, $chunk: Int, $type: MediaType) {
+  MediaListCollection(userName: $userName, type: $type, chunk: $chunk, perChunk: 500) {
     hasNextChunk
     lists {
       isCustomList
@@ -46,10 +46,10 @@ query ($userName: String, $chunk: Int) {
 
 MEDIA_PAGE_QUERY = (
     """
-query ($page: Int, $genre_in: [String], $tag_in: [String], $sort: [MediaSort], $minimumTagRank: Int) {
+query ($page: Int, $genre_in: [String], $tag_in: [String], $sort: [MediaSort], $minimumTagRank: Int, $type: MediaType) {
   Page(page: $page, perPage: 50) {
     pageInfo { hasNextPage }
-    media(type: ANIME, isAdult: false, genre_in: $genre_in, tag_in: $tag_in, sort: $sort, minimumTagRank: $minimumTagRank) {
+    media(type: $type, isAdult: false, genre_in: $genre_in, tag_in: $tag_in, sort: $sort, minimumTagRank: $minimumTagRank) {
       """
     + MEDIA_FIELDS
     + """
@@ -61,9 +61,9 @@ query ($page: Int, $genre_in: [String], $tag_in: [String], $sort: [MediaSort], $
 
 MEDIA_BY_IDS_QUERY = (
     """
-query ($id_in: [Int]) {
+query ($id_in: [Int], $type: MediaType) {
   Page(perPage: 50) {
-    media(id_in: $id_in, type: ANIME) { """
+    media(id_in: $id_in, type: $type) { """
     + MEDIA_FIELDS
     + """ relations { edges { relationType node { id } } } }
   }
@@ -72,9 +72,9 @@ query ($id_in: [Int]) {
 
 MEDIA_SEARCH_QUERY = (
     """
-query ($q: String) {
+query ($q: String, $type: MediaType) {
   Page(perPage: 6) {
-    media(search: $q, type: ANIME, isAdult: false, sort: SEARCH_MATCH) {
+    media(search: $q, type: $type, isAdult: false, sort: SEARCH_MATCH) {
       """
     + MEDIA_FIELDS
     + """ relations { edges { relationType node { id } } }

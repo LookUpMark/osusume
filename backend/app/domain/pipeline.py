@@ -54,7 +54,7 @@ def _top(p: TasteProfile, dim: str, n: int) -> list[str]:
     return [d.value for d in sorted((d for d in p.loved if d.dim == dim), key=lambda d: -d.aff)[:n]]
 
 
-async def fetch_candidates(profile: TasteProfile, exclude_ids: set[int]) -> list[MediaLite]:
+async def fetch_candidates(profile: TasteProfile, exclude_ids: set[int], media_type: str = "ANIME") -> list[MediaLite]:
     """``fetchCandidates`` (candidates.ts righe 16-58).
 
     Pool SOLO da query mirate (le ToS AniList vietano mirror del catalogo):
@@ -84,7 +84,7 @@ async def fetch_candidates(profile: TasteProfile, exclude_ids: set[int]) -> list
     async def run(q: dict[str, Any]) -> dict[str, Any]:
         nonlocal failed
         try:
-            return await fetch_media_page(**q)
+            return await fetch_media_page(**q, media_type=media_type)
         except Exception:
             failed += 1  # il ``.catch(() => { failed++; return [] })`` del TS
             return {"media": [], "hasNextPage": False}
@@ -136,11 +136,16 @@ def _seen_corpus_for(entries: list[ListEntry], media_by_id: dict[int, MediaLite]
     )
 
 
-async def score_arbitrary(ids: list[float | int], username: str, lang: Lang) -> tuple[TasteProfile, list[ScoredReco]]:
-    """``scoreArbitrary`` (recommend.ts righe 39-56): scoring core, contesto vuoto."""
+async def score_arbitrary(
+    ids: list[float | int], username: str, lang: Lang, media_type: str = "ANIME"
+) -> tuple[TasteProfile, list[ScoredReco]]:
+    """``scoreArbitrary`` (recommend.ts righe 39-56): scoring core, contesto vuoto.
+
+    Profilo unico: i gusti restano quelli della lista ANIME qualunque sia il tipo
+    cercato (le dims tag/genre parlano lo stesso vocabolario AniList)."""
     ul = await fetch_user_list(username)
     profile = build_profile(ul.entries, ul.mediaById, username)
-    media = await fetch_media_by_ids(ids)
+    media = await fetch_media_by_ids(ids, media_type)
     scored = score_all(media, profile, {}, {}, lang)
     corpus = _seen_corpus_for(ul.entries, ul.mediaById, profile.meanScore)
     if len(corpus) > 0:
@@ -151,12 +156,12 @@ async def score_arbitrary(ids: list[float | int], username: str, lang: Lang) -> 
     return profile, scored
 
 
-async def lookup_media(username: str, q: str, lang: Lang) -> list[ScoredReco]:
+async def lookup_media(username: str, q: str, lang: Lang, media_type: str = "ANIME") -> list[ScoredReco]:
     """``lookupMedia`` (recommend.ts righe 59-65): ricerca + scoring, ordine ricerca."""
-    media = [m for m in await fetch_media_search(q) if m.format != "MUSIC"]
+    media = [m for m in await fetch_media_search(q, media_type) if m.format != "MUSIC"]
     if len(media) == 0:
         return []
-    _, recos = await score_arbitrary([m.id for m in media], username, lang)
+    _, recos = await score_arbitrary([m.id for m in media], username, lang, media_type)
     order = {m.id: i for i, m in enumerate(media)}
     return sorted(recos, key=lambda r: order.get(r.media.id, 0))  # stabile, come Array.sort
 
@@ -174,18 +179,21 @@ async def get_recommendation(
     refresh: bool = False,
     stale_ok: bool = False,
     on_phase: Callable[[str], None] | None = None,
+    media_type: str = "ANIME",
 ) -> RecoResult:
     """``getRecommendation`` (recommend.ts righe 67-100).
 
     La modalità è nella chiave: un risultato in local mode non deve riaffiorare
-    dopo il ritorno ai dati live. Ordine dei check con ``!refresh``: hit fresco →
-    hit scaduto + staleOk → inflight. ``refresh`` bypassa le letture.
+    dopo il ritorno ai dati live — e il TIPO (anime/manga) nella chiave: due mondi
+    separati, mai un risultato che travesta l'altro. Ordine dei check con
+    ``!refresh``: hit fresco → hit scaduto + staleOk → inflight. ``refresh``
+    bypassa le letture.
 
     ``on_phase`` osserva le fasi di ``recommend_for`` (mai le riordina) e scatta
     solo quando la computazione parte davvero: su cache hit o inflight join il
     chiamante riceve solo il risultato finale.
     """
-    cache_key = f"{username}:{lang}:{'local' if _local_mode() else 'live'}"
+    cache_key = f"{username}:{lang}:{media_type}:{'local' if _local_mode() else 'live'}"
     if not refresh:
         hit = _result_cache.get(cache_key)
         if hit is not None and now_ms() - hit["at"] < _RESULT_TTL_MS:
@@ -196,7 +204,7 @@ async def get_recommendation(
         pending = _inflight.get(cache_key)
         if pending is not None:
             return await pending
-    task = asyncio.ensure_future(recommend_for(username, lang, on_phase=on_phase))
+    task = asyncio.ensure_future(recommend_for(username, lang, on_phase=on_phase, media_type=media_type))
     _inflight[cache_key] = task
     task.add_done_callback(lambda _t: _inflight.pop(cache_key, None))
     try:
@@ -214,11 +222,17 @@ async def get_recommendation(
     return result
 
 
-async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], None] | None = None) -> RecoResult:
-    """``recommendFor`` (recommend.ts righe 102-240).
+async def recommend_for(
+    username: str, lang: Lang, on_phase: Callable[[str], None] | None = None, media_type: str = "ANIME"
+) -> RecoResult:
+    """``recommendFor`` (recommend.ts righe 102-240) — esteso al mondo manga.
 
     ``on_phase`` osserva i confini di fase (stream progress): chiamate throw-free,
     mai riordinano il lavoro — l'ordine è quello del docstring di modulo.
+
+    Profilo UNICO (decisione 2026-09-24): i gusti arrivano SEMPRE dalla lista
+    anime; in modalità manga la lista manga serve solo per esclusioni, franchise
+    e mood continuity (le dims tag/genre parlano lo stesso vocabolario AniList).
     """
     if on_phase is not None:
         on_phase("list")
@@ -226,6 +240,8 @@ async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], Non
     if on_phase is not None:
         on_phase("profile")
     profile = build_profile(ul.entries, ul.mediaById, username)
+    if media_type == "MANGA":
+        ul = await fetch_user_list(username, "MANGA")  # lista manga: esclusione/franchise/mood
     list_ids = {e.mediaId for e in ul.entries}
     list_map: dict[int, Any] = {e.mediaId: e for e in ul.entries}
 
@@ -233,7 +249,7 @@ async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], Non
     # epMap: entryPointId → superseded candidate (the sequel shown instead must go).
     if on_phase is not None:
         on_phase("candidates")
-    candidates0 = await fetch_candidates(profile, list_ids)
+    candidates0 = await fetch_candidates(profile, list_ids, media_type)
     franchise0 = analyze_franchises(candidates0, list_map)
     ep_map: dict[int, int] = {}
     skipped: set[int] = set()
@@ -249,7 +265,7 @@ async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], Non
         i for i in ep_map if not any(c.id == i for c in candidates0) and i not in list_ids
     ]
     try:
-        extra = await fetch_media_by_ids(missing_entries)
+        extra = await fetch_media_by_ids(missing_entries, media_type)
     except Exception:
         extra = []  # il ``.catch(() => [])`` del TS
     superseded = set(ep_map.values())
@@ -275,7 +291,7 @@ async def recommend_for(username: str, lang: Lang, on_phase: Callable[[str], Non
 
     async def community_fetch(e) -> list[dict[str, Any]]:
         try:
-            return await fetch_recommendations(e.mediaId)
+            return await fetch_recommendations(e.mediaId, media_type)
         except Exception as err:
             print(f"community fetch failed for {e.mediaId}: {err}", file=sys.stderr)  # console.warn
             return []
