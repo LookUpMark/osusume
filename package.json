@@ -1,6 +1,6 @@
 {
   "name": "osusume",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Osusume — self-hosted anime recommendations from your AniList list — deterministic taste profile, local LLM explanations, hidden gems, franchise-aware.",
   "type": "module",
   "license": "MIT",
