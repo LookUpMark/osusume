@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -50,7 +51,7 @@ def create_app() -> FastAPI:
         setup.ensure_llm_server()  # no-op unless the setup wizard completed
         from app.adapters import cf
 
-        cf.ensure_cf_model()  # throttled download of the collaborative artifact (optional)
+        asyncio.ensure_future(cf.ensure_cf_model())  # throttled artifact download (optional)
         yield
 
     app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None, lifespan=_lifespan)
