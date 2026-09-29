@@ -1,0 +1,20 @@
+--- a/backend/app/api/routes.py
++++ b/backend/app/api/routes.py
+@@ -376,7 +376,7 @@
+ @router.get("/recommend/stream")
+ async def recommend_stream(username: str = "", lang: str | None = None, mediaType: str | None = None):
+-    """Progress SSE della generazione (nuovo, non nel TS): eventi ``phase`` ai
++    """Progress SSE della generazione (nuovo, non nel TS): eventi ``phase`` ai
+@@ -397,6 +397,7 @@
+     if not USERNAME_RE.match(username):
+         return _invalid_username()
+     resolved = _lang(lang)
++    resolved_type = _media_type(mediaType)  # anche non-stringa → ANIME (mai 500)
+ 
+     async def run_task() -> dict:
+         try:
+@@ -404,7 +405,7 @@
+                 lambda: recommend_query.get_recommendation(
+-                    username, resolved, on_phase=on_phase, media_type=_media_type(mediaType)
++                    username, resolved, on_phase=on_phase, media_type=resolved_type
+                 )

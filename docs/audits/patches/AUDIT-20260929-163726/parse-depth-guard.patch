@@ -1,0 +1,11 @@
+--- a/backend/app/adapters/llm/parse.py
++++ b/backend/app/adapters/llm/parse.py
+@@ -97,7 +97,8 @@
+         elif ch == "]":
+             depth -= 1
++            if depth < 0:      # ']' spaiata: riparte la scansione da zero
++                depth = 0
++                start = -1
+             if depth == 0 and start >= 0:
+                 spans.append((start, i))
+                 start = -1

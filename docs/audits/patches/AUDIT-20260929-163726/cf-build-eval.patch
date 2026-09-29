@@ -1,0 +1,30 @@
+--- a/scripts/cf/build.py
++++ b/scripts/cf/build.py
+@@ -188,8 +188,8 @@
+     for u in test_users:
+         cols = train.rows[u]
+         if len(cols) < 2:
+             continue
+-        test[u] = cols[-1]
+-        cols.remove(cols[-1])
++        pick = int(rng.choice(len(cols)))      # ML-02: holdout casuale, non l'id massimo
++        test[u] = cols[pick]
++        cols.remove(cols[pick])
+     return train.tocsr(), test
+@@ -207,7 +207,8 @@
+         user_vec = model.user_factors[u]
+         un = np.linalg.norm(user_vec)
+         scores = (factors @ user_vec) / (norms * (un or 1e-9))
+-        top = np.argpartition(-scores, k + len(seen))[: k + len(seen) + 1]
+-        top = [i for i in top if int(i) not in seen][:k]
++        order = np.argsort(-scores)             # ML-01: vero ordinamento, non slice arbitraria
++        top = [int(i) for i in order if int(i) not in seen][:k]
+         hits_cf += int(true_item in top)
+@@ -261,7 +262,8 @@
+     from implicit.als import AlternatingLeastSquares
+ 
+     log(f"ALS factors={args.factors} iters={args.iters}")
+-    model = AlternatingLeastSquares(factors=args.factors, iterations=args.iters, regularization=0.05, num_threads=0)
++    # ML-03: seed esplicito — artefatto riproducibile
++    model = AlternatingLeastSquares(factors=args.factors, iterations=args.iters, regularization=0.05, num_threads=0, random_state=42)
+     model.fit(train, show_progress=True)

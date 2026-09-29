@@ -1,0 +1,21 @@
+--- a/backend/app/core/middleware.py
++++ b/backend/app/core/middleware.py
+@@ -37,6 +37,15 @@
+         if scope["type"] == "http" and (path == "/api" or path.startswith("/api/")):
++            # anti drive-by: un sito esterno non deve poter pilotare POST/GET verso
++            # l'API loopback. Se il browser invia Origin (sempre su cross-origin),
++            # deve essere loopback; assente = client non-browser → consenti.
+             headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
++            origin = headers.get("origin")
++            if origin:
++                try:
++                    from urllib.parse import urlparse
++
++                    ohost = (urlparse(origin).hostname or "").lower()
++                except Exception:
++                    ohost = ""
++                if ohost not in ALLOWED_HOSTS:
++                    res = JSONResponse({"error": "forbidden"}, status_code=403)
++                    return await res(scope, receive, send)
+             hostname = self._hostname(headers.get("host", ""))
+             if hostname not in ALLOWED_HOSTS:

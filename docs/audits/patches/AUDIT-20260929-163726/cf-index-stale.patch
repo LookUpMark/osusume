@@ -1,0 +1,9 @@
+--- a/backend/app/adapters/cf.py
++++ b/backend/app/adapters/cf.py
+@@ -88,6 +88,7 @@
+     vectors = vectors.astype(np.float32).reshape(count, dim)
+     norms = np.linalg.norm(vectors, axis=1)
+     norms[norms == 0] = 1e-9
++    global _index_cache
++    _index_cache = None  # righe stale dopo uno swap del modello → IndexError o punteggi sbagliati
+     _state.update(state="loaded", error=None, header=header, ids=ids, vectors=vectors, norms=norms)

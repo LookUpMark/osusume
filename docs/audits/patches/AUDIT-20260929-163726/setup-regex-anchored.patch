@@ -1,0 +1,5 @@
+--- a/backend/app/adapters/system/setup.py
++++ b/backend/app/adapters/system/setup.py
+@@ -1049,7 +1049,7 @@
+-    if not re.match(r"^https?://[\w.:/-]+$", body.baseUrl or ""):
++    if not re.match(r"\Ahttps?://[\w.:/-]+\Z", body.baseUrl or ""):

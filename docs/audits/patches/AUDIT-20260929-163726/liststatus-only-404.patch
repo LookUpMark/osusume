@@ -1,0 +1,9 @@
+--- a/backend/app/adapters/anilist/media.py
++++ b/backend/app/adapters/anilist/media.py
+@@ -285,7 +285,7 @@
+-    except AniListError:
+-        return None  # entry assente = 404/404-graphql: per la UI è "non in lista"
++    except AniListError as e:
++        if e.status != 404:
++            raise  # 429/5xx: un outage non deve fingere "non in lista" e abilitare un doppio add
++        return None  # entry assente (404 graphql): per la UI è "non in lista"
