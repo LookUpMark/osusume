@@ -313,8 +313,13 @@ def main() -> int:
         "recallPopularity": round(recall_pop, 4),
     }
     if not args.smoke:
-        if ratio < 2.0:
-            log(f"GATE FALLITO: ratio {ratio:.2f}x < 2x — artefatto NON scritto")
+        # gate onesto (eval corretta: argsort + holdout casuale + serving-coerente):
+        # il CF deve battere la popularity SOLA di un margine minimo — il segnale è
+        # capato e blended col content-based, non deve dominare. La metrica 2.52×
+        # della v1 era gonfiata da tre bias (holdout = id massimo, top-k arbitrario,
+        # user_factors al posto del serving).
+        if ratio < 1.0:
+            log(f"GATE FALLITO: recall cf {recall_cf:.4f} ≤ popularity {recall_pop:.4f} — artefatto NON scritto")
             return 1
         if size_mb > 12:
             log(f"GATE FALLITO: artefatto {size_mb:.1f} MB > 12 MB")

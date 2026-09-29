@@ -40,7 +40,7 @@ _state: dict[str, Any] = {
 _download_task: asyncio.Task | None = None
 
 CF_MODEL_URL = os.environ.get("CF_MODEL_URL") or (
-    "https://github.com/LookUpMark/osusume/releases/download/cf-v1/osusume-cf-v1.bin"
+    "https://github.com/LookUpMark/osusume/releases/download/cf-v2/osusume-cf-v2.bin"
 )
 _DOWNLOAD_THROTTLE_S = 3600.0
 

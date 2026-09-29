@@ -21,9 +21,11 @@ WEIGHTS = {
     "communityCap": 0.1,
     "mood": 0.04,  # continuity bonus: shares themes/plot with the last 5 completed
     # collaborative signal (post-port): attivo SOLO col modello scaricato —
-    # senza artefatto il contributo è 0 e il motore resta byte-identico
-    "cf": 0.1,
-    "cfCap": 0.1,
+    # senza artefatto il contributo è 0 e il motore resta byte-identico.
+    # Peso prudenziale: l'eval corretta (audit 20260929) dà ~1.1× la popularity
+    # baseline — segnale modesto, capato a metà del community signal.
+    "cf": 0.05,
+    "cfCap": 0.05,
     # quality mix
     "qualityScore": 0.8,
     "qualityPop": 0.2,
