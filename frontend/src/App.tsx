@@ -246,13 +246,26 @@ export function App() {
       .finally(() => setUpdChecking(false));
   };
 
-  // the top scrim under the sticky topbar lights up once the page scrolls
+  // the top scrim under the sticky topbar lights up once the page scrolls.
+  // Al primo mount l'elemento può mancare (splash di setup): retry via rAF
+  // finché non compare, poi attach del listener (una sola volta).
   useEffect(() => {
-    const el = document.getElementById("top-fade");
-    const onScroll = () => el?.classList.toggle("on", window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const onScroll = () => document.getElementById("top-fade")?.classList.toggle("on", window.scrollY > 8);
+    let attempts = 0;
+    let raf = 0;
+    const attach = () => {
+      if (document.getElementById("top-fade")) {
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return;
+      }
+      if (attempts++ < 120) raf = requestAnimationFrame(attach); // ~2s di splash max
+    };
+    attach();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   const esRef = useRef<{ close: () => void } | null>(null);

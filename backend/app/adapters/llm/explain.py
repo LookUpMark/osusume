@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 
 from app.adapters.anilist.cache import now_ms
 from app.adapters.anilist.media import gather_reviews
@@ -69,7 +70,8 @@ async def _cache_get(key: str) -> dict[str, str] | None:
 async def _cache_set(key: str, items: dict[str, str]) -> None:
     os.makedirs(_expl_dir(), exist_ok=True)
     file = os.path.join(_expl_dir(), f"{key}.json")
-    tmp = f"{file}.tmp"
+    # tmp UNICO per scrittura: due explain concorrenti sulla stessa key non si pestano i piedi
+    tmp = f"{file}.{os.getpid()}.{time.monotonic_ns()}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"exp": now_ms() + config.CACHE_TTL_EXPL_MS, "items": items}, f, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, file)  # atomic swap — no partial reads

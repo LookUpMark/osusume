@@ -9,7 +9,7 @@ from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, StrictBool, ValidationError
 
 from app.adapters.anilist.client import AniListError
 from app.adapters.llm.chat import card_payload, chat_reply, recommended_cards
@@ -72,6 +72,18 @@ def _invalid_username() -> JSONResponse:
 
 def _invalid_request() -> JSONResponse:
     return JSONResponse({"error": "invalid_request"}, status_code=400)
+
+
+def _body_or_none(model_cls, raw: Any):
+    """Body costruito a mano dal raw JS: un campo di tipo sbagliato NON deve
+    degradare a 500 internal_error — è invalid_request (o invalid_username per la
+    semantica TS dei chiamanti recommend/chat)."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return model_cls(**raw)
+    except ValidationError:
+        return None
 
 
 def _error_payload(e: Exception) -> dict:
@@ -375,8 +387,8 @@ class UsernameBody(BaseModel):
     # `lang: Any`: nel TS un lang non-stringa NON è un errore, `_lang` lo manda a "en".
     username: str = ""
     lang: Any = None
-    # secondo mondo manga: default ANIME, valore estraneo → ANIME (come _lang)
-    mediaType: str | None = None
+    # secondo mondo manga: default ANIME, valore estraneo/non-stringa → ANIME (come _lang)
+    mediaType: Any = None
 
 
 class ExplainBody(UsernameBody):
@@ -400,9 +412,9 @@ async def profile(username: str):
 @router.post("/recommend")
 async def recommend(request: Request):
     raw = await _js_body(request)
-    # TS: body null/non-oggetto → `body?.username ?? ""` → invalid_username (mai invalid_request)
-    body = UsernameBody(**raw) if isinstance(raw, dict) else UsernameBody()
-    if not USERNAME_RE.match(body.username):
+    # TS: body null/non-oggetto/campo di tipo sbagliato → invalid_username (mai 500)
+    body = _body_or_none(UsernameBody, raw)
+    if body is None or not USERNAME_RE.match(body.username):
         return _invalid_username()
     try:
         return await with_local_fallback(
@@ -415,6 +427,11 @@ async def recommend(request: Request):
 def _sse(event: str, data: dict) -> bytes:
     """Frame SSE (spec: righe chiuse da blank line)."""
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode("utf-8")
+
+
+# cap sui task di generazione stream concorrenti: un client che abbandona NON
+# cancella il task (popola la cache) — senza cap, N tab aperte = N×~20 query AniList
+_STREAM_SEMAPHORE = asyncio.Semaphore(4)
 
 
 @router.get("/recommend/stream")
@@ -435,11 +452,12 @@ async def recommend_stream(username: str = "", lang: str | None = None, mediaTyp
 
     async def run_task() -> dict:
         try:
-            body = await with_local_fallback(
-                lambda: recommend_query.get_recommendation(
-                    username, resolved, on_phase=on_phase, media_type=_media_type(mediaType)
+            async with _STREAM_SEMAPHORE:
+                body = await with_local_fallback(
+                    lambda: recommend_query.get_recommendation(
+                        username, resolved, on_phase=on_phase, media_type=_media_type(mediaType)
+                    )
                 )
-            )
             queue.put_nowait(("done", body))
         except Exception as e:
             queue.put_nowait(("error", _error_payload(e)))
@@ -470,7 +488,7 @@ async def recommend_stream(username: str = "", lang: str | None = None, mediaTyp
 async def explain(request: Request):
     raw = await _js_body(request)
     # TS: null → `body?.ids ?? []` → size 0 → invalid_request (stesso codice del bad username)
-    body = ExplainBody(**raw) if isinstance(raw, dict) else ExplainBody()
+    body = _body_or_none(ExplainBody, raw) or ExplainBody()
     ids = explain_query.normalize_ids(body.ids)
     if not USERNAME_RE.match(body.username) or len(ids) == 0:
         return _invalid_request()
@@ -487,7 +505,7 @@ async def explain(request: Request):
 async def lookup(request: Request):
     raw = await _js_body(request)
     # TS: null → q "" → invalid_request
-    body = LookupBody(**raw) if isinstance(raw, dict) else LookupBody()
+    body = _body_or_none(LookupBody, raw) or LookupBody()
     # trim() e length sono quelli JS (whitelist whitespace ECMA, unità UTF-16) —
     # str.strip()/len() divergono su NEL/\x1c-\x1f/BOM e sui token astrali
     q = js_trim(body.q)
@@ -509,18 +527,22 @@ class ChatBody(BaseModel):
     username: str = ""
     lang: Any = None
     extra: list[Any] = []
-    messages: list[dict[str, Any]] = []
-    mediaType: str | None = None
+    # LOOSE: i turni malformati si scartano in _normalize_history, non si rifiutano
+    messages: list[Any] = []
+    mediaType: Any = None
 
 
-def _normalize_history(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+def _normalize_history(messages: list[Any]) -> list[dict[str, str]]:
     """``history`` (api.ts righe 158-166): normalize, never drop — un turno troppo
-    lungo viene clampato così il contesto di conversazione sopravvive."""
+    lungo viene clampato così il contesto di conversazione sopravvive. I turni
+    malformati (non-dict, role estraneo, content vuoto) si SCARTANO — mai 500."""
     out: list[dict[str, str]] = []
     for m in messages:
+        if not isinstance(m, dict):
+            continue
         role = m.get("role")
         content = m.get("content")
-        if role in ("user", "assistant") and isinstance(content, str) and content.strip():
+        if role in ("user", "assistant") and isinstance(content, str) and js_trim(content):
             out.append({"role": role, "content": content[:4000]})
     return out[-12:]
 
@@ -561,8 +583,10 @@ async def _chat_turn(
 @router.post("/chat")
 async def chat(request: Request):
     raw = await _js_body(request)
-    # TS: body null/non-oggetto → username "" → invalid_username
-    body = ChatBody(**raw) if isinstance(raw, dict) else ChatBody()
+    # TS: body null/non-oggetto/campo di tipo sbagliato → invalid_username (mai 500)
+    body = _body_or_none(ChatBody, raw)
+    if body is None:
+        return _invalid_username()
     if not USERNAME_RE.match(body.username):
         return _invalid_username()
     history = _normalize_history(body.messages)

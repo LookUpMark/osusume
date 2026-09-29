@@ -206,7 +206,14 @@ async def get_recommendation(
             return await pending
     task = asyncio.ensure_future(recommend_for(username, lang, on_phase=on_phase, media_type=media_type))
     _inflight[cache_key] = task
-    task.add_done_callback(lambda _t: _inflight.pop(cache_key, None))
+
+    def _evict(key: str, done: asyncio.Task) -> None:
+        # pop SOLO se la registrazione è ancora NOSTRA: un refresh sovrapposto che
+        # riscrive la chiave non deve essere evictato dal nostro termine (single-flight)
+        if _inflight.get(key) is done:
+            _inflight.pop(key, None)
+
+    task.add_done_callback(lambda _t, k=cache_key, t=task: _evict(k, t))
     try:
         result = await task
     except Exception:
@@ -341,11 +348,23 @@ async def recommend_for(
     if on_phase is not None:
         on_phase("scoring")
     # collaborative signal (CF v2): attivo SOLO col modello scaricato — spento,
-    # la chiamata ritorna {} e il motore resta byte-identico (golden incluso)
+    # la chiamata ritorna {} e il motore resta byte-identico (golden incluso).
+    # L'artefatto copre SOLO anime: nel mondo manga i suoi ID non possono
+    # combaciare (ID AniList unici per tipo) → gate esplicito, niente degradazione
+    # silenziosa né lavoro numpy inutile.
     from app.adapters import cf as cf_adapter
 
-    loved_ids = {e.mediaId for e in ul.entries if entry_sentiment(e, profile.meanScore).s > 0}
-    cf_map = cf_adapter.cf_scores([c.id for c in candidates], loved_ids)
+    if media_type == "ANIME":
+        # allineato al training (rating ≥ 7/10 → 70/100): il modello non ha mai visto
+        # titoli votati sotto soglia come "positivi" — servirli come loved lo degrada
+        loved_ids = {
+            e.mediaId
+            for e in ul.entries
+            if entry_sentiment(e, profile.meanScore).s > 0 and e.score >= 70
+        }
+        cf_map = cf_adapter.cf_scores([c.id for c in candidates], loved_ids)
+    else:
+        cf_map = {}
     scored = score_all(
         [c for c in candidates if (f := franchise.get(c.id)) is None or f.kind != "EXCLUDED"],
         profile,

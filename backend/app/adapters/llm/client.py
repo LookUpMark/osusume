@@ -135,13 +135,18 @@ async def llm_chat(messages: list[dict[str, str]], model: str, max_tokens: int |
         raise LlmError(f"LLM unreachable ({e})")
     if not (200 <= res.status_code < 300):
         raise LlmError(f"LLM HTTP {res.status_code}")
-    body = res.json()
+    try:
+        body = res.json()
+    except ValueError as e:
+        raise LlmError(f"LLM non-JSON 200 body ({e})") from e
     choice = (body.get("choices") or [None])[0] if isinstance(body, dict) else None
     if choice and choice.get("finish_reason") == "length":
         raise LlmError("LLM output truncated (finish_reason=length)")
     # templates without the kwarg may still reason inline — strip what we can
     content = ((choice or {}).get("message") or {}).get("content") or ""
     content = _THINK_RE.sub("", content).strip()
+    if "<think>" in content:  # blocco non chiuso: tutto ciò che segue è reasoning
+        content = content.split("<think>", 1)[0].strip()
     # lone surrogate (escape \ud800 dal JSON LLM): utf-8 non la codifica → 500 su
     # chat/explain e cache mai scritta; il TS la ri-escapava (well-formed stringify) —
     # qui il code point si scarta, il testo resta sempre encodabile

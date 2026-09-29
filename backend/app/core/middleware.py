@@ -1,4 +1,4 @@
-r"""Middleware Host-allowlist (docs/contract.md).
+r"""Middleware Host-allowlist + Origin-check (docs/contract.md).
 
 Loopback binding is not per-user: reject Host headers that don't match the local
 host so DNS-rebinding pages (browser same-origin) and other machines' processes
@@ -9,11 +9,18 @@ fuori dal guard). Attivo anche con ``HOST=0.0.0.0``: la allowlist è sull'header
 Semantica IDENTICA a ``src/server/api.ts``: ``host.replace(/:\d+$/, "")`` poi
 ``.replace(/^\[|\]$/g, "")`` — quindi ``::1`` senza porta è FUORI allowlist
 (la regex porta via ``:1``) e ``::1:3000`` è DENTRO.
+
+**Origin check (audit 20260929)**: l'Host header è controllabile dal client, quindi
+da solo non ferma il drive-by — un sito esterno manda volentieri fetch/POST verso
+``http://127.0.0.1:3000`` (risposta opaca, ma gli effetti lato server restano).
+Se la richiesta dichiara un ``Origin`` (sempre su cross-origin browser), deve essere
+loopback. Nessun Origin = client non-browser (curl, l'app stessa) → consenti.
 """
 
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 
 from fastapi.responses import JSONResponse
 
@@ -35,11 +42,17 @@ class HostAllowlistMiddleware:
     async def __call__(self, scope, receive, send) -> None:
         path = scope.get("path", "")
         if scope["type"] == "http" and (path == "/api" or path.startswith("/api/")):
-            header = next(
-                (v.decode("latin-1") for k, v in scope.get("headers", []) if k == b"host"),
-                "",
-            )
-            if hostname(header) not in ALLOWED_HOSTS:
+            headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+            if hostname(headers.get("host", "")) not in ALLOWED_HOSTS:
                 await JSONResponse({"error": "forbidden"}, status_code=403)(scope, receive, send)
                 return
+            origin = headers.get("origin")
+            if origin:
+                try:
+                    ohost = (urlparse(origin).hostname or "").lower()
+                except Exception:
+                    ohost = ""
+                if ohost not in ALLOWED_HOSTS:
+                    await JSONResponse({"error": "forbidden"}, status_code=403)(scope, receive, send)
+                    return
         await self.app(scope, receive, send)

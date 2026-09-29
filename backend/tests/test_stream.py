@@ -55,22 +55,28 @@ async def test_stream_fasi_in_ordine_e_done_paritario(client_m: httpx.AsyncClien
     assert phases == PHASES, phases
     done = [d for e, d in events if e == "done"]
     assert len(done) == 1
-    # il body di done è IDENTICO al body di POST /api/recommend (cache hit del secondo)
-    post = await client_m.post("/api/recommend", json={"username": "LookUpMark", "lang": "en"})
+
+    # parità NON circolare: server FRESCO (result-cache vuota) con POST diretto —
+    # due computazioni indipendenti dello stesso input devono coincidere byte-a-byte
+    async with ServerHandle() as fresh:
+        async with httpx.AsyncClient(trust_env=False, base_url=fresh.base, timeout=30.0) as c2:
+            post = await c2.post("/api/recommend", json={"username": "LookUpMark", "lang": "en"})
     assert post.status_code == 200
     assert done[0] == post.json()
 
 
 @pytest.mark.asyncio(loop_scope="module")
 async def test_stream_cache_hit_done_immediato(client_m: httpx.AsyncClient):
-    # LookUpMark:en è in result-cache dal test precedente → nessuna fase, solo done
+    """Autosufficiente: il test stesso popola la result-cache col POST, poi lo
+    stream sulla stessa chiave deve dare SOLO done (nessuna fase)."""
+    post = await client_m.post("/api/recommend", json={"username": "LookUpMark", "lang": "it"})
+    assert post.status_code == 200
     lines: list[str] = []
-    async with client_m.stream("GET", "/api/recommend/stream", params={"username": "LookUpMark", "lang": "en"}) as r:
+    async with client_m.stream("GET", "/api/recommend/stream", params={"username": "LookUpMark", "lang": "it"}) as r:
         async for line in r.aiter_lines():
             lines.append(line)
     events = parse_sse(lines)
     assert [e for e, _ in events] == ["done"], events
-    post = await client_m.post("/api/recommend", json={"username": "LookUpMark", "lang": "en"})
     assert events[0][1] == post.json()
 
 

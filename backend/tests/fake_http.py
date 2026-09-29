@@ -92,6 +92,11 @@ class FakeServer:
             try:
                 res = await self.handler(req)
             except Exception:
+                # non ingoiare: un assert dentro un finto LLM/AniList deve VEDERSI,
+                # altrimenti il test fallisce con un 500 misterioso senza indizi
+                import traceback
+
+                traceback.print_exc()
                 res = Response({"error": "fake handler crash"}, status=500)
             head = (
                 f"HTTP/1.1 {res.status} {_REASONS.get(res.status, 'OK')}\r\n"

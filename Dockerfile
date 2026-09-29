@@ -1,5 +1,5 @@
 # --- build stage: bundle the React UI -------------------------------------------
-FROM node:22-slim AS build
+FROM node:22-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c AS build
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -10,11 +10,11 @@ COPY frontend ./frontend
 RUN pnpm build
 
 # --- runtime stage: FastAPI backend (uv-managed venv) + static dist --------------
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
 WORKDIR /app
 # official uv install pattern (docs.astral.sh/uv): binary from the distroless image
 # (pinned to the current stable minor — 0.12.x, tag verified on ghcr)
-COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12@sha256:100047e74f30778ab704942321a09750d6158739573ff58bf3924085cc6cd2d8 /uv /usr/local/bin/uv
 # venv built from the locked deps; then the rest of backend/ (app/, run_dev.py, …)
 COPY backend/pyproject.toml backend/uv.lock ./backend/
 RUN uv sync --project backend --frozen --no-dev

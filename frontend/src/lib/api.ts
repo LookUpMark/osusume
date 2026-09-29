@@ -84,14 +84,34 @@ export const streamRecommend = (
         reject(new Error(code));
       }
     });
+    let errorStreak = 0;
     es.onerror = () => {
       // connection-level failure (or server closed early); if we are already
       // finished this is the browser complaining after close() — ignore
-      if (!closed && es.readyState === EventSource.CLOSED) {
+      if (closed) return;
+      if (es.readyState === EventSource.CLOSED) {
         closed = true;
+        reject(new Error("errGeneric"));
+        return;
+      }
+      // readyState CONNECTING = il browser sta per auto-riconnettersi: senza cap,
+      // un server morto mid-stream lascia `done` pending per sempre (loop infinito)
+      errorStreak += 1;
+      if (errorStreak >= 3) {
+        closed = true;
+        es.close();
         reject(new Error("errGeneric"));
       }
     };
+    // ogni evento ricevuto con successo resetta la serie di fallimenti
+    es.onopen = () => {
+      errorStreak = 0;
+    };
+    const resetStreak = () => {
+      errorStreak = 0;
+    };
+    es.addEventListener("phase", resetStreak);
+    es.addEventListener("done", resetStreak);
   });
   return {
     done,

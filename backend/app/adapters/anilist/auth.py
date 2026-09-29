@@ -89,7 +89,15 @@ def status_payload() -> dict:
 
 
 def disconnect() -> None:
+    global _listener, _flow_task
     config.update_config({"anilistToken": None, "anilistUser": None, "anilistTokenAt": None, "anilistTokenExpires": None})
+    # teardown COMPLETO: un listener in attesa non deve squatting la porta per i 600s di timeout
+    if _listener is not None:
+        _listener.close()
+    if _flow_task is not None:
+        _flow_task.cancel()
+    _listener = None
+    _flow_task = None
     _flow.update(state="idle", error=None, state_param=None)
 
 
@@ -100,7 +108,8 @@ async def start_flow() -> str:
     if not client_id or not client_secret:
         raise ApiError(400, "oauth_not_configured")
     if _flow["state"] == "pending":
-        raise ApiError(409, "oauth_busy")
+        raise ApiError(409, "oauth_busy")  # il listener del flow attivo NON si tocca
+    _reset_flow()  # refs stale da un flow error/timeout: nessun secondo listener orfano
 
     state = secrets.token_hex(16)
     try:

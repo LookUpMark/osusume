@@ -89,10 +89,11 @@ MEDIA_TYPES = ("ANIME", "MANGA")
 
 def _fixtures_dir(media_type: str) -> str:
     """Dir fixture per tipo: `fixtures` per anime, `fixtures-manga` per manga
-    (stessi tre file, dati diversi) — selezione per il secondo mondo. Se il base
-    è già una dir manga (env pinato su fixtures-manga) resta invariata."""
+    (stessi tre file, dati diversi) — selezione per il secondo mondo. L'append
+    avviene SOLO sul default canonico: base custom (fixtures-real, fixtures-manga
+    già pinato) resta invariato."""
     base = config.fixtures_dir()
-    if media_type == "MANGA" and not base.endswith("-manga"):
+    if media_type == "MANGA" and base == "fixtures":
         return f"{base}-manga"
     return base
 
@@ -210,10 +211,13 @@ async def fetch_recommendations(media_id: int, media_type: str = "ANIME") -> lis
         map_ = await read_fixture("recommendations.json", _fixtures_dir(media_type))
         return map_.get(str(media_id), [])
     data = await gql(queries.RECOMMENDATIONS_QUERY, {"id": media_id}, config.CACHE_TTL_MEDIA_MS)
-    return [
-        {"targetId": n["mediaRecommendation"]["id"], "rating": n["rating"]}
-        for n in data["Media"]["recommendations"]["nodes"]
-    ]
+    out = []
+    for n in data["Media"]["recommendations"]["nodes"]:
+        rec = n.get("mediaRecommendation")
+        if not rec:  # titolo rimosso/privato: segnale perso, non un crash
+            continue
+        out.append({"targetId": rec["id"], "rating": n["rating"]})
+    return out
 
 
 # --- reviews (LLM grounding) ----------------------------------------------------
@@ -283,8 +287,10 @@ async def fetch_media_list_status(user_name: str, media_id: int) -> str | None:
             config.CACHE_TTL_LIST_MS,
             token=auth.token_for(user_name),
         )
-    except AniListError:
-        return None  # entry assente = 404/404-graphql: per la UI è "non in lista"
+    except AniListError as e:
+        if e.status != 404:
+            raise  # 429/5xx: un outage non deve fingere "non in lista" (doppio add in watchlist)
+        return None  # entry assente (404 graphql): per la UI è "non in lista"
     entry = data.get("MediaList") if isinstance(data, dict) else None
     status = entry.get("status") if isinstance(entry, dict) else None
     return status if isinstance(status, str) else None

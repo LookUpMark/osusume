@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama@sha256:8262851b2846b87c649eddf3e76beb270c52f4d1bc94559f47efde16b0841551 # pin: audit SC-3 — aggiorna a mano
     volumes:
       - ollama-models:/root/.ollama
     environment:

@@ -95,7 +95,10 @@ def parse_explanations(raw: str) -> list[Explanation]:
             depth += 1
         elif ch == "]":
             depth -= 1
-            if depth == 0 and start >= 0:
+            if depth < 0:  # ']' spaiata prima di '[': riparte pulito, depth negativo disabiliterebbe i match successivi
+                depth = 0
+                start = -1
+            elif depth == 0 and start >= 0:
                 spans.append((start, i))
                 start = -1
         i += 1

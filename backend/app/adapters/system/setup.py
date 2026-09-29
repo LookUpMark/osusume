@@ -86,6 +86,22 @@ def _mac_brand() -> str:
         return ""
 
 
+def _ram_gb() -> int | None:
+    """Unix: sysconf; Windows non ha os.sysconf → psutil se c'è, altrimenti None
+    (la wizard mostra il campo vuoto invece di crashare su /api/setup/status)."""
+    if not hasattr(os, "sysconf"):
+        try:
+            import psutil
+
+            return round(psutil.virtual_memory().total / 2**30)
+        except Exception:
+            return None
+    try:
+        return round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30)
+    except (ValueError, OSError):
+        return None
+
+
 def detect_hardware() -> dict:
     system = platform.system()
     os_name = "mac" if system == "Darwin" else "win" if system == "Windows" else "linux"
@@ -95,7 +111,7 @@ def detect_hardware() -> dict:
         # Rosetta caveat: node may report x64 on Apple Silicon
         apple_silicon = "Apple" in brand
     chip = brand or (platform.processor() or "").strip()
-    ram_gb = round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30)
+    ram_gb = _ram_gb()
     return {"os": os_name, "chip": chip or "Unknown CPU", "ramGb": ram_gb, "appleSilicon": apple_silicon}
 
 
@@ -1049,7 +1065,7 @@ async def setup_finish(request: Request) -> dict:
         return JSONResponse({"error": "invalid_model"}, status_code=400)
     base_url = body.get("baseUrl")
     if base_url is not None:
-        if not isinstance(base_url, str) or not re.match(r"^https?://[\w.:/-]+$", base_url):
+        if not isinstance(base_url, str) or not re.match(r"\Ahttps?://[\w.:/-]+\Z", base_url):
             return JSONResponse({"error": "invalid_url"}, status_code=400)
         patch: dict = {**version, "backend": "custom", "baseUrl": base_url}
         if model:

@@ -66,6 +66,7 @@ def state() -> dict:
         "builtAt": header.get("builtAt"),
         "count": header.get("count"),
         "smoke": header.get("smoke", False),
+        "artifact": "anime",  # il modello copre solo il mondo anime (PIPE-2: gate esplicito nel dominio)
         "error": _state["error"],
     }
 
@@ -88,6 +89,8 @@ def _parse(raw: bytes) -> None:
     vectors = vectors.astype(np.float32).reshape(count, dim)
     norms = np.linalg.norm(vectors, axis=1)
     norms[norms == 0] = 1e-9
+    global _index_cache
+    _index_cache = None  # righe stale dopo uno swap modello → IndexError o punteggi sbagliati
     _state.update(state="loaded", error=None, header=header, ids=ids, vectors=vectors, norms=norms)
 
 
@@ -113,9 +116,11 @@ def load_local() -> bool:
 
 async def ensure_cf_model(force: bool = False) -> bool:
     """Scarica l'artefatto se assente (throttled) e lo carica. Fire-and-forget safe.
-    In test/demo mode (ANILIST_FIXTURES pinato) niente rete: il CF resta spento."""
+    In test/demo mode (ANILIST_FIXTURES pinato) il download AUTOMATICO è spento
+    (zero rete nei test): solo un force esplicito (POST /api/cf/download) procede,
+    così il path di download resta testabile contro un FakeServer."""
     global _download_task
-    if os.environ.get("ANILIST_FIXTURES"):
+    if not force and os.environ.get("ANILIST_FIXTURES"):
         _state["state"] = "absent" if not _state["header"] else _state["state"]
         return _state["state"] == "loaded"
     if not cf_enabled():
@@ -164,8 +169,10 @@ def set_enabled(on: bool) -> None:
 
 def cf_scores(candidate_ids: list[int], loved_titles_ids: set[int]) -> dict[int, float]:
     """Similarità coseno tra l'user-vector (media dei vettori dei titoli amati
-    presenti nel modello) e i candidati, normalizzata min-max sui candidati.
-    Segnale spento: modello non caricato/disabilitato o overlap < MIN_OVERLAP."""
+    presenti nel modello) e i candidati. Il punteggio è il coseno clampato 0..1:
+    il min-max sul pool non porta informazione del modello (ridistribuirebbe il
+    bonus anche su pool poveri). Segnale spento: modello assente/disabilitato o
+    overlap < MIN_OVERLAP (cold start)."""
     if not HAS_NUMPY or _state["state"] != "loaded" or not cf_enabled():
         return {}
     idx = _index()
@@ -185,11 +192,7 @@ def cf_scores(candidate_ids: list[int], loved_titles_ids: set[int]) -> dict[int,
         return {}
     cand_rows = np.fromiter((idx[c] for c in present), dtype=np.int64, count=len(present))
     sims = (vectors[cand_rows] @ user_vec) / norms[cand_rows] / un
-    lo, hi = float(sims.min()), float(sims.max())
-    if hi - lo < 1e-6:
-        return {}
-    normalized = (sims - lo) / (hi - lo)
-    return {int(cid): float(nv) for cid, nv in zip(present, normalized)}
+    return {int(cid): float(max(0.0, min(1.0, s))) for cid, s in zip(present, sims)}
 
 
 _index_cache: dict[int, int] | None = None

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { parseMarkdown, type MdBlock, type MdInline } from "../lib/logic/markdown.ts";
 
 const Inline = ({ inl }: { inl: MdInline[] }) => (
@@ -33,8 +34,10 @@ const Block = ({ b }: { b: MdBlock }) =>
     </ul>
   );
 
-/** LLM chat reply rendered as conversational markdown (see logic/markdown.ts). */
-export function Markdown(props: { text: string }) {
+/** LLM chat reply rendered as conversational markdown (see logic/markdown.ts).
+ *  memo: il parse è puro sul testo — i vecchi turni non riparseggiano a ogni
+ *  battuta/new-turn della chat. */
+export const Markdown = memo(function Markdown(props: { text: string }) {
   return (
     <>
       {parseMarkdown(props.text).map((b, i) => (
@@ -42,4 +45,4 @@ export function Markdown(props: { text: string }) {
       ))}
     </>
   );
-}
+});

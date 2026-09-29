@@ -14,7 +14,20 @@ export function Carousel(props: { label: string; prev: string; next: string; chi
     nextBtn.current.disabled = t.scrollLeft > max - 8;
   };
 
-  useEffect(update, [props.children]);
+  // niente props.children nelle dipendenze: è un array nuovo a ogni render del
+  // padre → re-attach del listener a ogni battuta. Il listener vive una volta sola
+  // (edge case scroll dopo mount coperto dal primo update al primo resize/scroll).
+  useEffect(() => {
+    update();
+    const t = track.current;
+    t?.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      t?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const step = () => ((track.current?.querySelector<HTMLElement>(".mcard")?.offsetWidth ?? 180) + 16) * 2;
 

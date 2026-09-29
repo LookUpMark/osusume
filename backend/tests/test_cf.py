@@ -72,7 +72,9 @@ def test_cf_scores_overlap_e_normalizzazione(synthetic_model):
     scores = cf.cf_scores([601, 602, 603], {501, 502, 503, 511, 512})
     assert set(scores) == {601, 602, 603}
     assert scores[601] > scores[602], "601 vicino all'user-vector deve dominare"
-    assert max(scores.values()) == 1.0 and min(scores.values()) == 0.0
+    # coseno clampato 0..1 (niente min-max sul pool: non porta informazione del modello)
+    assert all(0.0 <= s <= 1.0 for s in scores.values())
+    assert scores[601] <= 1.0
 
 
 def test_cf_scores_cold_start(synthetic_model):
@@ -114,20 +116,59 @@ def test_pipeline_payload_shape_identico_con_cf(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cf_endpoints(server, client):
-    """Server reale senza artefatto: state absent/disabled, download fallisce onesto."""
-    res = await client.get("/api/cf")
-    assert res.status_code == 200
-    body = res.json()
-    assert body["enabled"] in (True, False)
-    assert body["state"] in ("absent", "disabled", "error", "loaded")
+async def test_cf_endpoints(tmp_path):
+    """Server reale con CF_MODEL_URL su porta morta: stato onesto, toggle,
+    download fallito = 503 cf_unavailable (veloce: connect refused, niente rete)."""
+    async with ServerHandle(overrides={"CF_MODEL_URL": "http://127.0.0.1:1/model.bin"}) as server:
+        async with httpx.AsyncClient(trust_env=False, base_url=server.base, timeout=15.0) as c:
+            res = await c.get("/api/cf")
+            assert res.status_code == 200
+            body = res.json()
+            assert body["state"] in ("absent", "disabled", "error")
+            assert body["enabled"] is True
 
-    res = await client.patch("/api/cf", json={"enabled": False})
-    assert res.status_code == 200
-    assert res.json()["state"] == "disabled"
-    res = await client.patch("/api/cf", json={"enabled": True})
-    assert res.status_code == 200
+            res = await c.patch("/api/cf", json={"enabled": False})
+            assert res.status_code == 200
+            assert res.json()["state"] == "disabled"
+            res = await c.patch("/api/cf", json={"enabled": True})
+            assert res.status_code == 200
+            assert res.json()["enabled"] is True
 
-    # download forzato su URL non raggiungibile → 503 cf_unavailable (override env impossibile
-    # sul server già partito: il default URL punta a GitHub — qui verifichiamo solo la forma)
-    assert ServerHandle is not None
+            # force=True bypassa il guard ANILIST_FIXTURES → connect refused → 503
+            res = await c.post("/api/cf/download")
+            assert res.status_code == 503
+            assert res.json() == {"error": "cf_unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_cf_download_e2e_da_fake_url(tmp_path):
+    """Il path promesso dal docstring: CF_MODEL_URL → FakeServer che serve un
+    artefatto sintetico → download, load, state=loaded con i metadati del header."""
+    import struct
+
+    import numpy as np
+
+    from fake_http import FakeServer, Response as FakeResponse
+
+    items = [501, 601, 602]
+    vectors = np.eye(3, dtype=np.float16)
+    header = {"magic": "osusume-cf", "version": 1, "dim": 3, "count": 3, "builtAt": "t", "smoke": False}
+    hb = (json.dumps(header, separators=(",", ":")) + "\n").encode()
+    blob = len(hb).to_bytes(4, "little") + hb + np.asarray(items, dtype=np.int32).tobytes() + vectors.tobytes()
+
+    async def handler(req):
+        if req.path.endswith("/model.bin"):
+            return FakeResponse(raw=blob)
+        return FakeResponse({"data": {}})
+
+    async with FakeServer(handler) as srv:
+        async with ServerHandle(overrides={"CF_MODEL_URL": f"{srv.url}/model.bin"}) as server:
+            async with httpx.AsyncClient(trust_env=False, base_url=server.base, timeout=15.0) as c:
+                res = await c.post("/api/cf/download")
+                assert res.status_code == 200, res.text
+                body = res.json()
+                assert body["state"] == "loaded"
+                assert body["count"] == 3
+                assert body["enabled"] is True
+                # il file è atterrato nel DATA_DIR del server
+                assert (server.tmp / "cf" / "model.bin").exists()

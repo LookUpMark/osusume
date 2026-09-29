@@ -11,9 +11,11 @@ Convenzioni comuni a tutti gli endpoint `/api/*`:
   (unico campo extra ammesso: `message` per `anilist_error`); eccezione: `install-cli`,
   `download` e `omlx-download` sotto `/api/setup/*` mettono in `error` messaggi arbitrari
   (es. `busy`, testo dell'errore installatore).
-- **Middleware Host** (primo middleware, copre tutto `/api/*`): prende `host` dall'header
-  `Host` (default `""`), strip della porta con `host.replace(/:\d+$/, "")` e strip delle
-  parentesi `[`/`]`; se il risultato non è in `{127.0.0.1, localhost, ::1}` → `403 {"error":"forbidden"}`.
+- **Middleware Host+Origin** (primo middleware, copre tutto `/api/*`): (1) `Host` header con
+  strip porta/parentesi; se fuori `{127.0.0.1, localhost, ::1}` → `403 forbidden`. (2) Se la
+  richiesta dichiara `Origin` (cross-origin browser), il suo hostname deve essere loopback →
+  altrimenti `403` (anti drive-by: un sito esterno non può pilotare fetch verso l'API loopback).
+  Nessun Origin = client non-browser → consenti. Audit 20260929.
 - **Lang**: body `lang` ammesso solo se in `{"en","it"}` (whitelist), altrimenti default `"en"`.
 - **USERNAME_RE**: `^[A-Za-z0-9_-]{1,32}$`. Fallisce → `400 {"error":"invalid_username"}`.
 - **Auto-fallback locale** (`withLocalFallback`, profile/recommend/explain/lookup/chat):
@@ -59,7 +61,7 @@ conforme a `^[A-Za-z0-9][A-Za-z0-9._/-]*$` o mancante), `400 {"error":"invalid_u
 | 6 | POST `/api/recommend` | `{username:string, lang?:Lang}` | `RecoResult` | 400 `invalid_username`, 404/502/500 (fallback locale) |
 | 7 | POST `/api/explain` | `{username:string, ids:number[], lang?:Lang}` | `{explanations: [{id:number, text:string, source:"llm"\|"cache"\|"fallback"}]}` (ordine = ordine subset raccomandazioni) | 400 `invalid_request`, 404/502/500 |
 | 8 | POST `/api/lookup` | `{username:string, q:string, lang?:Lang}` (`q.trim()`, lunghezza 2..80) | `{recos: ScoredReco[]}` (ordine = ranking della ricerca) | 400 `invalid_request`, 404/502/500 |
-| 9 | POST `/api/chat` | `{username:string, lang?:Lang, extra?:number[], messages:[{role:"user"\|"assistant", content:string}]}` (storia normalizzata: turni validi non vuoti, content clampato a 4000 char, ultime 12) | `{reply:string}` | 400 `invalid_request`/`invalid_username`, 503 `llm_unavailable`, 404/502/500 |
+| 9 | POST `/api/chat` | `{username:string, lang?:Lang, extra?:number[], messages:[{role:"user"\|"assistant", content:string}]}` (storia normalizzata: turni validi non vuoti, content clampato a 4000 char, ultime 12) | `{reply:string, cards:[{id,title,coverImage,coverColor,seasonYear,format,score,siteUrl}]}` — cards = titoli che il modello ha in **bold** matchati sul pool del prompt (vuota se nessuno) | 400 `invalid_request`/`invalid_username`, 503 `llm_unavailable`, 404/502/500 |
 | 10 | POST `/api/shutdown` | — | `{ok:true}` e `process.exit(0)` dopo 200ms | — |
 | 11 | GET `/api/setup/status` | — | `SetupStatus` (shape sotto) | — |
 | 12 | POST `/api/setup/ack` | `{}` | `{ok:true}` (persistisce `setupDone:true` + `setupVersion`) | — |
@@ -74,11 +76,18 @@ conforme a `^[A-Za-z0-9][A-Za-z0-9._/-]*$` o mancante), `400 {"error":"invalid_u
 | 21 | GET `/api/llm/models` | — | `{models: string[], configured: string\|null}` (modelli live del backend, dedup+sort) | 503 `llm_unavailable` |
 | 22 | GET/PATCH `/api/auth/anilist` | PATCH `{clientId?, clientSecret?}` (assente = intatto, `""` = cancella) | `{configured, authenticated, username, flow, flowError, redirectUri, tokenExpiresAt}` — MAI token/secret | 400 `invalid_request` |
 | 23 | POST `/api/auth/anilist/start` · `/disconnect` | `{}` | start → `{url}` (authorize AniList; listener loopback su porta fissa); disconnect → `{ok:true}` | start: 400 `oauth_not_configured`, 409 `oauth_busy`/`oauth_port_busy` |
-| 24 | GET `/api/watchlist/status` · POST `/api/watchlist` | status query `username`,`mediaId`; POST `{mediaId:number}` (utente collegato via OAuth) | status → `{"status": string\|null}`; POST → `{ok:true, status:"PLANNING"}` | 400 `invalid_request`/`invalid_username`, 401 `anilist_auth`, 502 `anilist_error` |
+| 24 | GET `/api/cf` · PATCH `/api/cf` | PATCH `{enabled:bool}` | `{state:"loaded"\|"absent"\|"downloading"\|"disabled"\|"error", enabled:bool, version, builtAt, count, smoke, artifact:"anime", error}` | — |
+| 25 | POST `/api/cf/download` | `{}` (force: scarica anche in fixture/test mode) | stato del modello; scarica da `CF_MODEL_URL` (default: release dati `cf-v1`/`cf-v2`) | 503 `cf_unavailable` |
+| 26 | GET `/api/watchlist/status` · POST `/api/watchlist` | status query `username`,`mediaId`; POST `{mediaId:number}` (utente collegato via OAuth) | status → `{"status": string\|null}`; POST → `{ok:true, status:"PLANNING"}`. Gli errori AniList transitori (429/5xx) NON fingono "non in lista": status → 401/502 | 400 `invalid_request` (mediaId) / `invalid_username` (username, solo status), 401 `anilist_auth`, 502 `anilist_error` |
 
 Chi non ha endpoint dedicati ma solo shape: `GET /api/profile/:username` applica
 `encodeURIComponent` lato client (`frontend/src/lib/api.ts`); il server non decodifica nomi con caratteri
 fuori whitelist (già rifiutati da `USERNAME_RE`).
+
+### Fallback locale — carve-out auth (da v1.3)
+
+`with_local_fallback` NON scatta per 404 **né per 401**: un token scaduto non è un outage e non deve
+essere mascherato dai fixture (altrimenti l'utente resterebbe su dati demo senza saperlo).
 
 ### `mediaType` — secondo mondo (post-port, da v1.2)
 

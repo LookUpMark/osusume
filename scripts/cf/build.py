@@ -141,7 +141,9 @@ def build_matrix(ratings: np.ndarray, id2anilist: dict[int, int], args) -> tuple
     values = np.array([id2anilist[k] for k in keys], dtype=np.int64)
     lut = np.full(int(keys.max()) + 1, -1, dtype=np.int64)
     lut[keys] = values
-    anilist_ids = np.where(ds_ids <= keys.max(), lut[ds_ids], -1)
+    # guard completa: fuori range (sotto min o sopra max) → -1, mai wrap negativo
+    in_range = (ds_ids >= keys.min()) & (ds_ids <= keys.max())
+    anilist_ids = np.where(in_range, lut[np.clip(ds_ids, 0, keys.max())], -1)
     keep = anilist_ids >= 0
     sel, anilist_ids = sel[keep], anilist_ids[keep]
     log(f"con join anilist: {len(sel):,} ({len(np.unique(anilist_ids)):,} titoli unici)")
@@ -189,25 +191,36 @@ def holdout_split(matrix, rng) -> tuple:
         cols = train.rows[u]
         if len(cols) < 2:
             continue
-        test[u] = cols[-1]
-        cols.remove(cols[-1])
+        pick = int(rng.integers(len(cols)))  # item di test CASUALE, non l'id massimo
+        test[u] = cols[pick]
+        cols.remove(cols[pick])
     return train.tocsr(), test
 
 
+def serving_user_vector(factors: np.ndarray, seen_indices: list[int]) -> np.ndarray:
+    """Logica di serving (cf.py): user vector = media dei vettori ITEM dei titoli
+    positivi — l'eval DEVE misurare esattamente questa, non model.user_factors
+    (che il serving non usa mai)."""
+    vec = factors[seen_indices].mean(axis=0)
+    un = np.linalg.norm(vec)
+    return vec / un if un > 0 else vec
+
+
 def recall_at_k(model, train, test, item_pop) -> tuple[float, float]:
-    """Recall@20 CF vs baseline popularity sugli stessi utenti."""
+    """Recall@20 CF vs baseline popularity sugli stessi utenti — coerente col serving."""
     factors = model.item_factors  # (items × k)
     norms = np.linalg.norm(factors, axis=1)
     norms[norms == 0] = 1e-9
     k = RECALL_K
     hits_cf = hits_pop = n = 0
     for u, true_item in test.items():
-        seen = set(train[u].indices.tolist())
-        user_vec = model.user_factors[u]
+        seen = train[u].indices.tolist()
+        user_vec = serving_user_vector(factors, seen)
         un = np.linalg.norm(user_vec)
         scores = (factors @ user_vec) / (norms * (un or 1e-9))
-        top = np.argpartition(-scores, k + len(seen))[: k + len(seen) + 1]
-        top = [i for i in top if int(i) not in seen][:k]
+        # vero ordinamento (argsort): argpartition + slice dà un top-k arbitrario
+        order = np.argsort(-scores)
+        top = [int(i) for i in order if int(i) not in set(seen)][:k]
         hits_cf += int(true_item in top)
         pop_top = [i for i in np.argsort(-item_pop)[: k + len(seen)] if int(i) not in seen][:k]
         hits_pop += int(true_item in pop_top)
@@ -261,7 +274,11 @@ def main() -> int:
     from implicit.als import AlternatingLeastSquares
 
     log(f"ALS factors={args.factors} iters={args.iters}")
-    model = AlternatingLeastSquares(factors=args.factors, iterations=args.iters, regularization=0.05, num_threads=0)
+    # seed esplicito: senza, implicit inizializza i fattori da entropia di sistema
+    # → artefatto non riproducibile (audit ML-03)
+    model = AlternatingLeastSquares(
+        factors=args.factors, iterations=args.iters, regularization=0.05, num_threads=0, random_state=42
+    )
     model.fit(train, show_progress=True)
 
     item_pop = np.asarray(train.sum(axis=0)).ravel()
@@ -281,6 +298,15 @@ def main() -> int:
         "builtAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "dataset": "turan-2025-07",
         "aodb": "2026-27",
+        "config": {  # ML-04: provenienza completa — serving e rebuild confrontabili
+            "factors": args.factors,
+            "iterations": args.iters,
+            "regularization": 0.05,
+            "minRating": args.min_rating,
+            "minUserPositives": args.min_user_positives,
+            "seed": 42,
+            "users": int(len(users)),
+        },
         "minRating": args.min_rating,
         "smoke": bool(args.smoke),
         "recallAt20": round(recall_cf, 4),
