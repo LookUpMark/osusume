@@ -30,6 +30,22 @@ export function AniListAuth(props: { lang: Lang; onAuthChange: (auth: Auth) => v
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // the backend flips flow to ok/error asynchronously (browser callback) —
+  // without re-polling the panel stays on "finish the sign-in" forever
+  useEffect(() => {
+    if (auth?.flow !== "pending") return;
+    const iv = setInterval(() => {
+      fetchAniListAuth()
+        .then((a) => {
+          setAuth(a);
+          if (a.flow !== "pending") props.onAuthChange(a);
+        })
+        .catch(() => undefined);
+    }, 1500);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth?.flow]);
+
   const save = async (thenConnect: boolean) => {
     if (busy || auth === null) return;
     setBusy(true);

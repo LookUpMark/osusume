@@ -10,7 +10,7 @@
   },
   "main": "dist-electron/main.mjs",
   "scripts": {
-    "dev": "uv run --project backend run_dev.py",
+    "dev": "cd backend && uv run run_dev.py",
     "dev:ui": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
