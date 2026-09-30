@@ -28,6 +28,7 @@ Read private lists (the app currently shows only what AniList serves anonymously
 - Exchange failure (bad code, AniList down) → listener answers 502, flow `error`; generic exceptions are caught so the connection never hangs.
 - Local (fixture) mode ignores the token entirely — fixtures branch first.
 - Without credentials the whole feature is invisible: the login modal is byte-identical to the username-only one (documented degraded gate).
+- The settings panel (`AniListAuth.tsx`) polls `/api/auth/anilist` every 1.5 s while `flow === "pending"` — without it the panel stayed on "finish the sign-in in your browser" forever (the backend flips to `ok` asynchronously, via the browser callback). Fixed and validated live 2026-09-30 ([OAUTH-LIVE-2026-09-30.md](../../validations/OAUTH-LIVE-2026-09-30.md)).
 
 ## Dependencies
 
