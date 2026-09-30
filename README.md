@@ -56,7 +56,7 @@ docker compose up -d
 # open http://localhost:3000 — app + Ollama + model, no wizard, no Node needed
 ```
 
-Full mode wires an Ollama container automatically (`LLM_BASE_URL` env) and pulls the model on first start (~21 GB for Qwen3.6-35B-A3B Q4_K_M, no-op afterwards). Pick a smaller model on <32 GB hosts: `ANILIST_MODEL=hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M docker compose up -d`. GPU (Linux+NVIDIA): uncomment the `deploy.resources` block in `compose.yaml`.
+Full mode wires an Ollama container automatically (`LLM_BASE_URL` env) and pulls the model on first start (~17 GB for Gemma 4 26B A4B Q4_K_M, no-op afterwards). Pick a smaller model on <24 GB hosts: `ANILIST_MODEL=hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M docker compose up -d`. GPU (Linux+NVIDIA): uncomment the `deploy.resources` block in `compose.yaml`.
 
 **macOS**: Docker runs Linux in a VM without GPU — if you already run LM Studio on the host, prefer app-only mode (see the header of `compose.yaml`): the wizard then points at `http://host.docker.internal:1234/v1`.
 
@@ -74,11 +74,11 @@ The backend serves the *built* UI from `dist/` — run `pnpm build` once to get 
 
 Architecture in one breath: a React UI (`frontend/`, built with Vite) talks to a FastAPI backend (`backend/app`, the Python port of the legacy TS server kept in `src/server` as the test/parity oracle), and the Electron shell (`desktop/main.ts`) spawns that backend as a PyInstaller sidecar (`scripts/build-pyserver.mjs`) and loads it on localhost — the packaged app is self-contained, no Node at runtime.
 
-On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Qwen3.6-35B-A3B](https://huggingface.co/Qwen/Qwen3.6-35B-A3B) 4-bit (~21 GB, MoE with 3B active params: fast and strong in ~200 languages) on ≥32 GB machines, [Gemma 4 12B](https://huggingface.co/google/gemma-4-12B-it) 4-bit (~8 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
+On first launch a **setup wizard** appears: it detects your hardware (chip, RAM) and suggests a model — [Gemma 4 26B A4B](https://huggingface.co/google/gemma-4-26B-A4B-it) 4-bit (~16 GB, MoE with 4B active params: fast and strong, multimodal) on ≥24 GB machines, [Gemma 4 12B](https://huggingface.co/google/gemma-4-12B-it) 4-bit (~8 GB) below. One click installs the LM Studio CLI if missing (official installer scripts, run as fixed commands), one click downloads the model, and from then on **every app start brings the LM Studio server up with your model automatically** (daemon → server → load, logged to `data/llm.log`).
 
 - Skip the wizard anytime: the app works fully without an LLM (deterministic explanations).
-- Prefer your own endpoint (Ollama, LM Studio GUI, llama.cpp server…)? Set `LLM_BASE_URL` in `.env` (see `.env.example`) — the wizard stays out of the way. For Ollama, pull the HF pack directly: `ollama pull hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M` (or `hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M` on <32 GB).
-- On Apple Silicon with [oMLX](https://github.com/PrismML-Eng) the wizard offers the MLX packs ([Qwen3.6-35B-A3B-4bit](https://huggingface.co/mlx-community/Qwen3.6-35B-A3B-4bit) / [gemma-4-12B-it-4bit](https://huggingface.co/mlx-community/gemma-4-12B-it-4bit)), downloaded straight into `~/.omlx/models`. The LM Studio MLX checkbox uses the lmstudio-community packs — standard MLX, loadable by LM Studio upstream.
+- Prefer your own endpoint (Ollama, LM Studio GUI, llama.cpp server…)? Set `LLM_BASE_URL` in `.env` (see `.env.example`) — the wizard stays out of the way. For Ollama, pull the HF pack directly: `ollama pull hf.co/unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M` (or `hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M` on <24 GB).
+- On Apple Silicon with [oMLX](https://github.com/PrismML-Eng) the wizard offers the MLX packs ([gemma-4-26b-a4b-it-4bit](https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-4bit) / [gemma-4-12B-it-4bit](https://huggingface.co/mlx-community/gemma-4-12B-it-4bit)), downloaded straight into `~/.omlx/models`. The LM Studio MLX checkbox uses the lmstudio-community packs — standard MLX, loadable by LM Studio upstream.
 - To redo the wizard: `rm data/config.json`.
 
 Language: English by default, Italiano via the toggle (covers UI strings and explanation language).

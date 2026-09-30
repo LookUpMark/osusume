@@ -9,8 +9,8 @@ Make first run a wizard and every later run hands-off: detect the machine, sugge
 ## Hardware & catalogue (`backend/app/adapters/system/setup.py`)
 
 - `detect_hardware()` (`setup.py:89-99`): os, chip (`sysctl machdep.cpu.brand_string` on macOS, Rosetta-corrected), `ramGb` from `SC_PAGE_SIZE × SC_PHYS_PAGES`.
-- `MODELS` (`setup.py:49-62`): `qwen36` (Qwen3.6-35B-A3B, gguf 21.5 GB / mlx 19.5 GB) and `gemma4` (Gemma 4 12B it, gguf 8.1 / mlx 6.3 GB), each with gguf/mlx/mlxLms/ollama variants.
-- `suggest_model(hw)` (`setup.py:102-110`): Qwen3.6 iff `ramGb ≥ RAM_TRESHOLD_GB` (32 — TS typo intentionally preserved); MLX packs only on Apple silicon.
+- `MODELS` (`setup.py:49-61`): `gemma426b` (Gemma 4 26B A4B it, gguf 16.9 GB / mlx 15.4 GB) and `gemma4` (Gemma 4 12B it, gguf 8.1 / mlx 6.3 GB), each with gguf/mlx/mlxLms/ollama variants.
+- `suggest_model(hw)` (`setup.py:118-125`): Gemma 4 26B A4B iff `ramGb ≥ RAM_TRESHOLD_GB` (24 — TS typo intentionally preserved); MLX packs only on Apple silicon.
 - `needs_setup_version` (`setup.py:113-117`): packaged only (`APP_VERSION` from Electron); a version bump reopens the wizard.
 
 ## Download job singleton

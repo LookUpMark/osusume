@@ -11,15 +11,15 @@
       "appleSilicon": null
     },
     "suggested": {
-      "model": "lmstudio-community/Qwen3.6-35B-A3B-GGUF",
-      "sizeGb": 21.5,
+      "model": "unsloth/gemma-4-26B-A4B-it-GGUF",
+      "sizeGb": 16.9,
       "mlx": {
-        "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
-        "sizeGb": 19.5
+        "model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "sizeGb": 15.4
       },
       "mlxLms": {
-        "model": "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit",
-        "sizeGb": 19.5
+        "model": "lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit",
+        "sizeGb": 15.6
       }
     },
     "lms": {
@@ -33,8 +33,8 @@
       "models": [],
       "downloadable": [
         {
-          "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
-          "sizeGb": 19.5
+          "model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+          "sizeGb": 15.4
         },
         {
           "model": "mlx-community/gemma-4-12B-it-4bit",

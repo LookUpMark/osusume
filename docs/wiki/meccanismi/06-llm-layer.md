@@ -8,7 +8,7 @@ Explain recommendations and chat in an expert friend's voice, powered by the bac
 
 ## Client (`backend/app/adapters/llm/client.py`)
 
-- `llm_chat(messages, model, max_tokens)` (`client.py:102-151`): POST `{baseUrl}/chat/completions`, `temperature 0.3`, `repetition_penalty 1.12` (anti-loop for small quants; unknown fields dropped by servers), `chat_template_kwargs {"enable_thinking": false}` (Qwen3 hard switch — without it ~3 min of invisible reasoning), total timeout `LLM_TIMEOUT_MS` (300 s default) via `wait_for`.
+- `llm_chat(messages, model, max_tokens)` (`client.py:102-151`): POST `{baseUrl}/chat/completions`, `temperature 0.3`, `repetition_penalty 1.12` (anti-loop for small quants; unknown fields dropped by servers), `chat_template_kwargs {"enable_thinking": false}` (Qwen3-family configs need it to skip invisible reasoning; servers without the kwarg just drop it — covers the Gemma catalogue too), total timeout `LLM_TIMEOUT_MS` (300 s default) via `wait_for`.
 - Post-processing: `finish_reason=length` → `LlmError("truncated")`; `<think>` blocks stripped; lone surrogates U+D800–DFFF removed (utf-8-safe cache writes); empty content → error (`client.py:140-150`).
 - `is_truncation` + `LLM_RETRY_TOKENS` (4000) drive the one bigger-budget retry used by explain and chat (`client.py:36-43`).
 - `llm_health()` (`client.py:71-81`): reachable AND the configured model (or its bare leaf) is actually served — a green chip that 404s on chat is worse than an honest off.

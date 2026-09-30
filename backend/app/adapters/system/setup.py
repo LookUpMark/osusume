@@ -43,15 +43,15 @@ from app.adapters.llm.setup import (
 from app.core import config
 
 # --- model catalogue (setup.ts righe 28-41) ---------------------------------------
-# Two tiers: Qwen3.6-35B-A3B needs ~19.5 GB of weights → 32 GB unified memory
+# Two tiers: Gemma 4 26B A4B needs ~15.4 GB of weights → 24 GB unified memory
 # minimum; Gemma 4 12B 4bit covers everything below.
 
 MODELS = {
-    "qwen36": {
-        "gguf": {"model": "lmstudio-community/Qwen3.6-35B-A3B-GGUF", "sizeGb": 21.5},
-        "mlx": {"model": "mlx-community/Qwen3.6-35B-A3B-4bit", "sizeGb": 19.5},
-        "mlxLms": {"model": "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit", "sizeGb": 19.5},
-        "ollama": "hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M",
+    "gemma426b": {
+        "gguf": {"model": "unsloth/gemma-4-26B-A4B-it-GGUF", "sizeGb": 16.9},
+        "mlx": {"model": "mlx-community/gemma-4-26b-a4b-it-4bit", "sizeGb": 15.4},
+        "mlxLms": {"model": "lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit", "sizeGb": 15.6},
+        "ollama": "hf.co/unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M",
     },
     "gemma4": {
         "gguf": {"model": "unsloth/gemma-4-12b-it-GGUF", "sizeGb": 8.1},
@@ -60,7 +60,7 @@ MODELS = {
         "ollama": "hf.co/unsloth/gemma-4-12b-it-GGUF:Q4_K_M",
     },
 }
-RAM_TRESHOLD_GB = 32  # (sic) typo del TS conservato
+RAM_TRESHOLD_GB = 24  # (sic) typo del TS conservato
 
 # overridable so tests (and port-conflicted setups) can point elsewhere (setup.ts 44)
 LMSTUDIO_BASE_DEFAULT = "http://127.0.0.1:1234/v1"
@@ -117,7 +117,7 @@ def detect_hardware() -> dict:
 
 def suggest_model(hw: dict) -> dict:
     """``suggestModel`` (setup.ts righe 62-77): tier da RAM, pack MLX solo Apple."""
-    tier = MODELS["qwen36"] if hw["ramGb"] >= RAM_TRESHOLD_GB else MODELS["gemma4"]
+    tier = MODELS["gemma426b"] if hw["ramGb"] >= RAM_TRESHOLD_GB else MODELS["gemma4"]
     return {
         "model": tier["gguf"]["model"],
         "sizeGb": tier["gguf"]["sizeGb"],
@@ -501,7 +501,7 @@ async def _install(gen: int, cmd: list[str]) -> None:
 # --- catalogue MLX packs download into oMLX (setup.ts righe 384-453) ----------------
 
 OMLX_DOWNLOADABLE = {
-    "mlx-community/Qwen3.6-35B-A3B-4bit": 19.5,
+    "mlx-community/gemma-4-26b-a4b-it-4bit": 15.4,
     "mlx-community/gemma-4-12B-it-4bit": 6.3,
 }
 

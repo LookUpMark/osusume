@@ -22,15 +22,15 @@ def hw(**over) -> dict:
     return base
 
 
-def test_suggest_model_ram_threshold_32gb():
-    assert "Qwen3.6" in setup.suggest_model(hw(ramGb=32))["model"]
-    assert "Qwen3.6" in setup.suggest_model(hw(ramGb=64))["model"]
-    assert "gemma-4" in setup.suggest_model(hw(ramGb=24))["model"]
-    assert "gemma-4" in setup.suggest_model(hw(ramGb=8))["model"]
-    assert setup.suggest_model(hw(ramGb=64))["sizeGb"] == 21.5
+def test_suggest_model_ram_threshold_24gb():
+    assert "gemma-4-26B" in setup.suggest_model(hw(ramGb=32))["model"]
+    assert "gemma-4-26B" in setup.suggest_model(hw(ramGb=24))["model"], "boundary: 24 GB prende il 26B A4B"
+    assert "gemma-4-12b" in setup.suggest_model(hw(ramGb=16))["model"]
+    assert "gemma-4-12b" in setup.suggest_model(hw(ramGb=8))["model"]
+    assert setup.suggest_model(hw(ramGb=64))["sizeGb"] == 16.9
     assert setup.suggest_model(hw(ramGb=16))["sizeGb"] == 8.1
     # id ESATTI del catalogo (il wizard scarica quello che gli status suggerisce)
-    assert setup.suggest_model(hw(ramGb=64))["model"] == "lmstudio-community/Qwen3.6-35B-A3B-GGUF"
+    assert setup.suggest_model(hw(ramGb=64))["model"] == "unsloth/gemma-4-26B-A4B-it-GGUF"
     assert setup.suggest_model(hw(ramGb=16))["model"] == "unsloth/gemma-4-12b-it-GGUF"
 
 
@@ -42,8 +42,8 @@ def test_suggest_model_mlx_solo_apple_silicon():
 
 def test_suggest_model_pack_mlx_per_engine_su_entrambi_i_tier():
     hi = setup.suggest_model(hw(ramGb=64, appleSilicon=True))
-    assert hi["mlx"]["model"] == "mlx-community/Qwen3.6-35B-A3B-4bit", "oMLX gets the mlx-community pack"
-    assert hi["mlxLms"]["model"] == "lmstudio-community/Qwen3.6-35B-A3B-MLX-4bit", "LM Studio gets its own pack"
+    assert hi["mlx"]["model"] == "mlx-community/gemma-4-26b-a4b-it-4bit", "oMLX gets the mlx-community pack"
+    assert hi["mlxLms"]["model"] == "lmstudio-community/gemma-4-26B-A4B-it-MLX-4bit", "LM Studio gets its own pack"
     lo = setup.suggest_model(hw(ramGb=16, appleSilicon=True))
     assert lo["mlx"]["model"] == "mlx-community/gemma-4-12B-it-4bit"
     assert lo["mlxLms"]["model"] == "lmstudio-community/gemma-4-12B-it-MLX-4bit"
@@ -63,13 +63,13 @@ def test_needs_setup_version_wizard_reopens_on_app_update(monkeypatch):
 
 
 def test_catalogo_id_esatti_e_downloadable():
-    assert list(setup.MODELS) == ["qwen36", "gemma4"]
-    assert setup.MODELS["qwen36"]["gguf"]["sizeGb"] == 21.5
-    assert setup.MODELS["qwen36"]["ollama"] == "hf.co/lmstudio-community/Qwen3.6-35B-A3B-GGUF:Q4_K_M"
+    assert list(setup.MODELS) == ["gemma426b", "gemma4"]
+    assert setup.MODELS["gemma426b"]["gguf"]["sizeGb"] == 16.9
+    assert setup.MODELS["gemma426b"]["ollama"] == "hf.co/unsloth/gemma-4-26B-A4B-it-GGUF:Q4_K_M"
     assert setup.MODELS["gemma4"]["mlx"]["sizeGb"] == 6.3
     # whitelist chiusa degli pack mlx scaricabili dal wizard (setup.ts righe 384-387)
     assert list(setup.OMLX_DOWNLOADABLE) == [
-        "mlx-community/Qwen3.6-35B-A3B-4bit",
+        "mlx-community/gemma-4-26b-a4b-it-4bit",
         "mlx-community/gemma-4-12B-it-4bit",
     ]
 
