@@ -53,6 +53,11 @@ def create_app() -> FastAPI:
 
         asyncio.ensure_future(cf.ensure_cf_model())  # throttled artifact download (optional)
         yield
+        # SIGTERM/SIGINT: uvicorn's capture_signals re-raises the signal with the
+        # default handler AFTER the graceful shutdown, which skips atexit — without
+        # this the owned LLM server (14 GB) outlives the app on every dev Ctrl+C.
+        # POST /api/shutdown already ran it → idempotent no-op there.
+        setup.shutdown_backend()
 
     app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None, lifespan=_lifespan)
     app.add_middleware(HostAllowlistMiddleware)
