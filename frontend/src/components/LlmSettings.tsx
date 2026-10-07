@@ -138,7 +138,7 @@ export function LlmSettings(props: { lang: Lang; onSaved: () => void }) {
       </div>
 
       <div className="set-row">
-        <span>{tr(lang, "setTitleLlm")}</span>
+        <span>{tr(lang, "setLlmApply")}</span>
         <div className="set-stack set-form">
           <button type="button" className="btn btn-primary set-save" disabled={!dirty || busy} onClick={save}>
             {busy ? tr(lang, "checking") : tr(lang, "setLlmSave")}
