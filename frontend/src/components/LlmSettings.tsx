@@ -129,7 +129,7 @@ export function LlmSettings(props: { lang: Lang; onSaved: () => void }) {
             aria-label={tr(lang, "setLlmPrompt")}
             maxLength={4000}
             rows={4}
-            placeholder={tr(lang, "setLlmPromptHint")}
+            placeholder={tr(lang, "setLlmPromptPlaceholder")}
             value={extra}
             onChange={(e) => setExtra(e.target.value)}
           />
@@ -138,10 +138,10 @@ export function LlmSettings(props: { lang: Lang; onSaved: () => void }) {
       </div>
 
       <div className="set-row">
-        <span>{tr(lang, "setLlmApply")}</span>
+        <span>{tr(lang, "setLlmAi")}</span>
         <div className="set-stack set-form">
           <button type="button" className="btn btn-primary set-save" disabled={!dirty || busy} onClick={save}>
-            {busy ? tr(lang, "checking") : tr(lang, "setLlmSave")}
+            {busy ? tr(lang, "checking") : tr(lang, "setLlmApply")}
           </button>
           {saved && !dirty && <small className="ok">{tr(lang, "setLlmSaved")}</small>}
           {err && <small className="err">{err}</small>}

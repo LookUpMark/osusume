@@ -1,4 +1,4 @@
-/* Osusume — design system "Seanime" (vedi DESIGN.md di progetto) */
+/* Osusume — design system "Seanime" (spec completa in DESIGN.md) */
 :root {
   color-scheme: dark;
   accent-color: var(--accent);
@@ -11,12 +11,47 @@
   --border: #303030;
   --accent: #9f92ff;
   --ring: #c7c2ff;
+  --ok: #6ee7a0;
+  --err: #ff9e9e;
   --glow-a: #34268a;
   --glow-b: #0c1d48;
   --ink: #121212;
+  /* triplette rgb per alpha composabili: rgb(var(--accent-rgb) / 0.2) */
+  --bg-rgb: 18 18 18;
+  --fg-rgb: 255 255 255;
+  --body-text-rgb: 229 229 229;
+  --muted-rgb: 163 163 163;
+  --accent-rgb: 159 146 255;
+  --ring-rgb: 199 194 255;
+  --glow-a-rgb: 52 38 138;
+  --glow-b-rgb: 12 29 72;
+  /* raggi: 8/12/16 + pill e input */
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
+  --r-input: 10px;
+  --r-pill: 999px;
+  /* barre di dato 4px, barre di processo 6px */
+  --bar-h: 4px;
+  /* bottoni icona: 34 inline (input/header), 38 overlay flottante */
+  --icon-btn: 34px;
+  --icon-btn-lg: 38px;
+  /* poster AniList */
+  --poster-ar: 550 / 780;
+  /* ombre: tooltip · card/pannelli · dialog */
+  --shadow-tip: 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-2: 0 24px 60px rgb(0 0 0 / 0.45);
+  --shadow-3: 0 40px 90px -30px rgb(0 0 0 / 0.8);
+  /* z-index: main < rail < carosello < topfade < topbar < tip < dialog < dropdown < login */
+  --z-main: 1;
+  --z-rail: 2;
+  --z-car: 3;
+  --z-topfade: 4;
+  --z-topbar: 5;
+  --z-tip: 20;
+  --z-dialog: 40;
+  --z-dropdown: 60;
+  --z-login: 100;
   --font-body: "Geist", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
@@ -42,7 +77,7 @@ h1, h2, h3 { color: var(--fg); margin: 0; }
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }
-::selection { background: rgb(159 146 255 / 0.24); color: var(--fg); }
+::selection { background: rgb(var(--accent-rgb) / 0.24); color: var(--fg); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   html { scroll-behavior: auto !important; }
@@ -57,13 +92,13 @@ h1, h2, h3 { color: var(--fg); margin: 0; }
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
 .btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--accent); color: var(--ink); box-shadow: 0 10px 28px -10px rgb(159 146 255 / 0.55); transition: background 0.15s ease, transform 0.12s ease; }
+.btn-primary { background: var(--accent); color: var(--ink); box-shadow: 0 10px 28px -10px rgb(var(--accent-rgb) / 0.55); transition: background 0.15s ease, transform 0.12s ease; }
 .btn-primary:hover { background: var(--ring); }
 .btn-primary:active { transform: scale(0.97); }
-.btn-ghost { background: rgb(255 255 255 / 0.08); color: var(--fg); border-color: rgb(255 255 255 / 0.28); backdrop-filter: blur(8px); }
-.btn-ghost:hover { border-color: rgb(255 255 255 / 0.5); }
+.btn-ghost { background: rgb(var(--fg-rgb) / 0.08); color: var(--fg); border-color: rgb(var(--fg-rgb) / 0.28); backdrop-filter: blur(8px); }
+.btn-ghost:hover { border-color: rgb(var(--fg-rgb) / 0.5); }
 .btn-line { background: none; border: 1px solid var(--border); color: var(--body-text); border-radius: var(--r-sm); padding: 10px 15px; font-size: 13.5px; font-weight: 500; transition: border-color 0.15s ease, color 0.15s ease; }
-.btn-line:hover { border-color: rgb(255 255 255 / 0.5); color: var(--fg); }
+.btn-line:hover { border-color: rgb(var(--fg-rgb) / 0.5); color: var(--fg); }
 
 /* ── primitive condivise: badge e fallback copertina ────────── */
 .chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 0; }
@@ -73,5 +108,5 @@ h1, h2, h3 { color: var(--fg); margin: 0; }
   border-radius: 999px; padding: 3px 9px; background: var(--surface-2);
 }
 .chip-badge.gem { background: var(--accent); color: var(--ink); font-weight: 600; }
-.chip-badge.entry { color: var(--ring); background: rgb(199 194 255 / 0.12); }
+.chip-badge.entry { color: var(--ring); background: rgb(var(--ring-rgb) / 0.12); }
 .cover-fallback { display: grid; place-items: center; font-family: var(--font-mono); font-size: 28px; color: var(--muted); }

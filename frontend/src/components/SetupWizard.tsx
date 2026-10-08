@@ -206,7 +206,7 @@ export function SetupWizard(props: {
                     <span>
                       {tr(lang, "recModel")}: <strong>{mlx.model}</strong> ({mlx.sizeGb} GB)
                     </span>
-                    <button className="btn-primary"
+                    <button className="btn btn-primary"
                       disabled={jobBusy || busy}
                       onClick={async () => {
                         setBusy(true);
@@ -231,7 +231,7 @@ export function SetupWizard(props: {
                       <span>
                         <strong>{d.model}</strong> ({d.sizeGb} GB)
                       </span>
-                      <button className="btn-primary"
+                      <button className="btn btn-primary"
                         disabled={jobBusy || busy}
                         onClick={async () => {
                           setBusy(true);
@@ -247,7 +247,7 @@ export function SetupWizard(props: {
                   ))}
                 {status.job.state === "downloading" && status.job.totalBytes ? (
                   <>
-                    <div className="progress" aria-hidden="true">
+                    <div className="progress-line" aria-hidden="true">
                       <span style={{ width: `${Math.round(((status.job.bytesDone ?? 0) / status.job.totalBytes) * 100)}%` }} />
                     </div>
                     <div className="action-row">
@@ -259,7 +259,7 @@ export function SetupWizard(props: {
                 ) : null}
                 <p className="hint">{tr(lang, "omlxStartNote")}</p>
                 <div className="action-row">
-                  <button className="btn-primary" disabled={busy || jobBusy} onClick={() => finish({ backend: "omlx", model })}>
+                  <button className="btn btn-primary" disabled={busy || jobBusy} onClick={() => finish({ backend: "omlx", model })}>
                     {tr(lang, "go")}
                   </button>
                 </div>
@@ -303,7 +303,7 @@ export function SetupWizard(props: {
               </div>
             )}
             <div className="action-row">
-              <button className="btn-primary"
+              <button className="btn btn-primary"
                 disabled={busy || !status.lms.installed}
                 onClick={download}
               >
@@ -323,7 +323,7 @@ export function SetupWizard(props: {
             <p className="loading">
               {tr(lang, "downloading")} <strong>{status.job.model ?? model}</strong>
             </p>
-            <div className="progress" aria-hidden="true">
+            <div className="progress-line" aria-hidden="true">
               <span />
             </div>
             {status.job.logTail && <pre className="joblog">{status.job.logTail}</pre>}
@@ -346,7 +346,7 @@ export function SetupWizard(props: {
                   : tr(lang, "llmOffNote")}
             </p>
             <div className="action-row">
-              <button className="btn-primary" disabled={busy} onClick={done}>
+              <button className="btn btn-primary" disabled={busy} onClick={done}>
                 {tr(lang, "startUsing")}
               </button>
             </div>

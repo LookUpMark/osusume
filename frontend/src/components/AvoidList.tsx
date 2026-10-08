@@ -19,9 +19,7 @@ export function AvoidList(props: { items: WhyNot[]; lang: Lang }) {
           <div>
             <div className="t">
               {a.media.title}{" "}
-              <span className="mono" style={{ color: "var(--muted)", fontWeight: 400, fontSize: "11.5px" }}>
-                · {metaJoin([a.media.seasonYear, a.media.format, a.media.studio])}
-              </span>
+              <span className="mono tm">· {metaJoin([a.media.seasonYear, a.media.format, a.media.studio])}</span>
             </div>
             <p className="r">{a.reason}</p>
           </div>

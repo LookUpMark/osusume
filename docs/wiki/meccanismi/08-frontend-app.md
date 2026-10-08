@@ -39,7 +39,7 @@ Render the taste profile, recommendations, gems, chat, and settings — all stat
 
 ## Design tokens
 
-`frontend/src/design-system/tokens.css` — "Seanime" dark theme: `--bg #121212`, `--surface/-2`, `--accent #9f92ff`, radii `--r-sm/md/lg`, Geist fonts, `.btn` primitives, `.chip-badge`, focus-visible ring, reduced-motion kill (`tokens.css:2-77`). Chat styles at `frontend/src/styles.css:549-576`.
+`frontend/src/design-system/tokens.css` — "Seanime" dark theme; spec completa in `DESIGN.md` (root): palette con triplette `-rgb` per alpha, `--ok`/`--err`, scale radius/shadow/z-index (`--z-*`), `--poster-ar`, `--icon-btn(-lg)`, `--bar-h`. Geist/Geist Mono **self-hosted** in `frontend/public/fonts` via `frontend/src/design-system/fonts.css` (nessun CDN: local-first). Primitive: `.btn` + varianti, `.seg` (segmentato canone) / `.seg-quiet` (toolbar), `.chip-badge`, `.bar`, tooltip unico `[data-tip]`, focus-visible ring, reduced-motion kill. Chat styles at `frontend/src/styles.css` (sezione chat).
 
 ## i18n
 

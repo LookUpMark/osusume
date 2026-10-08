@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
+import "./design-system/fonts.css";
 import "./design-system/tokens.css";
 import "./styles.css";
 

@@ -550,14 +550,14 @@ export function App() {
               result && (
                 <>
                   <div className="toolbar" data-od-id="toolbar-recos">
-                    <div className="seg" role="group" aria-label={tr(lang, "sortFinal")}>
+                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "sortFinal")}>
                       {(["final", "gem", "affinity"] as SortKey[]).map((k) => (
                         <button key={k} type="button" aria-pressed={sort === k} onClick={() => setSort(k)}>
                           {tr(lang, k === "final" ? "sortFinal" : k === "gem" ? "sortGem" : "sortAffinity")}
                         </button>
                       ))}
                     </div>
-                    <div className="seg" role="group" aria-label={tr(lang, "fmtAll")}>
+                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "fmtAll")}>
                       <button type="button" aria-pressed={format === "all"} onClick={() => setFormat("all")}>{tr(lang, "fmtAll")}</button>
                       {formats.map((f) => (
                         <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>
@@ -565,7 +565,7 @@ export function App() {
                         </button>
                       ))}
                     </div>
-                    <div className="seg" role="group" aria-label={tr(lang, "gemsOnly")}>
+                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "gemsOnly")}>
                       <button type="button" aria-pressed={!gemsOnly} onClick={() => setGemsOnly(false)}>{tr(lang, "gemsOff")}</button>
                       <button type="button" aria-pressed={gemsOnly} onClick={() => setGemsOnly(true)}>{tr(lang, "gemsOnly")}</button>
                     </div>
@@ -600,7 +600,7 @@ export function App() {
 
           {/* ── GEMME ── */}
           <section className="view" id="view-gems" data-od-id="view-gems" aria-label={tr(lang, "navGems")} hidden={view !== "gems"}>
-            <div className="sec-head" style={{ marginTop: 0 }}>
+            <div className="sec-head">
               <div>
                 <h2>{tr(lang, "gemsTitle")}</h2>
                 <p>{tr(lang, "gemsSub")}</p>
@@ -619,7 +619,7 @@ export function App() {
 
           {/* ── CHAT ── */}
           <section className="view" id="view-chat" data-od-id="view-chat" aria-label={tr(lang, "chatTitle")} hidden={view !== "chat"}>
-            <div className="sec-head" style={{ marginTop: 0 }}>
+            <div className="sec-head">
               <div>
                 <h2>{tr(lang, "chatTitle")}</h2>
                 <p>{tr(lang, "chatSub")}</p>
@@ -640,7 +640,7 @@ export function App() {
           <section className="view" id="view-profile" data-od-id="view-profile" aria-label={tr(lang, "navProfile")} hidden={view !== "profile"}>
             {result ? (
               <>
-                <div className="sec-head" style={{ marginTop: 0 }}>
+                <div className="sec-head">
                   <div>
                     <h2>{tr(lang, "profTitle")}</h2>
                     <p>{tr(lang, "profSub")}</p>
@@ -659,7 +659,7 @@ export function App() {
 
           {/* ── EVITA ── */}
           <section className="view" id="view-avoid" data-od-id="view-avoid" aria-label={tr(lang, "navAvoid")} hidden={view !== "avoid"}>
-            <div className="sec-head" style={{ marginTop: 0 }}>
+            <div className="sec-head">
               <div>
                 <h2>{tr(lang, "avoidTitle")}</h2>
                 <p>{tr(lang, "avoidSub")}</p>
@@ -674,7 +674,7 @@ export function App() {
 
           {/* ── IMPOSTAZIONI ── */}
           <section className="view" id="view-settings" data-od-id="view-settings" aria-label={tr(lang, "navSettings")} hidden={view !== "settings"}>
-            <div className="sec-head" style={{ marginTop: 0 }}>
+            <div className="sec-head">
               <div>
                 <h2>{tr(lang, "navSettings")}</h2>
               </div>
@@ -729,7 +729,6 @@ export function App() {
             <div className="set-row">
               <span>{tr(lang, "setTitleLlm")}</span>
               <div className="set-stack">
-                <small className={llmOn ? "ok" : undefined}>{llmOn ? tr(lang, "llmOn") : tr(lang, "llmOff")}</small>
                 <button
                   type="button"
                   className="linklike"
@@ -744,6 +743,7 @@ export function App() {
                 >
                   {tr(lang, "rerunSetup")}
                 </button>
+                <small className={llmOn ? "ok" : undefined}>{llmOn ? tr(lang, "llmOn") : tr(lang, "llmOff")}</small>
               </div>
             </div>
 

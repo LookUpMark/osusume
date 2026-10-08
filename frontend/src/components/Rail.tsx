@@ -78,17 +78,23 @@ export function Rail(props: {
             type="button"
             onClick={() => props.onNav(v)}
             aria-current={props.view === v}
-            title={tr(lang, VIEW_LABEL[v])}
+            aria-label={tr(lang, VIEW_LABEL[v])}
+            data-tip={tr(lang, VIEW_LABEL[v])}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
               {ICONS[v]}
             </svg>
-            <span className="txt">{tr(lang, VIEW_LABEL[v])}</span>
           </button>
         ))}
       </nav>
       <div className="side-foot">
-        <span className="llm-chip" data-od-id="llm-chip" title={props.llmOn ? tr(lang, "llmOn") : tr(lang, "llmOff")}>
+        <span
+          className="llm-chip"
+          data-od-id="llm-chip"
+          role="status"
+          aria-label={props.llmOn ? tr(lang, "llmOn") : tr(lang, "llmOff")}
+          data-tip={props.llmOn ? tr(lang, "llmOn") : tr(lang, "llmOff")}
+        >
           <span className={`llm-dot${props.llmOn ? " on" : ""}`} aria-hidden="true" />
         </span>
         {props.local?.available && (
@@ -145,12 +151,25 @@ export function Rail(props: {
         )}
         <div className="media-seg" role="group" aria-label={tr(lang, "mediaKind")} data-od-id="media-switch">
           {(["ANIME", "MANGA"] as MediaType[]).map((m) => (
-            <button key={m} type="button" aria-pressed={props.media === m} onClick={() => props.onMedia(m)}>
+            <button
+              key={m}
+              type="button"
+              aria-pressed={props.media === m}
+              aria-label={tr(lang, m === "ANIME" ? "mediaAnime" : "mediaManga")}
+              data-tip={tr(lang, m === "ANIME" ? "mediaAnime" : "mediaManga")}
+              onClick={() => props.onMedia(m)}
+            >
               {tr(lang, m === "ANIME" ? "mediaAnime" : "mediaManga")}
             </button>
           ))}
         </div>
-        <button type="button" className="lang-btn" onClick={props.onLang} aria-label="IT / EN" title="IT / EN">
+        <button
+          type="button"
+          className="lang-btn"
+          onClick={props.onLang}
+          aria-label={tr(lang, "langToggle")}
+          data-tip={tr(lang, "langToggle")}
+        >
           {lang === "en" ? "IT" : "EN"}
         </button>
       </div>
