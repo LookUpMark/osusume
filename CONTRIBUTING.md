@@ -14,7 +14,7 @@ The repository runs a three-tier branch model. Every change reaches `main` throu
 
 1. **Feature work**: cut `feature/<slug>` from `develop`, open a PR **into `develop`**.
 2. **Promotion**: `develop` → `test` → `main`, one PR per hop.
-3. **Hotfix**: cut `hotfix/<slug>` from `main`, PR **into `main`**, then merge `main` back into `develop` and `test`.
+3. **Hotfix**: cut `hotfix/<slug>` from `main`, PR **into `main`**, then bring `main` back into `develop` and `test` via PRs as well.
 
 Every merge is a pull request. Direct pushes to `main`/`test` are not part of the flow (main additionally enforces CI via branch protection).
 
