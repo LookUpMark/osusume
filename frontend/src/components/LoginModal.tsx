@@ -71,7 +71,7 @@ export function LoginModal(props: {
         {props.oauthConfigured && (
           <>
             <p className="hint">{tr(lang, "loginOr")}</p>
-            <button type="button" className="btn btn-line" disabled={props.busy} onClick={() => props.onOauth?.()}>
+            <button type="button" className="btn btn-secondary" disabled={props.busy} onClick={() => props.onOauth?.()}>
               {props.oauthPending ? tr(lang, "oauthPending") : tr(lang, "loginOauth")}
             </button>
           </>
@@ -82,7 +82,7 @@ export function LoginModal(props: {
           </p>
         )}
         {props.current && (
-          <button type="button" className="linklike" onClick={() => setValue(props.current!)}>
+          <button type="button" className="foot-link underline" onClick={() => setValue(props.current!)}>
             {tr(lang, "loginSwitch")}: @{props.current}
           </button>
         )}

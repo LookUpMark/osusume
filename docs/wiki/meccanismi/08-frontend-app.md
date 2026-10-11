@@ -12,7 +12,7 @@ Render the taste profile, recommendations, gems, chat, and settings — all stat
 - `fetchSetupStatus()` gates the render: null → splash, "error" → retry page, `needsSetup && !customEnv` → `<SetupWizard>` (`App.tsx:254-286`).
 - Fake login: stored username auto-runs once (`App.tsx:81-88`); `login()` persists only on success.
 - Health: `/api/health` on mount + every 60 s (`App.tsx:120-136`) — feeds the LLM chip and the chat lock.
-- Two worlds: `media` state (`localStorage["alr-media"]`, validated) drives the ANIME/MANGA switch in the Rail (`media-seg`); switching resets the format/genre filters and re-runs `run()` — every request (stream, lookup, chat, explain) carries `mediaType`. Format chips use a per-type label map (`FORMAT_LABEL` in `App.tsx`).
+- Two worlds: `media` state (`localStorage["alr-media"]`, validated) drives the ANIME/MANGA switch in the Sidebar (`media-seg`); switching resets the format/genre filters and re-runs `run()` — every request (stream, lookup, chat, explain) carries `mediaType`. Format chips use a per-type label map (`FORMAT_LABEL` in `App.tsx`).
 - `run(username)` (`App.tsx`): reset state (closing any live stream via `esRef`) → `fetchProfile` (fast-fail JSON) → `streamRecommend(username, lang, setPhase, media)` — the SSE stream of [05-api-server.md](meccanismi/05-api-server.md) whose `done` resolves with the same `RecoResult`; `finally` closes the stream and `refreshHealth()` (the server may auto-switch to local mode mid-request). Language switch re-runs it — why/narrations are per-language.
 - Progress UI: `phase` state holds the 9 stream phases; the loading branch renders `<Progress>` (label + `n/9` bar, `frontend/src/components/Progress.tsx`; keys `phaseKey`/`phaseStep` in `frontend/src/lib/logic/progress.ts`). Cache hit / local mode = single flush → renders as done, no artifacts.
 - Chat extras: `onOpenChat(r)` adds looked-up titles to `extraRecos` (dedup) and opens the dialog; `onWhy` folds fetched explanations back into the lists.
@@ -34,12 +34,12 @@ Render the taste profile, recommendations, gems, chat, and settings — all stat
 - `ChatPanel.tsx`: see [09-chat-ui.md](meccanismi/09-chat-ui.md).
 - `DetailDialog.tsx`: on-demand explain (skips when already `llm`, `alive` cleanup flag), breakdown bars, "similar" → affinity sort (`DetailDialog.tsx:66-83,167-169`).
 - `Topbar.tsx`: anime search ≥2 chars → `/api/lookup` → `listbox` dropdown (outside-click/Escape close) → `onOpen` (`Topbar.tsx:28-43,84-101`).
-- `MediaCard` / `Hero` / `Carousel` / `Rail` / `ProfileView` / `AvoidList` / `LoginModal` / `LlmSettings` — presentational + settings form (presets LM Studio/Ollama/oMLX, live model picker, custom prompt textarea, `envOverride` warning) (`frontend/src/components/LlmSettings.tsx:34-121`).
+- `MediaCard` / `Hero` / `Carousel` / `Sidebar` / `ProfileView` / `AvoidList` / `LoginModal` / `LlmSettings` — presentational + settings form (presets LM Studio/Ollama/oMLX, live model picker, custom prompt textarea, `envOverride` warning) (`frontend/src/components/LlmSettings.tsx:34-121`).
 - `main.tsx`: ErrorBoundary fallback; tokens.css → styles.css import order (`frontend/src/main.tsx:5-20`).
 
 ## Design tokens
 
-`frontend/src/design-system/tokens.css` — "Seanime" dark theme; spec completa in `DESIGN.md` (root): palette con triplette `-rgb` per alpha, `--ok`/`--err`, scale radius/shadow/z-index (`--z-*`), `--poster-ar`, `--icon-btn(-lg)`, `--bar-h`. Geist/Geist Mono **self-hosted** in `frontend/public/fonts` via `frontend/src/design-system/fonts.css` (nessun CDN: local-first). Primitive: `.btn` + varianti, `.seg` (segmentato canone) / `.seg-quiet` (toolbar), `.chip-badge`, `.bar`, tooltip unico `[data-tip]`, focus-visible ring, reduced-motion kill. Chat styles at `frontend/src/styles.css` (sezione chat).
+`frontend/src/design-system/tokens.css` — design system **"Claude (Anthropic)", identico a Verba** (spec in `DESIGN.md`): light `#f5f4ed`/dark `#1f1e1b` con **toggle tema persistente** (`osusume-theme` → `data-theme` su `<html>`), accento terracotta `#c96442`/coral `#d97757`, titoli serif (`"Anthropic Serif", Georgia` — zero webfont), scale spacing/text/radius Verba, `--elev-ring/raised`, focus ring blu 3px, motion 150/200ms. Primitive: `.btn` (+primary/secondary/ghost/sm), `.badge`/`.chip-badge` a tinte `color-mix`, `.card`, toast invertito `#toast`, skeleton shimmer. Layout: sidebar testuale 240px (`Sidebar.tsx`, ex rail icone) + main 1040 centrato + utility header + screen-head serif per vista + bottombar mobile ≤900px. Audit del redesign: `docs/audits/REDESIGN-20261011-verba.md`.
 
 ## i18n
 

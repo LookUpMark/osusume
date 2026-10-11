@@ -5,6 +5,10 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   appName: "Osusume",
+  brandTag: "Local AI · Anime",
+  themeDark: "Dark mode",
+  themeLight: "Light mode",
+  toastWatchAdded: "Added to your plan on AniList",
   tagline: "Picks from your own list — explained.",
   welcomeHint: "Your recommendations load automatically once you sign in with your AniList username.",
   go: "Get recommendations",
@@ -221,6 +225,11 @@ const en: Dict = {
 
 const it: Dict = {
   appName: "Osusume",
+  brandTag: "IA locale · Anime",
+  themeDark: "Tema scuro",
+  themeLight: "Tema chiaro",
+  toastWatchAdded: "Aggiunto al tuo piano su AniList",
+
   tagline: "Consigli dalla tua lista — con spiegazione.",
   welcomeHint: "I consigli arrivano da soli dopo l'accesso con il tuo username AniList.",
   go: "Consigliami",

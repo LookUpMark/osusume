@@ -124,7 +124,7 @@ export function SetupWizard(props: {
       <div className="glow" aria-hidden="true" />
       <button
         type="button"
-        className="wizard-lang"
+        className="btn btn-ghost btn-sm wizard-lang"
         onClick={() => props.setLang(lang === "en" ? "it" : "en")}
         aria-label={tr(lang, "langToggle")}
       >
@@ -166,7 +166,9 @@ export function SetupWizard(props: {
             {status.omlx.installed && (
               <div className="backend-row">
                 <button
-                  className={backend === "omlx" ? "selected" : ""}
+                  type="button"
+                  className="scenario"
+                  aria-pressed={backend === "omlx"}
                   onClick={() => {
                     setBackend("omlx");
                     setModel(status.omlx.models[0] ?? model);
@@ -175,7 +177,9 @@ export function SetupWizard(props: {
                   {tr(lang, "backendOmlx")}
                 </button>
                 <button
-                  className={backend === "lmstudio" ? "selected" : ""}
+                  type="button"
+                  className="scenario"
+                  aria-pressed={backend === "lmstudio"}
                   onClick={() => {
                     setBackend("lmstudio");
                     setModel(status.suggested.model);
@@ -251,7 +255,7 @@ export function SetupWizard(props: {
                       <span style={{ width: `${Math.round(((status.job.bytesDone ?? 0) / status.job.totalBytes) * 100)}%` }} />
                     </div>
                     <div className="action-row">
-                      <button className="linklike" onClick={() => postSetup("cancel").catch(() => undefined)}>
+                      <button className="foot-link underline" onClick={() => postSetup("cancel").catch(() => undefined)}>
                         ✕
                       </button>
                     </div>
@@ -354,7 +358,7 @@ export function SetupWizard(props: {
         )}
 
         <div className="wizard-footer">
-          <button className="linklike" onClick={() => setCustomOpen(!customOpen)}>
+          <button className="foot-link underline" onClick={() => setCustomOpen(!customOpen)}>
             {tr(lang, "useCustom")}
           </button>
           {customOpen && (
@@ -370,7 +374,7 @@ export function SetupWizard(props: {
             </div>
           )}
           <button
-            className="linklike"
+            className="foot-link underline"
             disabled={busy}
             onClick={() => finish({ backend: "skipped" })}
           >

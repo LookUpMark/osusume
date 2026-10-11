@@ -169,13 +169,13 @@ export function DetailDialog(props: {
                 </svg>
               </a>
             )}
-            <button className="btn-line" type="button" onClick={props.onSimilar}>
+            <button className="btn btn-secondary" type="button" onClick={props.onSimilar}>
               {tr(lang, "similar")}
             </button>
             {props.onAddToWatchlist !== undefined && (
               <>
                 {props.watchStatus === null ? (
-                  <button className="btn-line" type="button" disabled={props.watchBusy} onClick={props.onAddToWatchlist}>
+                  <button className="btn btn-secondary" type="button" disabled={props.watchBusy} onClick={props.onAddToWatchlist}>
                     {tr(lang, "watchlistAdd")}
                   </button>
                 ) : (

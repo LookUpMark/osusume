@@ -42,13 +42,13 @@ import { DetailDialog } from "./components/DetailDialog.tsx";
 import { Hero } from "./components/Hero.tsx";
 import { MediaCard } from "./components/MediaCard.tsx";
 import { ProfileView } from "./components/ProfileView.tsx";
-import { Rail } from "./components/Rail.tsx";
+import { NavIcon, Sidebar, VIEW_ORDER as SIDEBAR_ORDER } from "./components/Sidebar.tsx";
 import { LoginModal } from "./components/LoginModal.tsx";
 import { LlmSettings } from "./components/LlmSettings.tsx";
 import { Progress } from "./components/Progress.tsx";
 import { SetupWizard } from "./components/SetupWizard.tsx";
 import { Topbar } from "./components/Topbar.tsx";
-import { VIEW_ORDER, type View } from "./views/index.ts";
+import { VIEW_LABEL, VIEW_ORDER, type View } from "./views/index.ts";
 
 /** Localized format labels; everything else renders as the raw AniList enum. */
 const FORMAT_LABEL: Record<string, string> = {
@@ -68,6 +68,21 @@ export function App() {
   });
   const [setup, setSetup] = useState<SetupStatus | null | "error">(null);
   const [llmOn, setLlmOn] = useState<boolean | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+  // tema Verba: preferenza persistente, default dal sistema, light di fabbrica
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("osusume-theme");
+    if (saved === "dark" || saved === "light") return saved;
+    return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  // toast invertito fg/bg (pattern Verba) per feedback transienti
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number>(undefined);
+  const notify = (msg: string) => {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2600);
+  };
   const [local, setLocal] = useState<LocalMode | null>(null);
   const [update, setUpdate] = useState<AppUpdate | null>(null);
   const [phase, setPhase] = useState<"idle" | StreamPhase | "recos">("idle");
@@ -207,10 +222,15 @@ export function App() {
     window.scrollTo({ top: 0 });
   }, [view]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   const refreshHealth = () => {
     fetchHealth()
       .then((h) => {
         setLlmOn(h.llm.enabled);
+        setModel(h.llm.model ?? null);
         setLocal(h.local);
       })
       .catch(() => setLlmOn(false));
@@ -230,7 +250,7 @@ export function App() {
     fetchAppUpdate().then(setUpdate).catch(() => undefined);
   }, []);
 
-  // manual "check now" (Settings + rail chip): fresh fetch + spinner feedback
+  // manual "check now" (Settings + sidebar chip): fresh fetch + spinner feedback
   const [updChecking, setUpdChecking] = useState(false);
   const [updError, setUpdError] = useState(false);
   const checkUpdates = () => {
@@ -245,28 +265,6 @@ export function App() {
       .catch(() => setUpdError(true))
       .finally(() => setUpdChecking(false));
   };
-
-  // the top scrim under the sticky topbar lights up once the page scrolls.
-  // Al primo mount l'elemento può mancare (splash di setup): retry via rAF
-  // finché non compare, poi attach del listener (una sola volta).
-  useEffect(() => {
-    const onScroll = () => document.getElementById("top-fade")?.classList.toggle("on", window.scrollY > 8);
-    let attempts = 0;
-    let raf = 0;
-    const attach = () => {
-      if (document.getElementById("top-fade")) {
-        onScroll();
-        window.addEventListener("scroll", onScroll, { passive: true });
-        return;
-      }
-      if (attempts++ < 120) raf = requestAnimationFrame(attach); // ~2s di splash max
-    };
-    attach();
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
 
   const esRef = useRef<{ close: () => void } | null>(null);
 
@@ -405,13 +403,12 @@ export function App() {
 
   return (
     <>
-      <div className="glow" aria-hidden="true" />
-      <div className="top-fade" id="top-fade" aria-hidden="true" />
-      <div className="shell" data-od-id="app-shell">
-        <Rail
+      <div className="app" data-od-id="app-shell">
+        <Sidebar
           view={view}
           lang={lang}
           llmOn={llmOn}
+          model={model}
           local={local}
           onToggleLocal={() => {
             if (!local) return;
@@ -426,14 +423,20 @@ export function App() {
           onMedia={switchMedia}
         />
 
+        <div className="main-wrap">
         <div className="main">
           <Topbar
-            view={view}
             lang={lang}
             user={result?.profile.userName ?? username}
             busy={loading || animeSearch.busy}
             query={animeSearch.q}
             results={animeSearch.recos}
+            theme={theme}
+            onToggleTheme={() => {
+              const next = theme === "dark" ? "light" : "dark";
+              localStorage.setItem("osusume-theme", next);
+              setTheme(next);
+            }}
             onQuery={(q) => setAnimeSearch({ q, busy: false, recos: null })}
             onSearch={doAnimeSearch}
             onClose={() => setAnimeSearch((s) => ({ ...s, recos: null }))}
@@ -463,7 +466,7 @@ export function App() {
               <span>{tr(lang, "localBanner")}</span>
               <button
                 type="button"
-                className="linklike"
+                className="foot-link underline"
                 disabled={loading}
                 onClick={() => {
                   postLocalMode(true, false)
@@ -476,13 +479,11 @@ export function App() {
               </button>
             </div>
           )}
-
-          {/* ── HOME ── */}
           <section className="view" id="view-home" data-od-id="view-home" aria-label={tr(lang, "navHome")} hidden={view !== "home"}>
             {hero && result ? (
               <>
                 <Hero reco={hero} lang={lang} user={result.profile.userName} onOpen={setDialog} onAll={() => showView("recos")} />
-                <div className="sec-head">
+                <div className="screen-head">
                   <h2>{tr(lang, "sectionPicks")}</h2>
                   <button className="more" type="button" onClick={() => showView("recos")}>{tr(lang, "seeAll")}</button>
                 </div>
@@ -534,6 +535,9 @@ export function App() {
 
           {/* ── CONSIGLI ── */}
           <section className="view" id="view-recos" data-od-id="view-recos" aria-label={tr(lang, "navRecos")} hidden={view !== "recos"}>
+            <div className="screen-head">
+              <h2>{tr(lang, "navRecos")}</h2>
+            </div>
             {loading && !result ? (
               <div className="skeleton" aria-hidden="true">
                 {Array.from({ length: 10 }, (_, i) => (
@@ -550,24 +554,24 @@ export function App() {
               result && (
                 <>
                   <div className="toolbar" data-od-id="toolbar-recos">
-                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "sortFinal")}>
+                    <div className="seg-quiet" role="group" aria-label={tr(lang, "sortFinal")}>
                       {(["final", "gem", "affinity"] as SortKey[]).map((k) => (
-                        <button key={k} type="button" aria-pressed={sort === k} onClick={() => setSort(k)}>
+                        <button key={k} type="button" className="pill" aria-pressed={sort === k} onClick={() => setSort(k)}>
                           {tr(lang, k === "final" ? "sortFinal" : k === "gem" ? "sortGem" : "sortAffinity")}
                         </button>
                       ))}
                     </div>
-                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "fmtAll")}>
-                      <button type="button" aria-pressed={format === "all"} onClick={() => setFormat("all")}>{tr(lang, "fmtAll")}</button>
+                    <div className="seg-quiet" role="group" aria-label={tr(lang, "fmtAll")}>
+                      <button type="button" className="pill" aria-pressed={format === "all"} onClick={() => setFormat("all")}>{tr(lang, "fmtAll")}</button>
                       {formats.map((f) => (
-                        <button key={f} type="button" aria-pressed={format === f} onClick={() => setFormat(f)}>
+                        <button key={f} type="button" className="pill" aria-pressed={format === f} onClick={() => setFormat(f)}>
                           {FORMAT_LABEL[f] ? tr(lang, FORMAT_LABEL[f]) : f}
                         </button>
                       ))}
                     </div>
-                    <div className="seg seg-quiet" role="group" aria-label={tr(lang, "gemsOnly")}>
-                      <button type="button" aria-pressed={!gemsOnly} onClick={() => setGemsOnly(false)}>{tr(lang, "gemsOff")}</button>
-                      <button type="button" aria-pressed={gemsOnly} onClick={() => setGemsOnly(true)}>{tr(lang, "gemsOnly")}</button>
+                    <div className="seg-quiet" role="group" aria-label={tr(lang, "gemsOnly")}>
+                      <button type="button" className="pill" aria-pressed={!gemsOnly} onClick={() => setGemsOnly(false)}>{tr(lang, "gemsOff")}</button>
+                      <button type="button" className="pill" aria-pressed={gemsOnly} onClick={() => setGemsOnly(true)}>{tr(lang, "gemsOnly")}</button>
                     </div>
                     {genre !== "all" && (
                       <button type="button" className="genre-chip" aria-pressed="true" onClick={() => setGenre("all")}>
@@ -600,10 +604,10 @@ export function App() {
 
           {/* ── GEMME ── */}
           <section className="view" id="view-gems" data-od-id="view-gems" aria-label={tr(lang, "navGems")} hidden={view !== "gems"}>
-            <div className="sec-head">
+            <div className="screen-head">
               <div>
                 <h2>{tr(lang, "gemsTitle")}</h2>
-                <p>{tr(lang, "gemsSub")}</p>
+                <p className="sub">{tr(lang, "gemsSub")}</p>
               </div>
             </div>
             {gems.length > 0 ? (
@@ -619,16 +623,17 @@ export function App() {
 
           {/* ── CHAT ── */}
           <section className="view" id="view-chat" data-od-id="view-chat" aria-label={tr(lang, "chatTitle")} hidden={view !== "chat"}>
-            <div className="sec-head">
+            <div className="screen-head">
               <div>
                 <h2>{tr(lang, "chatTitle")}</h2>
-                <p>{tr(lang, "chatSub")}</p>
+                <p className="sub">{tr(lang, "chatSub")}</p>
               </div>
             </div>
             <ChatPanel
               lang={lang}
               result={result}
               llmOn={llmOn}
+              model={model}
               username={result?.profile.userName ?? username}
               extras={extraRecos}
               media={media}
@@ -640,10 +645,10 @@ export function App() {
           <section className="view" id="view-profile" data-od-id="view-profile" aria-label={tr(lang, "navProfile")} hidden={view !== "profile"}>
             {result ? (
               <>
-                <div className="sec-head">
+                <div className="screen-head">
                   <div>
                     <h2>{tr(lang, "profTitle")}</h2>
-                    <p>{tr(lang, "profSub")}</p>
+                    <p className="sub">{tr(lang, "profSub")}</p>
                   </div>
                   <span className={`conf${result.profile.confidence === "low" ? " low" : ""}`}>
                     <span className="dot" aria-hidden="true" />
@@ -659,10 +664,10 @@ export function App() {
 
           {/* ── EVITA ── */}
           <section className="view" id="view-avoid" data-od-id="view-avoid" aria-label={tr(lang, "navAvoid")} hidden={view !== "avoid"}>
-            <div className="sec-head">
+            <div className="screen-head">
               <div>
                 <h2>{tr(lang, "avoidTitle")}</h2>
-                <p>{tr(lang, "avoidSub")}</p>
+                <p className="sub">{tr(lang, "avoidSub")}</p>
               </div>
             </div>
             {result && result.avoided.length > 0 ? (
@@ -674,7 +679,7 @@ export function App() {
 
           {/* ── IMPOSTAZIONI ── */}
           <section className="view" id="view-settings" data-od-id="view-settings" aria-label={tr(lang, "navSettings")} hidden={view !== "settings"}>
-            <div className="sec-head">
+            <div className="screen-head">
               <div>
                 <h2>{tr(lang, "navSettings")}</h2>
               </div>
@@ -693,7 +698,7 @@ export function App() {
                 <span>{tr(lang, "setTitleData")}</span>
                 <button
                   type="button"
-                  className="linklike"
+                  className="foot-link underline"
                   role="switch"
                   aria-checked={local.auto}
                   onClick={() => {
@@ -709,11 +714,11 @@ export function App() {
               <span>{tr(lang, "setTitleUpd")}</span>
               <div className="set-stack">
                 {update?.available && !updChecking ? (
-                  <button type="button" className="linklike" onClick={() => update.url && window.open(update.url, "_blank", "noopener")}>
+                  <button type="button" className="foot-link underline" onClick={() => update.url && window.open(update.url, "_blank", "noopener")}>
                     {tr(lang, "updateAvailable", { v: update.latest ?? "" })}
                   </button>
                 ) : (
-                  <button type="button" className="linklike set-check" disabled={updChecking} onClick={checkUpdates}>
+                  <button type="button" className="foot-link underline set-check" disabled={updChecking} onClick={checkUpdates}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={updChecking ? "spin" : undefined}>
                       <path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" />
                     </svg>
@@ -731,7 +736,7 @@ export function App() {
               <div className="set-stack">
                 <button
                   type="button"
-                  className="linklike"
+                  className="foot-link underline"
                   onClick={() => {
                     // reopen the wizard in place: no full page reload (it rebooted
                     // every probe and took seconds) — the status fetch gates the render
@@ -747,7 +752,7 @@ export function App() {
               </div>
             </div>
 
-            <LlmSettings lang={lang} onSaved={refreshHealth} />
+            <LlmSettings lang={lang} onSaved={() => { refreshHealth(); notify(tr(lang, "setLlmSaved")); }} />
 
             <AniListAuthPanel lang={lang} onAuthChange={setAuth} />
 
@@ -759,7 +764,20 @@ export function App() {
             <span className="mono">anilist.co</span>
           </footer>
         </div>
+        </div>
+
+        {/* bottombar mobile (pattern Verba): la sidebar sparisce sotto i 900px */}
+        <nav className="bottombar" aria-label={tr(lang, "appName")}>
+          {SIDEBAR_ORDER.map((v) => (
+            <button key={v} type="button" onClick={() => showView(v)} aria-current={view === v}>
+              <NavIcon view={v} />
+              <span>{tr(lang, VIEW_LABEL[v])}</span>
+            </button>
+          ))}
+        </nav>
       </div>
+
+      <div id="toast" className={toast ? "show" : undefined} role="status" aria-live="polite">{toast}</div>
 
       {loginOpen && (
         <LoginModal
@@ -799,7 +817,10 @@ export function App() {
               ? () => {
                   setWatch({ status: watch?.status ?? null, busy: true });
                   addToWatchlist(dialog.media.id)
-                    .then((r) => setWatch({ status: r.status, busy: false }))
+                    .then((r) => {
+                      setWatch({ status: r.status, busy: false });
+                      notify(tr(lang, "toastWatchAdded"));
+                    })
                     .catch((e) => {
                       setWatch({ status: null, busy: false });
                       setError(errorMessage(lang, e));

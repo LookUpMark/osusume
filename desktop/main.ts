@@ -115,7 +115,7 @@ async function start(): Promise<void> {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: "#121212",
+    backgroundColor: "#f5f4ed",
   });
   win.once("ready-to-show", () => win.show());
   // links (AniList pages, release downloads) open in the system browser

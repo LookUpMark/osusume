@@ -9,6 +9,7 @@ export function ChatPanel(props: {
   lang: Lang;
   result: RecoResult | null;
   llmOn: boolean | null;
+  model: string | null;
   username: string;
   /** Chat lookups (titles opened from the topbar search): card resolution pool + postChat ids. */
   extras: ScoredReco[];
@@ -65,6 +66,21 @@ export function ChatPanel(props: {
 
   return (
     <div className="chat-panel" data-od-id="chat-panel">
+      <div className="chat-head">
+        <span className="avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4.4 8Q12 5.4 19.6 8" />
+            <path d="M12 6.6V9.6" />
+            <path d="M6.3 9.6h11.4" />
+            <path d="M7.7 9.6V19M16.3 9.6V19" />
+            <path d="M5.9 14.2h12.2" />
+          </svg>
+        </span>
+        <div className="who">
+          <span className="nm">{tr(lang, "appName")}</span>
+          <span className="rl">{props.llmOn === false ? tr(lang, "llmOff") : (props.model ?? tr(lang, "on"))}</span>
+        </div>
+      </div>
       <div className="chat-scroll">
         {msgs.length === 0 ? (
           <div className="state-box">

@@ -89,7 +89,7 @@ export function LlmSettings(props: { lang: Lang; onSaved: () => void }) {
           />
           <div className="set-presets">
             {presets.map(([label, url]) => (
-              <button key={url} type="button" className="linklike" onClick={() => setBaseUrl(url)}>
+              <button key={url} type="button" className="foot-link underline" onClick={() => setBaseUrl(url)}>
                 {label}
               </button>
             ))}
@@ -111,7 +111,7 @@ export function LlmSettings(props: { lang: Lang; onSaved: () => void }) {
               ))}
               {model && !(models ?? []).includes(model) && <option value={model}>{model}</option>}
             </select>
-            <button type="button" className="linklike" disabled={busy} onClick={loadModels}>
+            <button type="button" className="foot-link underline" disabled={busy} onClick={loadModels}>
               {models !== null ? tr(lang, "setLlmReload") : tr(lang, "setLlmLoadModels")}
             </button>
           </div>

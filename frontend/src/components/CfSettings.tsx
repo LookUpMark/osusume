@@ -79,7 +79,7 @@ export function CfSettings(props: { lang: Lang }) {
       <div className="set-stack">
         {s === null ? null : (
           <>
-            <button type="button" className="linklike" role="switch" aria-checked={s.enabled} disabled={busy} onClick={toggle}>
+            <button type="button" className="foot-link underline" role="switch" aria-checked={s.enabled} disabled={busy} onClick={toggle}>
               {tr(lang, "setTitleCf")} — {s.enabled ? tr(lang, "on") : tr(lang, "off")}
             </button>
             <small className={s.state === "loaded" ? "ok" : undefined}>
@@ -87,7 +87,7 @@ export function CfSettings(props: { lang: Lang }) {
               {s.state === "loaded" && s.builtAt ? ` · ${s.builtAt.slice(0, 10)}` : ""}
             </small>
             {s.enabled && s.state !== "loaded" && (
-              <button type="button" className="linklike" disabled={busy} onClick={download}>
+              <button type="button" className="foot-link underline" disabled={busy} onClick={download}>
                 {s.state === "downloading" ? tr(lang, "checking") : tr(lang, "cfDownload")}
               </button>
             )}

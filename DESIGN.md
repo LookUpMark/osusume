@@ -1,69 +1,69 @@
-# DESIGN.md — design system "Seanime"
+# DESIGN.md — design system "Claude (Anthropic)" (identico a Verba)
 
-Il design language di Osusume: dark-only, contenuto-prima, tipografia Geist. Questo documento è la spec di riferimento per qualunque modifica UI; i valori canonici vivono in `frontend/src/design-system/tokens.css` (importato prima di `styles.css`). Vincoli architetturali in `frontend/README.md` (contratti `lib/logic/`, marker `data-od-id`, i18n).
+Il design language di Osusume, allineato 1:1 a Verba (`~/Documents/github/verba/index.html`): **warm minimal-editorial**. I token canonici vivono in `frontend/src/design-system/tokens.css` (importato prima di `styles.css`); questo documento è la spec di riferimento. Vincoli architetturali in `frontend/README.md` (contratti `lib/logic/`, marker `data-od-id`, i18n).
 
-## Principi
+Storia: fino alla v1.3.3 l'app usava il sistema dark-only "Seanime" (viola #9f92ff, Geist, rail di icone). Il redesign 2026-10-11 lo ha sostituito integralmente — audit del prima/dopo in `docs/audits/REDESIGN-20261011-verba.md`.
 
-1. **Contenuto prima del contenitore.** Poster e numeri parlano; le cornici sono sottili (`--border`), i pannelli scuri nonnerini, le statistiche sono numeri nudi senza card.
-2. **Un solo accento.** Il viola `--accent` (#9f92ff) è l'unica tinta: selezione, azione primaria, dato vivo. Mai più di due usi d'accento per schermata visibile; tutto il resto è scala di grigio.
-3. **Local-first anche nella forma.** Zero CDN (font self-hosted in `frontend/public/fonts`), zero risorse remote nell'UI; le copertine vengono da AniList, con fallback `cover-fallback` colorato dai metadati.
-4. **Il movimento è cortesia, non spettacolo.** Transizioni 0.15–0.3s su background/colore/opacity; `prefers-reduced-motion` spegne tutto.
-5. **Due lingue, una misura.** Ogni stringa passa da `tr()` con parità en/it; l'IT è mediamente più lunga: titoli con line-clamp, etichette con ellipsis, niente larghezze fisse sul testo.
+## Principi (da Verba)
+
+1. **Caldo e quieto.** Crema e charcoal caldi, mai nero freddo né bianco puro; un solo accento terracotta/coral; zero glassmorphism, zero gradienti di UI (l'unico gradiente è il marchio).
+2. **Editoriale.** I titoli sono serif (Georgia di fatto) weight 500; il corpo è sans neutro; i numeri sono tabulari in mono.
+3. **Superfici oneste.** Card `--surface` con bordo 1px e ombra nebulosa `0 4px 24px rgba(0,0,0,.05)`; nessun effetto vetro, nessun glow.
+4. **Tinte, non nuovi colori.** Stati e badge derivano dai semantici via `color-mix(... transparent 88–94%)`.
+5. **Il movimento è cortesia.** 150/200ms con `cubic-bezier(0.2,0,0,1)`; `prefers-reduced-motion` spegne tutto.
+6. **Due temi, audit indipendenti.** Light di fabbrica (segue `prefers-color-scheme` al primo avvio), dark su toggle persistente (`osusume-theme`); il dark NON è derivato dal light: sfondi e semantici sono ricalibrati per ≥4.5:1.
 
 ## Palette
 
-| Token | Valore | Uso |
-| --- | --- | --- |
-| `--bg` | `#121212` | sfondo app; base degli scrim (`--bg-rgb`) |
-| `--surface` | `#1c1c1c` | pannelli, card, modali, input |
-| `--surface-2` | `#282828` | hover, pill attive, campi, barre di track |
-| `--fg` | `#ffffff` | titoli, numeri, testo enfatico (`--fg-rgb` per alpha) |
-| `--body-text` | `#e5e5e5` | testo corrente |
-| `--muted` | `#a3a3a3` | metadati, etichette, link secondari |
-| `--border` | `#303030` | cornici sottili e divisori |
-| `--accent` | `#9f92ff` | accento unico (azioni primarie, selezione, barre gusto) |
-| `--ring` | `#c7c2ff` | focus ring, hover dell'accento, tinta entry-point |
-| `--ok` | `#6ee7a0` | stato positivo (connessioni, "saved") |
-| `--err` | `#ff9e9e` | messaggi d'errore (mai il viola) |
-| `--glow-a/b` | `#34268a` / `#0c1d48` | glow radiali di sfondo, gradient wizard/login |
-| `--ink` | `#121212` | testo su fondo accent |
+| Token | Light | Dark | Uso |
+| --- | --- | --- | --- |
+| `--bg` | `#f5f4ed` | `#1f1e1b` | fondo pagina |
+| `--surface` | `#faf9f5` | `#262521` | card, pannelli, input |
+| `--surface-warm` | `#e8e6dc` | `#30302e` | bottoni secondari, hover, track barre |
+| `--fg` / `--fg-2` | `#141413` / `#3d3d3a` | `#faf9f5` / `#e8e6dc` | testo / testo secondario |
+| `--muted` / `--meta` | `#5e5d59` / `#87867f` | `#b0aea5` / `#87867f` | metadati / meta |
+| `--border` / `--border-soft` | `#f0eee6` / `#e8e6dc` | `#30302e` / `#3d3c38` | bordi card / bordi caldi |
+| `--accent` | `#c96442` | `#d97757` | accento unico (terracotta/coral) |
+| `--accent-on` | `#faf9f5` | `#141413` | testo su accent |
+| `--success` / `--warn` / `--danger` | `#17a34a` / `#eab308` / `#b53333` | `#2aa65a` / `#eab308` / `#e0685a` | semantici (dark alleggeriti per contrasto) |
 
-Le trasparenze si compongono dalle triplette: `rgb(var(--accent-rgb) / 0.2)`. Il nero puro `rgb(0 0 0 / x)` è riservato a ombre, maschere e scrim neutri.
-
-Contrasto: muted su bg ≥ 6.9:1, ink su accent ≥ 4.5:1 — nessuna combinazione sotto 4.5:1 (3:1 per testi ≥ 19px). In hover/disabled il contrasto non scende mai: il disabled usa opacity 0.5 su elementi non testuali o `--muted`.
+Hover/active dell'accento: `color-mix(in oklab, var(--accent), black 8%/14%)` (light) o `white 12%/18%` (dark).
 
 ## Tipografia
 
-Geist (400/500/600/700) + Geist Mono (400/500), self-hosted (`frontend/src/design-system/fonts.css`, importato da `main.tsx`). Corpo 15px/1.55; i numeri usano Geist Mono con `tabular-nums` (`.mono`).
+- `--font-display`: `"Anthropic Serif", Georgia, …` — **solo h1/h2/h3, brand, punteggi grandi** (weight 500, line-height 1.1). Nessun webfont: il rendering reale è Georgia (identico a Verba, local-first).
+- `--font-body`: `"Anthropic Sans", Arial, system-ui…` — corpo 16px/1.6.
+- `--font-mono`: `"Anthropic Mono", ui-monospace, JetBrains Mono, Menlo…` — numeri tabulari, meta, log.
+- Scala: `--text-xs 10 · sm 14 · base 16 · lg 20 · xl 25 · 2xl 32 · 3xl 52 · 4xl 64`. `.eyebrow`: xs uppercase ls 0.5px.
 
-Scala canonica (px): **58→38** hero h1 (clamp) · **34** punteggio dialog · **27** statistiche · **22** dialog h2 · **21** wizard h1 · **19** sezioni h2 · **15** page-title/eyebrow · **14** enfasi/titoli card · **14.5** label impostazioni · **13.5** secondario/hint/controlli form · **13** bottoni toolbar/chat-card · **12.5** meta · **12** mono-label e `small` · **11.5** footer/micro-mono · **10.5** badge micro (mono, uppercase, tracking 0.07em) — **floor assoluto 10.5px**.
+## Spacing, raggi, ombre, z-index, motion
 
-## Spacing, raggi, ombre, z-index
+- Spacing: `--space-1..12` = 4, 8, 12, 16, 20, 24, 32, 48.
+- Raggi: `--radius-sm 8` (bottoni/card/input) · `md 12` (card grandi, bubble) · `lg 16` (modali) · `pill 9999` (badge, barre, chip).
+- Ombre: `--elev-ring` (bordo 1px) · `--elev-raised` (`rgba(0,0,0,.05/.35) 0 4px 24px`). Mai ombre dure.
+- Focus: `--focus-ring` = `0 0 0 3px rgba(56,152,236,.3)` su `:focus-visible` di ogni interattivo (outline: none); input focus anche `border-color: #3898ec`.
+- Motion: `--motion-fast 150ms` · `--motion-base 200ms` · `--ease-standard cubic-bezier(0.2,0,0,1)`.
+- Z-index: onboarding/wizard 40 · bottombar 50 · toast/dropdown 60 · login 100.
+- Barre: dato = pill 6px (profilo, breakdown) · processo = pill 10px (progress SSE, download). Poster sempre `550/780`.
 
-- Spacing: multipli di 4; gap ricorrenti 2/4/6/8/10/12/16/18, padding pannelli 12–16, sezioni 36px sopra, modale canone **28px**.
-- Raggi: `--r-sm` 8 (controlli, thumb), `--r-input` 10 (campi), `--r-md` 12 (card/pannelli), `--r-lg` 16 (modali), `--r-pill` 999 (pill, segmenti).
-- Ombre: `--shadow-tip` (tooltip), `--shadow-2` (pannelli), `--shadow-3` (dialog); le card hanno alone accent composito inline (unica eccezione consentita).
-- Z-index (scala nominale, mai numeri sparsi): `--z-main 1 · --z-rail 2 · --z-car 3 · --z-topfade 4 · --z-topbar 5 · --z-tip 20 · --z-dialog 40 · --z-dropdown 60 · --z-login 100`.
-- Barre: `--bar-h` 4px per barre di dato (profilo, breakdown), 6px per barre di processo (download); poster sempre `--poster-ar` (550/780).
-- Bottoni icona: `--icon-btn` 34 inline (input/header), `--icon-btn-lg` 38 overlay flottante (carosello).
+## Primitive (tokens.css)
 
-## Primitive (`tokens.css` + `styles.css`)
-
-- **Bottoni**: `.btn` base + `.btn-primary` (accento) / `.btn-ghost` (vetro su hero) / `.btn-line` (secondario bordato) / `.linklike` (azione testuale) / `.seg` (segmentato canone: pill bordata con divisori) / `.seg-quiet` (gruppo pill senza bordo, per toolbar e filtri, coerente con `.genre-chip`). Nessun bottone nudo: anche il wizard usa `btn btn-primary`.
-- **Barre**: `.bar` (dato) con fill `.taste`/`.quality`/`.community`/`.neg`; `.prog` (affinità su poster); `.progress` (stepper SSE) e `.progress-line` (download indeterminato).
-- **Badge**: `.chips` + `.chip-badge` (+ `.gem` accento pieno, `.entry` tinta ring). Uppercase mono 10.5px.
-- **Tooltip**: un solo meccanismo — `data-tip` + `.sidebar [data-tip]::after`; ogni controllo icon-only del rail ha `aria-label` + `data-tip`.
-- **Stati**: `state-box` (vuoto/benvenuto), `error-box` (banner, icona accent), `.error`/`small.err` in `--err`, `small.ok` in `--ok`; skeleton `.sk` condiviso con la griglia `.grid`.
-- **Focus**: outline 2px `--ring` offset 2 (tokens.css); dentro contenitori che tagliano (`.seg`) offset −3px.
+- **Bottoni**: `.btn` base (padding 9/16/12, radius 8, min-height 40, active translateY(1px)) + `btn-primary` (accent + ring self 1px) / `btn-secondary` (surface-warm + ring #d1cfc5) / `btn-ghost` / `.btn-sm` (32px, xs). Nessun bottone nudo.
+- **Badge**: `.badge-*` / `.chip-badge` pill 3/10 xs uppercase con tinte `color-mix` (success/muted/accent/danger; gem=accent, entry=muted). `.badge-dot` 6px.
+- **Card**: `.card` surface + border + radius 8 + raised. Varianti con radius 12/16 per lesson-size e modali.
+- **Toast**: `#toast` invertito fg/bg, radius 12, bottom 28, auto-hide 2600ms — per feedback transienti (watchlist aggiunto, impostazioni salvate).
+- **Skeleton**: shimmer `translateX` 1.1s su surface-warm.
+- **Empty state**: icona accent + titolo serif + azione.
 
 ## Layout
 
-Shell a griglia `76px + 1fr`: rail icon-only sticky (nav 44×44, footer stato), main con topbar sticky (`1fr auto 1fr`: titolo · ricerca · utente), viste in `<section class="view">` con switch via `hidden`. Hero full-bleed, griglie `auto-fill minmax(186px)`, carosello snap 180px, impostazioni vincolate a 760px. Reflow a 920px e 560px.
+Shell grid `240px minmax(0,1fr)`: **sidebar testuale** sticky (brand serif + tag uppercase, nav 7 voci icona 18px + label min-height 44, `aria-current` = surface-warm + peso 500; footer con card stato LLM/modello, toggle local-mode, chip update, media-seg ANIME/MANGA pill, switch lingua). Main centrato max 1040px padding 32/24/48 con **utility header** (ricerca + toggle tema + chip utente) e un **screen-head per vista** (titolo serif + sub). ≤900px: sidebar nascosta, **bottombar mobile** fixed (item 11px, attivo coral). Impostazioni/Evita vincolate e centrate (760/860px).
 
 ## Regole d'uso
 
-1. Nuovi colori? Prima guarda qui: se non c'è un token, probabilmente non serve un colore nuovo.
-2. Nuova UI in px sulla scala tipografica sopra (mai rem: il blocco wizard/settings storico è stato convertito per uniformità).
-3. Ogni controllo interattivo ha hover **e** `:focus-visible` distinguibili, target ≥ 34px, e stato disabled mai ambiguo.
-4. Ogni stringa via `tr(lang, …)` in EN e IT; gli aria-label si localizzano come il testo visibile.
-5. I marker `data-od-id` (inventario in `frontend/od-ids.txt`) devono sopravvivere a qualunque restyling: check con `pnpm build && node scripts/check-od-ids.mjs`.
+1. Nuovo colore? Prima i token: se non c'è, probabilmente è una tinta (`color-mix`) di uno esistente.
+2. Titoli sempre serif weight 500; mai serif per testo corrente o controlli.
+3. Ogni interattivo: hover, `:focus-visible` (ring blu), target ≥44px sulle nav, disabled opacity .45.
+4. Stringhe solo via `tr(lang, …)` con parità en/it; gli aria-label si localizzano.
+5. I marker `data-od-id` (35, `frontend/od-ids.txt`) sopravvivono a ogni restyling: `pnpm build && node scripts/check-od-ids.mjs`.
+6. Il tema si tocca solo via `data-theme` su `<html>` + token CSS; mai colori hardcoded nei componenti (le sole eccezioni: focus `#3898ec` e ring `#d1cfc5`, ereditate da Verba).

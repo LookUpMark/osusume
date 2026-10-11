@@ -128,7 +128,7 @@ export function AniListAuth(props: { lang: Lang; onAuthChange: (auth: Auth) => v
           {auth.authenticated && (
             <>
               <small className="ok">{tr(lang, "anilistConnected", { u: auth.username ?? "" })}</small>
-              <button type="button" className="linklike" disabled={busy} onClick={() => void disconnect()}>
+              <button type="button" className="foot-link underline" disabled={busy} onClick={() => void disconnect()}>
                 {tr(lang, "anilistDisconnect")}
               </button>
             </>
