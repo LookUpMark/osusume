@@ -1,34 +1,61 @@
-/* Osusume — design system "Claude (Anthropic)", identico a Verba
-   (token pasted verbatim da verba/index.html; spec in DESIGN.md) */
+/* Osusume — design system ZCode (tema misurato da ZCode.app v3.17.2, fonte
+   docs/design/ZCODE-THEME.md; spec in DESIGN.md).
+   :root = ZCode light · [data-theme='dark'] = ZCode dark · [data-design='verba']
+   ripristina il look Verba precedente (token verbatim, fallback selezionabile). */
 
 /* The hidden attribute must beat any component display rule. */
 [hidden] { display: none !important; }
 
 :root {
-  --bg: #f5f4ed;
-  --surface: #faf9f5;
-  --surface-warm: #e8e6dc;
+  /* superfici (token zai-light misurati) */
+  --bg: #f8f8f8;             /* background */
+  --surface: #ffffff;        /* card/popover/input/menu */
+  --surface-warm: #e6e6e6;   /* secondary/tag */
+  --sidebar: #f0f0f0;        /* sidebar */
 
-  --fg: #141413;
-  --fg-2: #3d3d3a;
-  --muted: #5e5d59;
-  --meta: #87867f;
+  /* primo piano */
+  --fg: #262626;             /* foreground = neutral-800 */
+  --fg-2: #595959;           /* remote-foreground-muted */
+  --muted: #26262699;        /* foreground-subtle (60%) */
+  --meta: #26262666;         /* foreground-subtlest (40%) */
 
-  --border: #f0eee6;
-  --border-soft: #e8e6dc;
+  /* bordi (in ZCode input-border = border; hover = border-hover) */
+  --border: #0d0d0d1a;
+  --border-soft: #0d0d0d1a;
+  --border-hover: #0d0d0d26;
 
-  --accent: #c96442;
-  --accent-on: #faf9f5;
-  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
-  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+  /* stati neutrali, MAI tintati: la selezione neutra è la firma del tema */
+  --hover-bg: #0d0d0d0d;     /* hover generico (5%) */
+  --selected-bg: #0d0d0d0d;  /* selezione item (5%, neutra) */
+  --selected-fg: var(--fg);
+  --user-bubble: #0d0d0d0d;  /* bolla messaggio utente (5%) */
 
-  --success: #17a34a;
-  --warn: #eab308;
-  --danger: #b53333;
+  /* campi input (input = card in ZCode) */
+  --input-bg: var(--surface);
 
-  --font-display: "Anthropic Serif", Georgia, "Times New Roman", serif;
-  --font-body: "Anthropic Sans", "Arial", system-ui, -apple-system, sans-serif;
-  --font-mono: "Anthropic Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  /* primario monocromo (primary/brand = #000 light, #fff dark) */
+  --accent: #000000;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), transparent 20%);
+  --accent-active: color-mix(in oklab, var(--accent), transparent 10%);
+
+  /* brand sky: SOLO per il focus ring, mai per selezioni/stati attivi */
+  --brand: #00a6f4;          /* sky-500 */
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%);
+
+  /* marchio (tile torii) */
+  --mark-bg: linear-gradient(135deg, #000000, #262626);
+  --mark-fg: #ffffff;
+
+  /* semantici (success/warning/destructive misurati) */
+  --success: #1e8a3e;
+  --warn: #e07b00;
+  --danger: #e03131;
+
+  /* font di sistema (stack zai misurato; niente serif) */
+  --font-display: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-body: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", monospace;
 
   --text-xs: 10px;
   --text-sm: 14px;
@@ -52,20 +79,20 @@
   --space-8: 32px;
   --space-12: 48px;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
+  /* raggi (scala zai: md 6 = btn, lg 8 = card, xl 12 = input/bubble, 2xl 16 = dialog) */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-xl: 12px;
   --radius-lg: 16px;
   --radius-pill: 9999px;
 
   --elev-flat: none;
   --elev-ring: 0 0 0 1px var(--border);
-  --elev-raised: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+  --elev-raised: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a; /* shadow-md */
 
-  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.3);
-
-  --motion-fast: 150ms;
+  --motion-fast: 150ms;      /* default-transition-duration .15s */
   --motion-base: 200ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
   --container-max: 1200px;
   --container-gutter-desktop: 24px;
@@ -74,16 +101,109 @@
 }
 
 /* ─── Theme switching ─────────────────────────────────────────────────
-   Dark theme audited independently (not derived from light): warm-toned
-   near-black grounds, coral accent for dark surfaces per the design
-   system, semantic colors lightened to hold ≥4.5:1 body contrast. */
+   Dark = zai-dark misurato (non derivato dal light): grigia proprietaria
+   #161616/#202020/#2b2b2b/#363636, primario invertito (bianco), semantici
+   alleggeriti per il contrasto sul dark. */
 :root { color-scheme: light; }
 [data-theme="dark"] {
   color-scheme: dark;
 
+  --bg: #161616;
+  --surface: #2b2b2b;
+  --surface-warm: #363636;
+  --sidebar: #161616;
+
+  --fg: #d4d4d4;             /* foreground = neutral-300 */
+  --fg-2: #b3b3b3;
+  --muted: #d4d4d499;
+  --meta: #d4d4d44d;
+
+  --border: #ffffff1a;
+  --border-soft: #ffffff1a;
+  --border-hover: #ffffff26;
+
+  --hover-bg: #ffffff0d;     /* 5% */
+  --selected-bg: #ffffff1a;  /* 10%, neutra */
+  --selected-fg: var(--fg);
+  --user-bubble: #ffffff14;  /* 8% */
+
+  --accent: #ffffff;
+  --accent-on: #000000;
+  --accent-hover: color-mix(in oklab, var(--accent), transparent 20%);
+  --accent-active: color-mix(in oklab, var(--accent), transparent 10%);
+
+  --brand: #00bcff;          /* sky-400, più chiaro per il dark */
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%);
+
+  --mark-bg: linear-gradient(135deg, #ffffff, #d4d4d4);
+  --mark-fg: #000000;
+
+  --success: #46bf72;
+  --warn: #ff8a30;
+  --danger: #ff5c5c;
+
+  --elev-raised: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a;
+}
+
+/* ─── Look Verba (fallback selezionabile) ─────────────────────────────
+   Ridichiarazione VERBATIM dei token del design precedente (warm
+   minimal-editorial Claude/Anthropic), più gli alias di stato mappati
+   sul look Verba (hover/selected su superfici calde, focus blu storico). */
+[data-design="verba"] {
+  --bg: #f5f4ed;
+  --surface: #faf9f5;
+  --surface-warm: #e8e6dc;
+  --sidebar: var(--bg);
+
+  --fg: #141413;
+  --fg-2: #3d3d3a;
+  --muted: #5e5d59;
+  --meta: #87867f;
+
+  --border: #f0eee6;
+  --border-soft: #e8e6dc;
+  --border-hover: var(--meta);
+
+  --hover-bg: var(--surface-warm);
+  --selected-bg: var(--surface-warm);
+  --selected-fg: var(--fg);
+  --user-bubble: var(--accent);
+
+  --input-bg: var(--bg);
+
+  --accent: #c96442;
+  --accent-on: #faf9f5;
+  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
+  --accent-active: color-mix(in oklab, var(--accent), black 14%);
+
+  --brand: #3898ec;
+  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.3);
+
+  --mark-bg: linear-gradient(135deg, #23211c, #151412);
+  --mark-fg: #d97757;
+
+  --success: #17a34a;
+  --warn: #eab308;
+  --danger: #b53333;
+
+  --font-display: "Anthropic Serif", Georgia, "Times New Roman", serif;
+  --font-body: "Anthropic Sans", "Arial", system-ui, -apple-system, sans-serif;
+  --font-mono: "Anthropic Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-xl: 12px;
+  --radius-lg: 16px;
+
+  --elev-raised: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+[data-design="verba"][data-theme="dark"] {
   --bg: #1f1e1b;            /* warm near-black page ground */
   --surface: #262521;       /* cards, warm charcoal */
   --surface-warm: #30302e;  /* Dark Surface — buttons, interactive */
+  --sidebar: var(--bg);
 
   --fg: #faf9f5;            /* Ivory text */
   --fg-2: #e8e6dc;
@@ -92,17 +212,30 @@
 
   --border: #30302e;        /* Border Dark */
   --border-soft: #3d3c38;
+  --border-hover: var(--meta);
+
+  --hover-bg: var(--surface-warm);
+  --selected-bg: var(--surface-warm);
+  --selected-fg: var(--fg);
+  --user-bubble: var(--accent);
+
+  --input-bg: var(--bg);
 
   --accent: #d97757;        /* Coral Accent — the dark-surface accent of the palette */
   --accent-on: #141413;     /* dark text on coral: ~7:1 */
   --accent-hover: color-mix(in oklab, var(--accent), white 12%);
   --accent-active: color-mix(in oklab, var(--accent), white 18%);
 
+  --brand: #3898ec;
+  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.3);
+
+  --mark-bg: linear-gradient(135deg, #23211c, #151412);
+  --mark-fg: #d97757;
+
   --success: #2aa65a;       /* lightened for ≥4.5:1 on dark */
   --warn: #eab308;
   --danger: #e0685a;        /* lightened warm red for ≥4.5:1 on dark */
 
-  --elev-ring: 0 0 0 1px var(--border);
   --elev-raised: rgba(0, 0, 0, 0.35) 0px 4px 24px;
 }
 
@@ -126,7 +259,7 @@ p { margin: 0; }
 
 h1, h2, h3 {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   line-height: var(--leading-tight);
   margin: 0;
   letter-spacing: var(--tracking-display);
@@ -154,56 +287,74 @@ h3 { font-size: var(--text-lg); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ─── Primitive: bottoni (Verba) ────────────────────────────────────── */
+/* ─── Primitive: bottoni (geometria ZCode: h-7 28px, px-2, rounded-md) ─ */
 .btn {
-  display: inline-flex; align-items: center; gap: var(--space-2);
-  padding: 9px 16px 9px 12px;
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   font-size: var(--text-sm); font-weight: 500; line-height: 1;
   cursor: pointer; border: none; text-decoration: none;
   transition: box-shadow var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
-  min-height: 40px;
+  min-height: 28px;
 }
 .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--accent); color: var(--accent-on); box-shadow: var(--accent) 0 0 0 1px; }
+.btn-primary { background: var(--accent); color: var(--accent-on); }
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-primary:active { background: var(--accent-active); }
-.btn-secondary { background: var(--surface-warm); color: var(--fg-2); box-shadow: #d1cfc5 0 0 0 1px; }
-[data-theme="dark"] .btn-secondary { box-shadow: var(--border-soft) 0 0 0 1px; }
-.btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), black 4%); }
-[data-theme="dark"] .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), white 6%); }
-.btn-ghost { background: transparent; color: var(--muted); }
-.btn-ghost:hover { color: var(--fg); background: var(--surface-warm); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-.btn-sm { padding: 6px 10px; min-height: 32px; font-size: var(--text-xs); }
+.btn-secondary { background: var(--surface-warm); color: var(--fg); }
+.btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), transparent 20%); }
+.btn-ghost { background: transparent; color: var(--fg); }
+.btn-ghost:hover { background: var(--hover-bg); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-sm { padding: 0 var(--space-2); min-height: 24px; font-size: var(--text-xs); border-radius: 4px; }
 
-/* ─── Primitive: badge / chip (Verba) ───────────────────────────────── */
+/* ─── Primitive: badge / chip (geometria tag ZCode: rounded-md, sentence case) */
 .badge,
 .chip-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: var(--radius-pill);
-  font-size: var(--text-xs); font-weight: 500; line-height: 1.6;
-  text-transform: uppercase; letter-spacing: 0.12px;
+  padding: 2px 6px; border-radius: var(--radius-sm);
+  font-size: var(--text-xs); font-weight: 500; line-height: 1.5;
 }
-.chip-badge { font-family: var(--font-body); color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+.chip-badge { font-family: var(--font-body); color: var(--fg-2); background: color-mix(in oklab, var(--fg-2), transparent 88%); }
 .chip-badge.gem { color: var(--accent); background: color-mix(in oklab, var(--accent), transparent 88%); }
-.chip-badge.entry { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+.chip-badge.entry { color: var(--fg-2); background: color-mix(in oklab, var(--fg-2), transparent 88%); }
 .badge-success { color: var(--success); background: color-mix(in oklab, var(--success), transparent 90%); }
-.badge-muted { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+.badge-muted { color: var(--fg-2); background: color-mix(in oklab, var(--fg-2), transparent 88%); }
 .badge-accent { color: var(--accent); background: color-mix(in oklab, var(--accent), transparent 88%); }
 .badge-danger { color: var(--danger); background: color-mix(in oklab, var(--danger), transparent 90%); }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 
-/* ─── Primitive: card (Verba) ───────────────────────────────────────── */
+/* ─── Primitive: card (ZCode: flat, bordo 1px, nessuna ombra) ───────── */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--space-6);
-  box-shadow: var(--elev-raised);
 }
 
 /* ─── Primitive: fallback copertina ─────────────────────────────────── */
 .cover-fallback { display: grid; place-items: center; font-family: var(--font-display); font-size: 28px; color: var(--fg-2); }
+
+/* ─── Look Verba: geometria primitive com'era (btn 40px, badge pill) ── */
+[data-design="verba"] h1, [data-design="verba"] h2, [data-design="verba"] h3 { font-weight: 500; }
+[data-design="verba"] .btn { gap: var(--space-2); padding: 9px 16px 9px 12px; min-height: 40px; }
+[data-design="verba"] .btn-sm { padding: 6px 10px; min-height: 32px; border-radius: var(--radius-sm); }
+[data-design="verba"] .btn-primary { box-shadow: var(--accent) 0 0 0 1px; }
+[data-design="verba"] .btn-secondary { color: var(--fg-2); box-shadow: #d1cfc5 0 0 0 1px; }
+[data-design="verba"][data-theme="dark"] .btn-secondary { box-shadow: var(--border-soft) 0 0 0 1px; }
+[data-design="verba"] .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), black 4%); }
+[data-design="verba"][data-theme="dark"] .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), white 6%); }
+[data-design="verba"] .badge,
+[data-design="verba"] .chip-badge {
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  line-height: 1.6; text-transform: uppercase; letter-spacing: 0.12px;
+}
+[data-design="verba"] .chip-badge { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+[data-design="verba"] .chip-badge.entry { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+[data-design="verba"] .badge-muted { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
+[data-design="verba"] .card {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--elev-raised);
+}

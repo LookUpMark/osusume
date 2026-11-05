@@ -1,7 +1,11 @@
 // README screenshots: drives the built UI (server on :3000) with the LookUpMark
 // profile and captures the real views. The wizard shot uses a second server on
 // :3001 with a scratch config so the real data/config.json is never touched.
-//   node src/server/index.ts &  +  CONFIG_PATH=… node src/server/index.ts &  +  electron scripts/screenshots.mjs
+//   cd backend && uv run run_dev.py &  (porta 3000, avviata a mano prima)
+//   + electron scripts/screenshots.mjs   [il wizard server su :3001 lo spawna qui]
+// Theme/design can be forced for the whole matrix via OSUSUME_THEME (light|dark)
+// and OSUSUME_DESIGN (zcode|verba): they are written to localStorage before the
+// UI bootstraps (same keys the app itself reads: osusume-theme / osusume-design).
 import { app, BrowserWindow } from "electron";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -9,6 +13,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const OUT = new URL("../docs/screenshots/", import.meta.url).pathname;
+const REPO = new URL("..", import.meta.url).pathname;
+const THEME = process.env.OSUSUME_THEME; // "light" | "dark"
+const DESIGN = process.env.OSUSUME_DESIGN; // "zcode" | "verba"
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const waitFor = async (win, js, timeout = 90_000) => {
@@ -18,6 +25,27 @@ const waitFor = async (win, js, timeout = 90_000) => {
     await sleep(400);
   }
   throw new Error(`timeout: ${js}`);
+};
+
+// FastAPI sidecar: probe /api/health with a hard cap instead of hanging forever
+const waitForHealth = async (port, timeout = 30_000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    if (await fetch(`http://127.0.0.1:${port}/api/health`).then((r) => r.ok).catch(() => false)) return;
+    await sleep(400);
+  }
+  throw new Error(`backend non risponde su :${port}`);
+};
+
+// persist forced theme/design BEFORE the app bootstraps (it reads them at mount)
+const applyPreferences = async (win) => {
+  const js = [
+    THEME ? `localStorage.setItem("osusume-theme", ${JSON.stringify(THEME)})` : "",
+    DESIGN ? `localStorage.setItem("osusume-design", ${JSON.stringify(DESIGN)})` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+  if (js) await win.webContents.executeJavaScript(js);
 };
 
 const shot = async (win, name) => {
@@ -39,10 +67,11 @@ const click = (sel) => `document.querySelector(${JSON.stringify(sel)})?.click()`
 
 app.whenReady().then(async () => {
   mkdirSync(OUT, { recursive: true });
-  // scratch server for the wizard shot (empty config → needsSetup)
-  // (spawn real node — process.execPath inside Electron is the Electron binary)
+  // scratch server for the wizard shot (empty config → needsSetup): the uv-run
+  // FastAPI dev server, same launcher as `pnpm dev` (PORT/CONFIG_PATH/ALR_DATA_DIR env)
   const scratchDir = mkdtempSync(join(tmpdir(), "osusume-wizard-"));
-  const wizardSrv = spawn("node", ["src/server/index.ts"], {
+  const wizardSrv = spawn("uv", ["run", "run_dev.py"], {
+    cwd: join(REPO, "backend"),
     env: { ...process.env, PORT: "3001", CONFIG_PATH: join(scratchDir, "config.json"), ALR_DATA_DIR: join(scratchDir, "data") },
     stdio: "ignore",
     detached: false,
@@ -50,8 +79,10 @@ app.whenReady().then(async () => {
 
   const win = new BrowserWindow({ width: 1680, height: 1050, show: true });
   try {
+    await waitForHealth(3000);
     await win.loadURL("http://127.0.0.1:3000");
     await win.webContents.executeJavaScript(`localStorage.clear()`);
+    await applyPreferences(win);
     await win.reload();
     await sleep(2000);
     // fake login
@@ -109,7 +140,11 @@ app.whenReady().then(async () => {
 
     // wizard on the scratch instance
     const wwin = new BrowserWindow({ width: 1680, height: 1050, show: true });
+    await waitForHealth(3001);
     await wwin.loadURL("http://127.0.0.1:3001");
+    await wwin.webContents.executeJavaScript(`localStorage.clear()`);
+    await applyPreferences(wwin);
+    await wwin.reload();
     await waitFor(wwin, `document.querySelector(".wizard-page")`, 30_000);
     await sleep(1500); // hardware probe settles
     await shot(wwin, "setup-wizard");
