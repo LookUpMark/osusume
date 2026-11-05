@@ -69,12 +69,16 @@ export function App() {
   const [setup, setSetup] = useState<SetupStatus | null | "error">(null);
   const [llmOn, setLlmOn] = useState<boolean | null>(null);
   const [model, setModel] = useState<string | null>(null);
-  // tema Verba: preferenza persistente, default dal sistema, light di fabbrica
+  // tema: preferenza persistente, default dal sistema, light di fabbrica
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("osusume-theme");
     if (saved === "dark" || saved === "light") return saved;
     return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
+  // design ZCode (default) / Verba: persistito come il tema, letto al bootstrap
+  const [design, setDesign] = useState<"zcode" | "verba">(() =>
+    localStorage.getItem("osusume-design") === "verba" ? "verba" : "zcode",
+  );
   // toast invertito fg/bg (pattern Verba) per feedback transienti
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number>(undefined);
@@ -225,6 +229,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.design = design;
+    localStorage.setItem("osusume-design", design);
+  }, [design]);
 
   const refreshHealth = () => {
     fetchHealth()
@@ -690,6 +699,14 @@ export function App() {
               <div className="seg" role="group" aria-label={tr(lang, "setTitleLang")}>
                 <button type="button" aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button>
                 <button type="button" aria-pressed={lang === "it"} onClick={() => setLang("it")}>IT</button>
+              </div>
+            </div>
+
+            <div className="set-row">
+              <span>{tr(lang, "setDesignLabel")}</span>
+              <div className="seg" role="group" aria-label={tr(lang, "setDesignLabel")}>
+                <button type="button" aria-pressed={design === "zcode"} onClick={() => setDesign("zcode")}>{tr(lang, "setDesignZcode")}</button>
+                <button type="button" aria-pressed={design === "verba"} onClick={() => setDesign("verba")}>{tr(lang, "setDesignVerba")}</button>
               </div>
             </div>
 
