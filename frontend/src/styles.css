@@ -78,15 +78,17 @@
 .upd-chip { color: var(--accent); }
 
 /* chrome macOS (solo sotto [data-chrome='vibrancy'], marcato dal preload
-   desktop): superfici translucide sulla vibrancy under-window, drag region
-   sull'header sidebar e inset per i traffic lights (22,23). Nel web il
-   fallback è il fondo opaco — nessuna di queste regole si applica. */
-[data-chrome="vibrancy"] body { background: transparent; }
-[data-chrome="vibrancy"] .sidebar {
-  background: color-mix(in oklab, var(--sidebar), transparent 35%);
-  padding-top: 48px;
-}
+   desktop): inset per i traffic lights (22,23) e drag region sull'header
+   sidebar — valgono per OGNI design perché il titlebar nascosto è a livello
+   finestra. La translucenza invece è SOLO del design ZCode: la sidebar
+   partecipa alla vibrancy under-window, il pannello contenuto (.main-wrap)
+   resta OPACO su --bg — mai testo sulla translucenza. Nel web e in Verba
+   tutto è opaco come prima. */
+[data-chrome="vibrancy"] .sidebar { padding-top: 48px; }
 [data-chrome="vibrancy"] .sidebar .brand { -webkit-app-region: drag; }
+[data-chrome="vibrancy"]:not([data-design="verba"]) body { background: transparent; }
+[data-chrome="vibrancy"]:not([data-design="verba"]) .main-wrap { background: var(--bg); }
+[data-chrome="vibrancy"]:not([data-design="verba"]) .sidebar { background: var(--sidebar-vibrancy); }
 
 /* segmented (settings lingua/design + media world switch) */
 .seg { display: inline-flex; border: 1px solid var(--border-soft); border-radius: var(--radius-pill); overflow: hidden; background: var(--surface); }
