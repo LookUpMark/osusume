@@ -20,7 +20,7 @@ Storia: fino alla v1.4.x il look era "Verba" (warm minimal-editoriale Claude/Ant
 | `--bg` | `#f8f8f8` | `#161616` | canvas finestra |
 | `--surface` | `#ffffff` | `#2b2b2b` | card, popover, menu |
 | `--surface-warm` | `#e6e6e6` | `#363636` | bottoni secondary, tag, track barre, bubble assistant |
-| `--sidebar` | `#f0f0f0` | `#161616` | sidebar (translucente sotto vibrancy) |
+| `--sidebar` | `#f0f0f0` | `#161616` | sidebar (su vibrancy: `--sidebar-vibrancy` 78%/82% — solo design ZCode, solo desktop) |
 | `--input-bg` | `= --surface` | `= --surface` | campi input (in ZCode input = card) |
 | `--fg` / `--fg-2` | `#262626` / `#595959` | `#d4d4d4` / `#b3b3b3` | testo primario / muted remoto |
 | `--muted` / `--meta` | `#26262699` / `#26262666` | `#d4d4d499` / `#d4d4d44d` | foreground-subtle (60%) / subtlest (40%) |
@@ -62,12 +62,11 @@ Shell grid `240px minmax(0,1fr)`: sidebar sticky su `--sidebar` (brand tile nera
 
 ## Chrome macOS (desktop)
 
-`desktop/main.ts`, **solo su darwin** (win/linux invariati, misure da ZCODE-THEME.md §7): `titleBarStyle: "hidden"`, `trafficLightPosition: {x: 22, y: 23}`, `vibrancy: "under-window"`, `visualEffectState: "active"`, `backgroundColor: "#00000000"`. `desktop/preload.ts` marca `html[data-chrome='vibrancy']`; tutte le superfici translucide sono gated su quell'attributo:
+`desktop/main.ts`, **solo su darwin** (win/linux invariati, misure da ZCODE-THEME.md §7): `titleBarStyle: "hidden"`, `trafficLightPosition: {x: 22, y: 23}`, `vibrancy: "under-window"`, `visualEffectState: "active"`, `backgroundColor: "#00000000"`. `desktop/preload.ts` marca `html[data-chrome='vibrancy']`. Regola ferrea (lezione v1.5.0, report utente): **mai testo o contenuto sulla translucenza** — il pannello contenuto (`.main-wrap`) è sempre OPACO su `--bg`; solo la sidebar partecipa alla vibrancy, e solo col design ZCode:
 
-- `body` trasparente → la vibrancy shows through; sidebar `color-mix(--sidebar 65%, transparent)`.
-- Drag region (`-webkit-app-region: drag`) sull'header sidebar (`.brand`) + `padding-top: 48px` per i traffic lights a (22,23).
-- Build: `pnpm build:electron` bundla anche `desktop/preload.ts` → `dist-electron/preload.cjs` (CommonJS, sandbox-compatible); incluso dal pacchetto (`dist-electron/**` già nei `files`).
-- Nel web (nessun preload) il fallback è il fondo opaco equivalente: nessuna regola `[data-chrome]` si applica.
+- Inset/drag per OGNI design (il titlebar nascosto è a livello finestra): `padding-top: 48px` sui traffic lights a (22,23) + `-webkit-app-region: drag` su `.brand`.
+- Translucenza SOLO `:not([data-design='verba'])`: `body` trasparente, `.main-wrap` opaco su `--bg`, sidebar su `--sidebar-vibrancy` (light `rgba(240,240,240,.78)` / dark `rgba(13,13,15,.82)` ≈ #0d0d0f, valori derivati dalla reference visiva — le percentuali esatte non sono misurabili dall'asar).
+- In Verba e nel web (nessun preload) tutto è opaco: nessuna regola translucida si applica.
 
 ## Selettore design
 

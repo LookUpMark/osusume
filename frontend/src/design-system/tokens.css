@@ -12,6 +12,7 @@
   --surface: #ffffff;        /* card/popover/input/menu */
   --surface-warm: #e6e6e6;   /* secondary/tag */
   --sidebar: #f0f0f0;        /* sidebar */
+  --sidebar-vibrancy: rgba(240, 240, 240, 0.78); /* sidebar su vibrancy (solo desktop ZCode) */
 
   /* primo piano */
   --fg: #262626;             /* foreground = neutral-800 */
@@ -112,6 +113,7 @@
   --surface: #2b2b2b;
   --surface-warm: #363636;
   --sidebar: #161616;
+  --sidebar-vibrancy: rgba(13, 13, 15, 0.82); /* ≈ #0d0d0f sul materiale vibrancy (reference visiva) */
 
   --fg: #d4d4d4;             /* foreground = neutral-300 */
   --fg-2: #b3b3b3;
