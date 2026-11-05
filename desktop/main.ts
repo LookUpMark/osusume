@@ -109,13 +109,34 @@ async function start(): Promise<void> {
     Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }, { role: "viewMenu" }, { role: "windowMenu" }]),
   );
 
+  // chrome macOS alla ZCode (misurato: docs/design/ZCODE-THEME.md §7) — titlebar
+  // nascosta con traffic lights a (22,23), vibrancy under-window che segue lo
+  // stato focus, sfondo trasparente perché la vibrancy si veda. Win/Linux: come
+  // prima (titlebar standard, fondo opaco).
+  const chrome =
+    process.platform === "darwin"
+      ? {
+          backgroundColor: "#00000000",
+          titleBarStyle: "hidden" as const,
+          trafficLightPosition: { x: 22, y: 23 },
+          vibrancy: "under-window" as const,
+          visualEffectState: "active" as const,
+        }
+      : { backgroundColor: "#f8f8f8" };
+
   const win = new BrowserWindow({
     width: 1280,
     height: 832,
     minWidth: 960,
     minHeight: 640,
     show: false,
-    backgroundColor: "#f5f4ed",
+    webPreferences: {
+      // il preload marca html[data-chrome='vibrancy']: le superfici translucide
+      // e il drag region della sidebar si attivano solo nel desktop — nel web
+      // il fallback è il fondo opaco
+      preload: join(root, "dist-electron", "preload.cjs"),
+    },
+    ...chrome,
   });
   win.once("ready-to-show", () => win.show());
   // links (AniList pages, release downloads) open in the system browser

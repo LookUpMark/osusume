@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.ts",
     "record-fixtures": "node scripts/record-fixtures.mjs",
-    "build:electron": "esbuild desktop/main.ts --bundle --platform=node --format=esm --external:electron --outfile=dist-electron/main.mjs",
+    "build:electron": "esbuild desktop/main.ts --bundle --platform=node --format=esm --external:electron --outfile=dist-electron/main.mjs && esbuild desktop/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.cjs",
     "build:pyserver": "node scripts/build-pyserver.mjs",
     "app": "pnpm build && pnpm build:electron && electron .",
     "dist:mac": "pnpm build && pnpm build:pyserver && pnpm build:electron && electron-builder --mac",
