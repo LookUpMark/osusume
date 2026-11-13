@@ -1,87 +1,83 @@
-# DESIGN.md — design system ZCode
+# DESIGN.md — design system marcantonio-lopez
 
-Il design language di Osusume è il **tema ZCode** (light + dark), replicato dai valori **misurati** su ZCode.app v3.17.2 — fonte unica e metodologia in `docs/design/ZCODE-THEME.md`. I token canonici vivono in `frontend/src/design-system/tokens.css` (importato prima di `styles.css`); questo documento è la spec di riferimento. Vincoli architetturali in `frontend/README.md` (contratti `lib/logic/`, marker `data-od-id`, i18n).
+Il design language di Osusume è, dalla v1.6.0, il **brand "Marc'Antonio Lopez"** — unico design dell'app, senza selettore né fallback. Canone estratto con Open Design dal profilo `github.com/LookUpMark`: fonte unica, metodologia, mappatura canone→token e **deviazioni dichiarate** in `docs/design/MARCANTONIO-LOPEZ-BRAND.md`. I token canonici vivono in `frontend/src/design-system/tokens.css` (importato prima di `styles.css`); questo documento è la spec di riferimento. Vincoli architetturali in `frontend/README.md` (contratti `lib/logic/`, marker `data-od-id`, i18n).
 
-Storia: fino alla v1.4.x il look era "Verba" (warm minimal-editoriale Claude/Anthropic, serif). Dalla migrazione ZCode il look Verba **resta selezionabile** da Impostazioni → Design (o `localStorage['osusume-design'] = 'verba'`); la sua spec è in coda a questo documento.
+Storia: v1.4.x = "Verba" (warm minimal-editoriale Claude/Anthropic) · v1.5.x = tema "ZCode" misurato da ZCode.app (Verba selezionabile) · **v1.6.0 = brand marcantonio-lopez, unico e esclusivo** — il selettore Design in Impostazioni è stato rimosso insieme ai temi precedenti (`localStorage['osusume-design']` non è più letto; valori residui sono innocui).
 
-## Principi (da ZCode)
+## Principi (dal canone di brand)
 
-1. **Monocromo + focus sky.** Superfici su grigia neutra proprietaria (`#0d0d0d`-based in light, `#161616/#202020/#2b2b2b/#363636` in dark); il primario è il foreground invertito (nero in light, bianco in dark). L'UNICO colore di brand è il sky `#00a6f4/#00bcff`, e serve **solo** al focus ring — mai a selezioni o stati attivi.
-2. **Selezione neutra.** Hover e selezione sono il token neutro (`--hover-bg` 5%, `--selected-bg` 5–10% del foreground inverso): nessuna tinta, nessun blu. È la firma del tema.
-3. **Superfici piatte.** Card = fondo + bordo 1px `--border`, nessuna ombra; le ombre (`shadow-md`) sono riservate agli overlay (dropdown, dialog, toast).
-4. **Tinte derivate.** Badge e banner derivano dai semantici via `color-mix(... transparent 88–94%)` — nessun nuovo colore.
-5. **Sistema, non webfont.** Stack `ui-sans-serif/system-ui` (SF su macOS) per display e corpo; `ui-monospace…` per numeri tabulari e meta.
-6. **Due assi indipendenti.** `data-theme` (light/dark, persistito in `osusume-theme`) × `data-design` (zcode/verba, persistito in `osusume-design`), entrambi su `<html>`, letti al bootstrap accanto a `prefers-color-scheme`.
+1. **Paper bianco, surface grigia.** Canvas pagina `#ffffff` light / `#131311` dark; card e sidebar su `--surface` `#f5f5f5`/`#1c1c1a`, delineate dal bordo 1px hairline. Canvas *warm neutral, not beige*.
+2. **Un solo accent, usato con parsimonia.** Il rosso `#d43511` (coral `#ff6b4f` in dark) è l'unico colore di brand: punteggi, chip gem, icone attive, barre dato, tinta di selezione. **I bottoni primari sono ink** (nero/bianco invertito), non rossi. Link e focus informativi al secondario blu `#023b95`.
+3. **Selezione = tinta accent.** `--selected-bg` è l'accent-tint del canone (`#fdecea` light / `#2a110b` dark) con testo `--selected-fg` accent-strong; hover resta neutro. È la firma del brand (sostituisce la "selezione neutra" del tema ZCode).
+4. **Superfici piatte, ombre leggerissime.** Card = fondo + bordo 1px, nessuna ombra; le ombre (molto leggere) sono riservate agli overlay (dropdown, dialog, toast). Niente gradienti dominanti, niente glassmorphism.
+5. **Inter self-hosted.** `@font-face` OFL in tokens.css (`public/fonts/`, 400/600/700, `font-display: swap`), fallback system-ui; mono per numeri tabulari e meta.
+6. **Un asse: light/dark.** `data-theme` su `<html>` (persistito in `osusume-theme`, default da `prefers-color-scheme`). Dark **progettato a parte** (carta calda `#131311`, coral `#ff6b4f`), non inversione. Niente asse design.
 
-## Palette (light = zai-light, dark = zai-dark — hex misurati)
+## Palette (light + dark, hex canonici)
 
 | Token | Light | Dark | Uso |
 | --- | --- | --- | --- |
-| `--bg` | `#f8f8f8` | `#161616` | canvas finestra |
-| `--surface` | `#ffffff` | `#2b2b2b` | card, popover, menu |
-| `--surface-warm` | `#e6e6e6` | `#363636` | bottoni secondary, tag, track barre, bubble assistant |
-| `--sidebar` | `#f0f0f0` | `#161616` | sidebar (su vibrancy: `--sidebar-vibrancy` 78%/82% — solo design ZCode, solo desktop) |
-| `--input-bg` | `= --surface` | `= --surface` | campi input (in ZCode input = card) |
-| `--fg` / `--fg-2` | `#262626` / `#595959` | `#d4d4d4` / `#b3b3b3` | testo primario / muted remoto |
-| `--muted` / `--meta` | `#26262699` / `#26262666` | `#d4d4d499` / `#d4d4d44d` | foreground-subtle (60%) / subtlest (40%) |
-| `--border` / `--border-soft` / `--border-hover` | `#0d0d0d1a` / idem / `#0d0d0d26` | `#ffffff1a` / idem / `#ffffff26` | bordo standard (= input-border in ZCode) / hover |
-| `--hover-bg` / `--selected-bg` / `--selected-fg` | `#0d0d0d0d` / `#0d0d0d0d` / `= --fg` | `#ffffff0d` / `#ffffff1a` / `= --fg` | hover generico / selezione neutra |
-| `--user-bubble` | `#0d0d0d0d` | `#ffffff14` | bolla messaggio utente (coda 2px in alto a destra) |
-| `--accent` / `--accent-on` | `#000000` / `#ffffff` | `#ffffff` / `#000000` | bottone primario (primary) |
-| `--brand` | `#00a6f4` (sky-500) | `#00bcff` (sky-400) | SOLO focus ring |
-| `--success` / `--warn` / `--danger` | `#1e8a3e` / `#e07b00` / `#e03131` | `#46bf72` / `#ff8a30` / `#ff5c5c` | semantici (destructive = danger reale) |
+| `--bg` | `#ffffff` | `#131311` | canvas finestra (paper) |
+| `--surface` / `--sidebar` | `#f5f5f5` | `#1c1c1a` | card, hero, chat panel, sidebar |
+| `--surface-warm` | `#ececec` | `#22221e` | bottoni secondary, tag, track barre, bubble assistant |
+| `--input-bg` / `--mark-bg` | `#ffffff` | `#1f1f1b` | campi input e tile marchio = raised |
+| `--fg` / `--fg-2` | `#000000` / `#3d3d3d` | `#f5f5f0` / `#c4c2b9` | testo primario / secondario (v. deviazione 1) |
+| `--muted` / `--meta` | `#8c8c8c` / `#8c8c8c99` | `#a3a3a3` / `#a3a3a380` | etichette, small, placeholder |
+| `--border` / `--border-soft` / `--border-hover` | `#dbdbdb` / `#e8e8e8` / `#c6c6c6` | `#303030` / `#2a2a27` / `#3f3f38` | hairline canonica / alleggerita / rinforzata |
+| `--hover-bg` | `#0000000a` | `#ffffff0f` | hover neutro |
+| `--selected-bg` / `--selected-fg` | `#fdecea` / `#d43511` | `#2a110b` / `#ff6b4f` | selezione = tinta accent (canone) |
+| `--user-bubble` | `#0000000d` | `#ffffff14` | bolla utente (coda 2px in alto a destra) |
+| `--accent` / `--accent-on` | `#d43511` / `#ffffff` | `#ff6b4f` / `#14140f` | accent (uso parsimone) |
+| `--accent-hover` / `--accent-active` | `#e05b36` / `#ad1f05` | mix white 12% / black 8% | scala primaria 10-step |
+| `--accent-secondary` | `#023b95` (anche dark) | idem | link (chat markdown) |
+| `--btn-primary-bg` / `-fg` | `#000000` / `#ffffff` | `#f5f5f0` / `#14140f` | **bottone primario = ink** (canone) |
+| `--brand` | `#d43511` | `#ff6b4f` | SOLO focus ring (canone: focus = accent) |
+| `--mark-fg` / `--mark-accent` | `#242629` / `#829f68` | `#f5f5f0` / `#829f68` | line-art torii + dettaglio sage |
+| `--success` / `--warn` / `--danger` | `#389e0d` / `#d48806` / `#d9363d` | `#64b537` / `#dcaa37` / `#dc6966` | semantici, varianti contrast-safe per testo |
 
-Accent hover/active: `color-mix(in oklab, var(--accent), transparent 20%/10%)` (equivalente di `bg-primary/80` e `/90`). Focus: `--focus-ring = 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%)` + input focus `border-color: var(--brand)`.
+Focus: `--focus-ring = 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%)` + input focus `border-color: var(--brand)`. Hover/active del primario: `color-mix` verso il fg del bottone.
 
 ## Tipografia
 
-- `--font-display` = `--font-body` = `ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", …` — **niente serif**: anche h1/h2/h3 usano il font di corpo (weight 600, come i titoli ZCode semibold).
-- `--font-mono` = `ui-monospace, SFMono-Regular, Menlo, …` — numeri tabulari (`.mono`, `.stat .num`, score), meta, log.
-- Scala app invariata: `--text-xs 10 · sm 14 · base 16 · lg 20 · xl 25 · 2xl 32 · 3xl 52 · 4xl 64` (la scala `ui-*` fluida di ZCode parte da 14px: è una misura dell'app host, non adottata). `.eyebrow`: xs uppercase ls 0.5px.
+- `--font-display` = `--font-body` = `"Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif`; `--font-mono` = `ui-monospace, SFMono-Regular, Menlo, …`. Inter 400/600/700 self-hosted con preload (index.html).
+- Scala canonica adattata all'app: `--text-xs 11 · sm 14 · base 17 · lg 24 · xl 28 · 2xl 32 · 3xl 40 · 4xl 56` (meta 11 / small 14 / body 17 / h3 24 / h2 32 / h1 40 / display 56 — v. deviazione 2). `--leading-body 1.55`, `--leading-tight 1.2`, `--tracking-display -0.02em`. `.eyebrow`: xs uppercase ls 0.5px.
 
 ## Spacing, raggi, ombre, motion
 
-- Spacing: `--space-1..12` = 4, 8, 12, 16, 20, 24, 32, 48 (invariato).
-- Raggi (scala misurata): `--radius-sm 6` (btn, badge, chip — rounded-md) · `md 8` (card, hero, toast, chat panel — rounded-lg) · `xl 12` (input, bubble chat — rounded-xl) · `lg 16` (dialog, login — rounded-2xl) · `pill 9999` (filtri, barre).
-- Ombre: `--elev-raised` = `shadow-md` ZCode (`0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a`) solo su overlay (`top-results`, `#toast`, `.dlg`, `.login`); card e griglie piatte. `--elev-ring` resta disponibile.
-- Motion: `--motion-fast 150ms` (= `--default-transition-duration` ZCode .15s) · `--motion-base 200ms` · `--ease-standard cubic-bezier(0.4, 0, 0.2, 1)`; `prefers-reduced-motion` spegne tutto.
-- Z-index: onboarding/wizard 40 · bottombar 50 · toast/dropdown 60 · login 100.
+- Spacing: `--space-1..8,12` = 4, 8, 12, 16, 20, 24, 32, 48 (invariato — griglia base 4px, deviazione 5).
+- Raggi: `--radius-sm 6` (btn, badge, chip) · `md 8` (card, hero, toast, chat panel — **radius canon**) · `xl 12` (input, bubble) · `lg 12` (= xl, dialog/login; il 16 del tema precedente è caduto) · `pill 9999` (filtri, barre).
+- Ombre: `--elev-raised` leggerissima (`0 1px 2px + 0 8px 24px` a 5–6% light, 40–50% dark) solo su overlay (`top-results`, `#toast`, `.dlg`, `.login`); card e griglie piatte (deviazione 3). `--elev-ring` resta disponibile.
+- Motion: `--motion-fast 120ms` · `--motion-base 200ms` · `--ease-standard cubic-bezier(0.2, 0.65, 0.2, 1)` (canone app); `prefers-reduced-motion` spegne tutto.
+- Z-index: onboarding/wizard 40 · bottombar 50 · toast/dropdown 60 · login 100 (invariato).
 - Barre: dato = pill 6px · processo = pill 10px. Poster sempre `550/780`.
 
 ## Primitive (tokens.css)
 
-- **Bottoni** sulla geometria ZCode misurata: `.btn` = default size `h-7` → **min-height 28px**, padding orizzontale 8px (`px-2`), gap 4px, radius 6px, testo 14px weight 500; `.btn-primary` = `bg-primary` (nero/bianco) senza ring; `.btn-secondary` = `bg-secondary` + hover `transparent 20%`; `.btn-ghost` = testo fg + hover `--hover-bg`; `.btn-sm` = sm `h-6` 24px radius 4px. Active `translateY(1px)` mantenuto.
-- **Badge** sulla geometria tag ZCode: radius 6px, padding 2px/6px, sentence case (niente uppercase), tinte `color-mix` dai semantici invariate (gem=accent, entry=fg-2).
-- **Card**: surface + border 1px + radius 8, flat (nessuna ombra).
-- **Toast**: superficie `--surface` + bordo + `shadow-md` (token toast ZCode), bottom 28, auto-hide 2600ms.
-- **Skeleton**: shimmer invariato su `--surface-warm`.
+- **Bottoni**: geometria compatta v1.5 mantenuta — `.btn` min-height 28px, padding orizzontale 8px, gap 4px, radius 6px, testo 14px weight 500; **`.btn-primary` = ink** (`--btn-primary-*`); `.btn-secondary` = `--surface-warm`; `.btn-ghost` = testo fg + hover neutro; `.btn-sm` 24px radius 4px. Active `translateY(1px)`.
+- **Badge**: radius 6px, padding 2px/6px, sentence case, tinte `color-mix` dai token (gem/badge-accent = accent rosso, entry = fg-2).
+- **Card**: surface + border 1px + radius 8, flat.
+- **Toast**: superficie + bordo + ombra leggera, bottom 28, auto-hide 2600ms.
+- **Skeleton**: shimmer su `--surface-warm` (invariato).
 
-## Layout (invariato come struttura)
+## Layout (struttura invariata)
 
-Shell grid `240px minmax(0,1fr)`: sidebar sticky su `--sidebar` (brand tile nera + nav 7 voci min-height 44, `aria-current` = `--selected-bg` neutra + peso 500; footer con card stato LLM, toggle local-mode, chip update, media-seg, switch lingua). Main centrato max 1040px con utility header e screen-head per vista (titoli ora sans 600). ≤900px: sidebar nascosta, bottombar mobile fixed. Impostazioni/Evita vincolate e centrate (760/860px).
+Shell grid `240px minmax(0,1fr)`: sidebar sticky su `--sidebar` (tile marchio 36px con bordo hairline + torii line-art ink/kasagi sage, nav 7 voci min-height 44, `aria-current` = `--selected-bg` tinta accent + `--selected-fg` + peso 500; footer con card stato LLM, toggle local-mode, chip update, media-seg, switch lingua). Main centrato max 1040px con utility header e screen-head per vista. ≤900px: sidebar nascosta, bottombar mobile fixed. Impostazioni/Evita vincolate e centrate (760/860px).
 
 ## Chrome macOS (desktop)
 
-`desktop/main.ts`, **solo su darwin** (win/linux invariati, misure da ZCODE-THEME.md §7): `titleBarStyle: "hidden"`, `trafficLightPosition: {x: 22, y: 23}`, `vibrancy: "under-window"`, `visualEffectState: "active"`, `backgroundColor: "#00000000"`. `desktop/preload.ts` marca `html[data-chrome='vibrancy']`. Regola ferrea (lezione v1.5.0, report utente): **mai testo o contenuto sulla translucenza** — il pannello contenuto (`.main-wrap`) è sempre OPACO su `--bg`; solo la sidebar partecipa alla vibrancy, e solo col design ZCode:
-
-- Inset/drag per OGNI design (il titlebar nascosto è a livello finestra): `padding-top: 48px` sui traffic lights a (22,23) + `-webkit-app-region: drag` su `.brand`.
-- Translucenza SOLO `:not([data-design='verba'])`: `body` trasparente, `.main-wrap` opaco su `--bg`, sidebar su `--sidebar-vibrancy` (light `rgba(240,240,240,.78)` / dark `rgba(13,13,15,.82)` ≈ #0d0d0f, valori derivati dalla reference visiva — le percentuali esatte non sono misurabili dall'asar).
-- In Verba e nel web (nessun preload) tutto è opaco: nessuna regola translucida si applica.
-
-## Selettore design
-
-Impostazioni → Design: segmented ZCode/Verba (`.set-row` + `.seg`, come lingua/media). Stato in `App.tsx` (`useState` bootstrap da `localStorage['osusume-design']`, default `zcode`), effetto che scrive `document.documentElement.dataset.design` + persistenza. Chiavi i18n `setDesignLabel/setDesignZcode/setDesignVerba` in parità en/it.
-
-## Verba (fallback selezionabile)
-
-Sotto `[data-design="verba"]` (e `[data-design="verba"][data-theme="dark"]`) i token del look precedente sono ridichiarati **verbatim** in tokens.css: palette calda (`--bg #f5f4ed`, surface `#faf9f5`, accent terracotta `#c96442`/coral `#d97757`), serif display (`Anthropic Serif`/Georgia), focus blu storico (`--brand #3898ec`, ring `rgba(56,152,236,.3)`), raggi Verba (sm 8 / md 12 / lg 16), easing `cubic-bezier(0.2,0,0,1)`, elev nebulosa. Gli alias di stato rimappano il comportamento: hover/selezione su `--surface-warm`, pill attive su tinta accent, `--input-bg = --bg`, sidebar su `--bg`. In styles.css un blocco finale ripristina le differenze di superficie/geometria non coperte dai token: card con ombra nebulosa e radius 8, btn 40px con ring primario/`#d1cfc5`, badge pill uppercase, input su fondo `--bg` radius 8, toast invertito fg/bg, bolla chat utente accent, drag region/vibrancy mai attive.
+`desktop/main.ts`, **solo su darwin**: `titleBarStyle: "hidden"`, `trafficLightPosition: {x: 22, y: 23}`, `backgroundColor: "#ffffff"` — **niente vibrancy** (il canone vieta il glassmorphism; canvas opaco su tutte le piattaforme, lezione v1.5.1 preservata). `desktop/preload.ts` marca `html[data-chrome='desktop']`: inset traffic lights (`padding-top: 48px` sulla sidebar) + `-webkit-app-region: drag` su `.brand`. Win/Linux: `backgroundColor: "#ffffff"`, titlebar standard.
 
 ## Regole d'uso
 
-1. Nuovo colore? Prima i token: se non c'è, probabilmente è una tinta (`color-mix`) di uno esistente.
-2. **Selected/attivo = token neutro** (`--selected-bg`/`--selected-fg`): mai tinte, mai blu. `--brand` (sky) esiste solo per il focus ring.
-3. Titoli weight 600 senza serif; mai display font per testo corrente o controlli.
-4. Ogni interattivo: hover (`--hover-bg`), `:focus-visible` (ring sky), target ≥44px sulle nav, disabled opacity .5.
+1. Nuovo colore? Prima i token: se non c'è, probabilmente è una tinta (`color-mix`) di uno esistente. Il rosso accent NON diventa il colore di bottoni o testo corrente.
+2. **Selected/attivo = token `--selected-*`** (tinta accent del canone); hover = neutro `--hover-bg`. `--brand` esiste solo per il focus ring.
+3. Titoli Inter weight 600, tracking display; mai il display per testo corrente o controlli.
+4. Ogni interattivo: hover (`--hover-bg`), `:focus-visible` (ring accent), target ≥44px sulle nav, disabled opacity .5.
 5. Stringhe solo via `tr(lang, …)` con parità en/it; gli aria-label si localizzano.
 6. I marker `data-od-id` (35, `frontend/od-ids.txt`) sopravvivono a ogni restyling: `pnpm build && node scripts/check-od-ids.mjs`.
-7. Il tema si tocca solo via `data-theme`/`data-design` su `<html>` + token CSS; mai colori hardcoded nei componenti o in styles.css (l'unica eccezione residua è lo scrim del dialog `rgba(0,0,0,.4)`, non tematico).
+7. Il tema si tocca solo via `data-theme` su `<html>` + token CSS; mai colori hardcoded nei componenti o in styles.css (l'unica eccezione residua è lo scrim del dialog `rgba(0,0,0,.4)`, non tematico).
+8. Il marchio (torii) si modifica solo come line-art stroke `--mark-fg` con l'unico dettaglio sage `--mark-accent` — stesso stile del logo-mark OD; niente gradienti, niente fill.
+
+## Deviazioni dal canone
+
+Tutte registrate e motivate in `docs/design/MARCANTONIO-LOPEZ-BRAND.md` §8: fg-2 schiarito in light, scala testate adattata alla densità, ombre overlay conservate ma leggere, semantici contrast-safe, spacing invariato, nessuna vibrancy, link dark su `#023b95`.

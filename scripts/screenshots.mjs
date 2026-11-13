@@ -3,9 +3,9 @@
 // :3001 with a scratch config so the real data/config.json is never touched.
 //   cd backend && uv run run_dev.py &  (porta 3000, avviata a mano prima)
 //   + electron scripts/screenshots.mjs   [il wizard server su :3001 lo spawna qui]
-// Theme/design can be forced for the whole matrix via OSUSUME_THEME (light|dark)
-// and OSUSUME_DESIGN (zcode|verba): they are written to localStorage before the
-// UI bootstraps (same keys the app itself reads: osusume-theme / osusume-design).
+// Theme can be forced for the whole matrix via OSUSUME_THEME (light|dark):
+// it is written to localStorage before the UI bootstraps (same key the app
+// itself reads: osusume-theme). Un solo design dalla v1.6.0 (marcantonio-lopez).
 import { app, BrowserWindow } from "electron";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -15,7 +15,6 @@ import { join } from "node:path";
 const OUT = new URL("../docs/screenshots/", import.meta.url).pathname;
 const REPO = new URL("..", import.meta.url).pathname;
 const THEME = process.env.OSUSUME_THEME; // "light" | "dark"
-const DESIGN = process.env.OSUSUME_DESIGN; // "zcode" | "verba"
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const waitFor = async (win, js, timeout = 90_000) => {
@@ -37,14 +36,9 @@ const waitForHealth = async (port, timeout = 30_000) => {
   throw new Error(`backend non risponde su :${port}`);
 };
 
-// persist forced theme/design BEFORE the app bootstraps (it reads them at mount)
+// persist forced theme BEFORE the app bootstraps (it reads it at mount)
 const applyPreferences = async (win) => {
-  const js = [
-    THEME ? `localStorage.setItem("osusume-theme", ${JSON.stringify(THEME)})` : "",
-    DESIGN ? `localStorage.setItem("osusume-design", ${JSON.stringify(DESIGN)})` : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
+  const js = THEME ? `localStorage.setItem("osusume-theme", ${JSON.stringify(THEME)})` : "";
   if (js) await win.webContents.executeJavaScript(js);
 };
 
