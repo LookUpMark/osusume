@@ -1,75 +1,114 @@
-/* Osusume — design system ZCode (tema misurato da ZCode.app v3.17.2, fonte
-   docs/design/ZCODE-THEME.md; spec in DESIGN.md).
-   :root = ZCode light · [data-theme='dark'] = ZCode dark · [data-design='verba']
-   ripristina il look Verba precedente (token verbatim, fallback selezionabile). */
+/* Osusume — design system marcantonio-lopez (canone di brand estratto con
+   Open Design dal profilo github.com/LookUpMark; decisione canone 2026-11-13:
+   palette misurata vince sui layer derivati). Fonte e metodologia:
+   docs/design/MARCANTONIO-LOPEZ-BRAND.md · spec in DESIGN.md.
+   :root = light · [data-theme='dark'] = dark progettato a parte, non inversione.
+   Un design unico: niente selettore, niente temi alternativi. */
 
 /* The hidden attribute must beat any component display rule. */
 [hidden] { display: none !important; }
 
+/* ─── Inter self-hosted (canone: Inter 400/600/700, OFL) ─────────────── */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-semibold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/inter-bold.woff2") format("woff2");
+}
+
 :root {
-  /* superfici (token zai-light misurati) */
-  --bg: #f8f8f8;             /* background */
-  --surface: #ffffff;        /* card/popover/input/menu */
-  --surface-warm: #e6e6e6;   /* secondary/tag */
-  --sidebar: #f0f0f0;        /* sidebar */
-  --sidebar-vibrancy: rgba(240, 240, 240, 0.78); /* sidebar su vibrancy (solo desktop ZCode) */
+  /* superfici (canone: paper bianco, surface grigia per le card, raised bianco) */
+  --bg: #ffffff;             /* paper — canvas pagina */
+  --surface: #f5f5f5;        /* card/hero/chat panel/sidebar */
+  --surface-warm: #ececec;   /* secondario/tag/track/bubble assistant (derivato: passo sotto surface) */
+  --sidebar: var(--surface); /* sidebar = surface, delineata dal bordo 1px */
 
-  /* primo piano */
-  --fg: #262626;             /* foreground = neutral-800 */
-  --fg-2: #595959;           /* remote-foreground-muted */
-  --muted: #26262699;        /* foreground-subtle (60%) */
-  --meta: #26262666;         /* foreground-subtlest (40%) */
+  /* primo piano (ink canonico; fg-2 schiarito per il testo secondario piccolo) */
+  --fg: #000000;             /* foreground canonico */
+  --fg-2: #3d3d3d;           /* testo secondario (canone muted #8c8c8c è riservato alle etichette) */
+  --muted: #8c8c8c;          /* muted canonico — etichette, small, meta */
+  --meta: #8c8c8c99;         /* subtlest: muted al 60% */
 
-  /* bordi (in ZCode input-border = border; hover = border-hover) */
-  --border: #0d0d0d1a;
-  --border-soft: #0d0d0d1a;
-  --border-hover: #0d0d0d26;
+  /* bordi (hairline canonico #dbdbdb, 1px solid) */
+  --border: #dbdbdb;
+  --border-soft: #e8e8e8;    /* derivato: hairline alleggerita */
+  --border-hover: #c6c6c6;   /* derivato: hairline rinforzata */
 
-  /* stati neutrali, MAI tintati: la selezione neutra è la firma del tema */
-  --hover-bg: #0d0d0d0d;     /* hover generico (5%) */
-  --selected-bg: #0d0d0d0d;  /* selezione item (5%, neutra) */
-  --selected-fg: var(--fg);
-  --user-bubble: #0d0d0d0d;  /* bolla messaggio utente (5%) */
+  /* stati: hover neutro, selezione = tinta accent (canone --selection-bg) */
+  --hover-bg: #0000000a;     /* neutro ~4% */
+  --selected-bg: #fdecea;    /* accent-a-tint canonico */
+  --selected-fg: #d43511;    /* accent-a-strong canonico */
+  --user-bubble: #0000000d;  /* bolla messaggio utente (5% ink) */
 
-  /* campi input (input = card in ZCode) */
-  --input-bg: var(--surface);
+  /* campi input = superficie raised (canone: raised su surface) */
+  --input-bg: #ffffff;
 
-  /* primario monocromo (primary/brand = #000 light, #fff dark) */
-  --accent: #000000;
+  /* accent rosso #d43511: USO PARSIMONE — chip gem, punteggi, icone attive,
+     barre dato, selezioni (tinta). Hover/active dalla scala primaria 10-step. */
+  --accent: #d43511;
   --accent-on: #ffffff;
-  --accent-hover: color-mix(in oklab, var(--accent), transparent 20%);
-  --accent-active: color-mix(in oklab, var(--accent), transparent 10%);
+  --accent-hover: #e05b36;   /* scala 10-step */
+  --accent-active: #ad1f05;  /* scala 10-step */
 
-  /* brand sky: SOLO per il focus ring, mai per selezioni/stati attivi */
-  --brand: #00a6f4;          /* sky-500 */
+  /* secondario/link blu (accent-secondary canonico; il rosso non è mai "info") */
+  --accent-secondary: #023b95;
+
+  /* bottone primario = ink (canone --btn-primary-*: il primario è il foreground
+     invertito, il rosso non è il colore dei bottoni) */
+  --btn-primary-bg: #000000;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-bg-hover: color-mix(in oklab, var(--btn-primary-bg), var(--btn-primary-fg) 12%);
+  --btn-primary-bg-active: color-mix(in oklab, var(--btn-primary-bg), var(--btn-primary-fg) 8%);
+
+  /* focus ring = accent (canone --focus-ring: var(--accent)) */
+  --brand: #d43511;
   --focus-ring: 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%);
 
-  /* marchio (tile torii) */
-  --mark-bg: linear-gradient(135deg, #000000, #262626);
-  --mark-fg: #ffffff;
+  /* marchio (tile torii): line-art ink su tile raised flat, dettaglio sage —
+     lo stile del logo-mark OD (#242629 stroke + accento #829F68). Niente gradienti. */
+  --mark-bg: #ffffff;
+  --mark-fg: #242629;
+  --mark-accent: #829f68;
 
-  /* semantici (success/warning/destructive misurati) */
-  --success: #1e8a3e;
-  --warn: #e07b00;
-  --danger: #e03131;
+  /* semantici: varianti contrast-safe per il testo (canone: #52c41a su bianco
+     è ~2:1, mai come testo) */
+  --success: #389e0d;
+  --warn: #d48806;
+  --danger: #d9363d;
 
-  /* font di sistema (stack zai misurato; niente serif) */
-  --font-display: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-body: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", monospace;
+  /* font: Inter self-hosted (canone) */
+  --font-display: "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --text-xs: 10px;
+  /* scala tipo (canone: meta 11 · small 14 · body 17 · h3 24 · h2 32 · h1 40 · display 56) */
+  --text-xs: 11px;
   --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 20px;
-  --text-xl: 25px;
+  --text-base: 17px;
+  --text-lg: 24px;
+  --text-xl: 28px;
   --text-2xl: 32px;
-  --text-3xl: 52px;
-  --text-4xl: 64px;
+  --text-3xl: 40px;
+  --text-4xl: 56px;
 
-  --leading-body: 1.6;
-  --leading-tight: 1.1;
-  --tracking-display: 0em;
+  --leading-body: 1.55;
+  --leading-tight: 1.2;
+  --tracking-display: -0.02em;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -80,20 +119,21 @@
   --space-8: 32px;
   --space-12: 48px;
 
-  /* raggi (scala zai: md 6 = btn, lg 8 = card, xl 12 = input/bubble, 2xl 16 = dialog) */
+  /* raggi (canone: 8px canon, sm 6, lg 12) */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-xl: 12px;
-  --radius-lg: 16px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
 
+  /* ombre: assenti o leggerissime (canone posture) — riservate agli overlay */
   --elev-flat: none;
   --elev-ring: 0 0 0 1px var(--border);
-  --elev-raised: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a; /* shadow-md */
+  --elev-raised: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
 
-  --motion-fast: 150ms;      /* default-transition-duration .15s */
+  --motion-fast: 120ms;
   --motion-base: 200ms;
-  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.2, 0.65, 0.2, 1);
 
   --container-max: 1200px;
   --container-gutter-desktop: 24px;
@@ -101,144 +141,59 @@
   --container-gutter-phone: 12px;
 }
 
-/* ─── Theme switching ─────────────────────────────────────────────────
-   Dark = zai-dark misurato (non derivato dal light): grigia proprietaria
-   #161616/#202020/#2b2b2b/#363636, primario invertito (bianco), semantici
-   alleggeriti per il contrasto sul dark. */
+/* ─── Dark — progettato a parte (canone [data-theme="dark"], non inversione):
+       carta calda #131311, accent coral #ff6b4f, tint #2a110b ─────────── */
 :root { color-scheme: light; }
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #161616;
-  --surface: #2b2b2b;
-  --surface-warm: #363636;
-  --sidebar: #161616;
-  --sidebar-vibrancy: rgba(13, 13, 15, 0.82); /* ≈ #0d0d0f sul materiale vibrancy (reference visiva) */
+  --bg: #131311;
+  --surface: #1c1c1a;
+  --surface-warm: #22221e;   /* canone ghost-hover dark: passo interattivo */
+  --sidebar: var(--surface);
 
-  --fg: #d4d4d4;             /* foreground = neutral-300 */
-  --fg-2: #b3b3b3;
-  --muted: #d4d4d499;
-  --meta: #d4d4d44d;
+  --fg: #f5f5f0;
+  --fg-2: #c4c2b9;
+  --muted: #a3a3a3;
+  --meta: #a3a3a380;
 
-  --border: #ffffff1a;
-  --border-soft: #ffffff1a;
-  --border-hover: #ffffff26;
+  --border: #303030;
+  --border-soft: #2a2a27;
+  --border-hover: #3f3f38;   /* hairline-strong canonico */
 
-  --hover-bg: #ffffff0d;     /* 5% */
-  --selected-bg: #ffffff1a;  /* 10%, neutra */
-  --selected-fg: var(--fg);
-  --user-bubble: #ffffff14;  /* 8% */
+  --hover-bg: #ffffff0f;
+  --selected-bg: #2a110b;    /* accent-a-tint dark canonico */
+  --selected-fg: #ff6b4f;
+  --user-bubble: #ffffff14;
 
-  --accent: #ffffff;
-  --accent-on: #000000;
-  --accent-hover: color-mix(in oklab, var(--accent), transparent 20%);
-  --accent-active: color-mix(in oklab, var(--accent), transparent 10%);
+  --input-bg: #1f1f1b;       /* raised canonico */
 
-  --brand: #00bcff;          /* sky-400, più chiaro per il dark */
+  --accent: #ff6b4f;
+  --accent-on: #14140f;      /* canone btn-primary-fg dark: testo scuro sul coral */
+  --accent-hover: color-mix(in oklab, var(--accent), white 12%);
+  --accent-active: color-mix(in oklab, var(--accent), black 8%);
+
+  /* il secondario resta #023b95 in dark (canone assets/tokens.css: non
+     ridefinito; la variante link #1a4a8c vive solo nel layer system/) */
+  --accent-secondary: #023b95;
+
+  --btn-primary-bg: #f5f5f0; /* canone: primario = ink invertito */
+  --btn-primary-fg: #14140f;
+  --btn-primary-bg-hover: #ffffff;
+  --btn-primary-bg-active: #dfdfda;
+
+  --brand: #ff6b4f;
   --focus-ring: 0 0 0 3px color-mix(in oklab, var(--brand), transparent 70%);
 
-  --mark-bg: linear-gradient(135deg, #ffffff, #d4d4d4);
-  --mark-fg: #000000;
+  --mark-bg: #1f1f1b;
+  --mark-fg: #f5f5f0;
+  --mark-accent: #829f68;
 
-  --success: #46bf72;
-  --warn: #ff8a30;
-  --danger: #ff5c5c;
+  --success: #64b537;
+  --warn: #dcaa37;
+  --danger: #dc6966;
 
-  --elev-raised: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a;
-}
-
-/* ─── Look Verba (fallback selezionabile) ─────────────────────────────
-   Ridichiarazione VERBATIM dei token del design precedente (warm
-   minimal-editorial Claude/Anthropic), più gli alias di stato mappati
-   sul look Verba (hover/selected su superfici calde, focus blu storico). */
-[data-design="verba"] {
-  --bg: #f5f4ed;
-  --surface: #faf9f5;
-  --surface-warm: #e8e6dc;
-  --sidebar: var(--bg);
-
-  --fg: #141413;
-  --fg-2: #3d3d3a;
-  --muted: #5e5d59;
-  --meta: #87867f;
-
-  --border: #f0eee6;
-  --border-soft: #e8e6dc;
-  --border-hover: var(--meta);
-
-  --hover-bg: var(--surface-warm);
-  --selected-bg: var(--surface-warm);
-  --selected-fg: var(--fg);
-  --user-bubble: var(--accent);
-
-  --input-bg: var(--bg);
-
-  --accent: #c96442;
-  --accent-on: #faf9f5;
-  --accent-hover: color-mix(in oklab, var(--accent), black 8%);
-  --accent-active: color-mix(in oklab, var(--accent), black 14%);
-
-  --brand: #3898ec;
-  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.3);
-
-  --mark-bg: linear-gradient(135deg, #23211c, #151412);
-  --mark-fg: #d97757;
-
-  --success: #17a34a;
-  --warn: #eab308;
-  --danger: #b53333;
-
-  --font-display: "Anthropic Serif", Georgia, "Times New Roman", serif;
-  --font-body: "Anthropic Sans", "Arial", system-ui, -apple-system, sans-serif;
-  --font-mono: "Anthropic Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
-
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-xl: 12px;
-  --radius-lg: 16px;
-
-  --elev-raised: rgba(0, 0, 0, 0.05) 0px 4px 24px;
-
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-}
-[data-design="verba"][data-theme="dark"] {
-  --bg: #1f1e1b;            /* warm near-black page ground */
-  --surface: #262521;       /* cards, warm charcoal */
-  --surface-warm: #30302e;  /* Dark Surface — buttons, interactive */
-  --sidebar: var(--bg);
-
-  --fg: #faf9f5;            /* Ivory text */
-  --fg-2: #e8e6dc;
-  --muted: #b0aea5;         /* Warm Silver */
-  --meta: #87867f;
-
-  --border: #30302e;        /* Border Dark */
-  --border-soft: #3d3c38;
-  --border-hover: var(--meta);
-
-  --hover-bg: var(--surface-warm);
-  --selected-bg: var(--surface-warm);
-  --selected-fg: var(--fg);
-  --user-bubble: var(--accent);
-
-  --input-bg: var(--bg);
-
-  --accent: #d97757;        /* Coral Accent — the dark-surface accent of the palette */
-  --accent-on: #141413;     /* dark text on coral: ~7:1 */
-  --accent-hover: color-mix(in oklab, var(--accent), white 12%);
-  --accent-active: color-mix(in oklab, var(--accent), white 18%);
-
-  --brand: #3898ec;
-  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.3);
-
-  --mark-bg: linear-gradient(135deg, #23211c, #151412);
-  --mark-fg: #d97757;
-
-  --success: #2aa65a;       /* lightened for ≥4.5:1 on dark */
-  --warn: #eab308;
-  --danger: #e0685a;        /* lightened warm red for ≥4.5:1 on dark */
-
-  --elev-raised: rgba(0, 0, 0, 0.35) 0px 4px 24px;
+  --elev-raised: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────── */
@@ -289,7 +244,7 @@ h3 { font-size: var(--text-lg); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ─── Primitive: bottoni (geometria ZCode: h-7 28px, px-2, rounded-md) ─ */
+/* ─── Primitive: bottoni (geometria compatta v1.5 mantenuta: h-7 28px, px-2) ── */
 .btn {
   display: inline-flex; align-items: center; gap: var(--space-1);
   padding: 0 var(--space-2);
@@ -301,9 +256,9 @@ h3 { font-size: var(--text-lg); }
 }
 .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--accent); color: var(--accent-on); }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-primary:active { background: var(--accent-active); }
+.btn-primary { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+.btn-primary:hover { background: var(--btn-primary-bg-hover); }
+.btn-primary:active { background: var(--btn-primary-bg-active); }
 .btn-secondary { background: var(--surface-warm); color: var(--fg); }
 .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), transparent 20%); }
 .btn-ghost { background: transparent; color: var(--fg); }
@@ -311,7 +266,7 @@ h3 { font-size: var(--text-lg); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .btn-sm { padding: 0 var(--space-2); min-height: 24px; font-size: var(--text-xs); border-radius: 4px; }
 
-/* ─── Primitive: badge / chip (geometria tag ZCode: rounded-md, sentence case) */
+/* ─── Primitive: badge / chip (sentence case, tinte derivate dai token) ── */
 .badge,
 .chip-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -328,7 +283,7 @@ h3 { font-size: var(--text-lg); }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 
-/* ─── Primitive: card (ZCode: flat, bordo 1px, nessuna ombra) ───────── */
+/* ─── Primitive: card (flat: fondo surface + bordo 1px, nessuna ombra) ── */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -338,25 +293,3 @@ h3 { font-size: var(--text-lg); }
 
 /* ─── Primitive: fallback copertina ─────────────────────────────────── */
 .cover-fallback { display: grid; place-items: center; font-family: var(--font-display); font-size: 28px; color: var(--fg-2); }
-
-/* ─── Look Verba: geometria primitive com'era (btn 40px, badge pill) ── */
-[data-design="verba"] h1, [data-design="verba"] h2, [data-design="verba"] h3 { font-weight: 500; }
-[data-design="verba"] .btn { gap: var(--space-2); padding: 9px 16px 9px 12px; min-height: 40px; }
-[data-design="verba"] .btn-sm { padding: 6px 10px; min-height: 32px; border-radius: var(--radius-sm); }
-[data-design="verba"] .btn-primary { box-shadow: var(--accent) 0 0 0 1px; }
-[data-design="verba"] .btn-secondary { color: var(--fg-2); box-shadow: #d1cfc5 0 0 0 1px; }
-[data-design="verba"][data-theme="dark"] .btn-secondary { box-shadow: var(--border-soft) 0 0 0 1px; }
-[data-design="verba"] .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), black 4%); }
-[data-design="verba"][data-theme="dark"] .btn-secondary:hover { background: color-mix(in oklab, var(--surface-warm), white 6%); }
-[data-design="verba"] .badge,
-[data-design="verba"] .chip-badge {
-  padding: 3px 10px; border-radius: var(--radius-pill);
-  line-height: 1.6; text-transform: uppercase; letter-spacing: 0.12px;
-}
-[data-design="verba"] .chip-badge { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
-[data-design="verba"] .chip-badge.entry { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
-[data-design="verba"] .badge-muted { color: var(--muted); background: color-mix(in oklab, var(--muted), transparent 88%); }
-[data-design="verba"] .card {
-  border-radius: var(--radius-sm);
-  box-shadow: var(--elev-raised);
-}

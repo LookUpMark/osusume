@@ -1,8 +1,8 @@
 
 /* ─────────────────────────────────────────────────────────────────────
-   Osusume — product styles sul design system ZCode
+   Osusume — product styles sul design system marcantonio-lopez
    (i token e le primitive .btn/.badge/.card vivono in tokens.css;
-   il fallback Verba è sotto [data-design='verba'])
+   un solo design, nessun fallback tematico)
    ───────────────────────────────────────────────────────────────────── */
 
 /* ── app shell ───────────────────────────────────────────────── */
@@ -17,7 +17,7 @@
 .view:not([hidden]) { animation: screen-in var(--motion-base) var(--ease-standard); }
 @keyframes screen-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* ── sidebar (fondo sidebar ZCode, testuale 240px) ────────────── */
+/* ── sidebar (fondo surface, testuale 240px) ─────────────────── */
 .sidebar {
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   display: flex; flex-direction: column;
@@ -30,9 +30,13 @@
 .brand-mark {
   width: 36px; height: 36px; border-radius: var(--radius-sm); flex: none;
   background: var(--mark-bg);
+  border: 1px solid var(--border);
   color: transparent; display: grid; place-items: center;
 }
 .brand-mark svg { width: 20px; height: 20px; stroke: var(--mark-fg); }
+/* dettaglio sage del marchio (stile logo-mark OD: un solo elemento colorato) */
+.brand-mark svg .mark-accent, .wizard-brand svg .mark-accent { stroke: var(--mark-accent); }
+.welcome .mark .mark-accent { stroke: var(--mark-accent); }
 .brand-name { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 500; color: var(--fg); line-height: 1.1; display: block; }
 .brand-tag { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
@@ -48,8 +52,8 @@
 .nav button .icon { color: var(--muted); }
 .nav button:hover { background: var(--hover-bg); }
 .nav button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-/* selezione neutra (token --selected-bg): mai tinte, MAI blu */
-.nav button[aria-current="true"] { background: var(--selected-bg); color: var(--fg); font-weight: 500; }
+/* selezione = tinta accent (canone --selection-bg/--selection-fg) */
+.nav button[aria-current="true"] { background: var(--selected-bg); color: var(--selected-fg); font-weight: 500; }
 .nav button[aria-current="true"] .icon { color: var(--accent); }
 
 .sidebar-foot { margin-top: auto; display: grid; gap: var(--space-3); }
@@ -77,20 +81,14 @@
 .foot-link .icon { width: 14px; height: 14px; }
 .upd-chip { color: var(--accent); }
 
-/* chrome macOS (solo sotto [data-chrome='vibrancy'], marcato dal preload
+/* chrome macOS (solo sotto [data-chrome='desktop'], marcato dal preload
    desktop): inset per i traffic lights (22,23) e drag region sull'header
-   sidebar — valgono per OGNI design perché il titlebar nascosto è a livello
-   finestra. La translucenza invece è SOLO del design ZCode: la sidebar
-   partecipa alla vibrancy under-window, il pannello contenuto (.main-wrap)
-   resta OPACO su --bg — mai testo sulla translucenza. Nel web e in Verba
-   tutto è opaco come prima. */
-[data-chrome="vibrancy"] .sidebar { padding-top: 48px; }
-[data-chrome="vibrancy"] .sidebar .brand { -webkit-app-region: drag; }
-[data-chrome="vibrancy"]:not([data-design="verba"]) body { background: transparent; }
-[data-chrome="vibrancy"]:not([data-design="verba"]) .main-wrap { background: var(--bg); }
-[data-chrome="vibrancy"]:not([data-design="verba"]) .sidebar { background: var(--sidebar-vibrancy); }
+   sidebar — il titlebar nascosto è a livello finestra. Tutto il resto è
+   OPACO: il brand non usa translucenza (v1.6.0, canone "no glassmorphism"). */
+[data-chrome="desktop"] .sidebar { padding-top: 48px; }
+[data-chrome="desktop"] .sidebar .brand { -webkit-app-region: drag; }
 
-/* segmented (settings lingua/design + media world switch) */
+/* segmented (settings lingua + media world switch) */
 .seg { display: inline-flex; border: 1px solid var(--border-soft); border-radius: var(--radius-pill); overflow: hidden; background: var(--surface); }
 .seg button {
   background: none; border: none; color: var(--muted); font: inherit; font-size: var(--text-xs);
@@ -332,7 +330,7 @@
 .state-box .big { font-family: var(--font-display); color: var(--fg); font-size: var(--text-lg); margin: 0 0 6px; }
 .state-box button { margin-top: var(--space-3); justify-self: center; }
 .welcome { padding: var(--space-12) var(--space-6); }
-.welcome .mark { width: 64px; height: 64px; margin: 0 auto var(--space-4); color: var(--accent); opacity: 0.9; }
+.welcome .mark { width: 64px; height: 64px; margin: 0 auto var(--space-4); color: var(--mark-fg); opacity: 0.9; }
 .welcome .big { font-size: var(--text-xl); }
 .welcome .hint { margin: var(--space-2) auto 0; max-width: 380px; font-size: var(--text-sm); color: var(--muted); }
 
@@ -364,7 +362,7 @@
 .local-banner .foot-link { flex: none; color: var(--fg-2); font-size: var(--text-sm); text-decoration: underline; text-underline-offset: 3px; }
 .local-banner .foot-link:hover { background: color-mix(in oklab, var(--warn), transparent 80%); }
 
-/* toast (superficie ZCode + shadow-md) */
+/* toast (superficie + ombra leggera) */
 #toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(16px);
   background: var(--surface); color: var(--fg); border: 1px solid var(--border);
@@ -594,7 +592,7 @@
 .chat-msg { max-width: 78%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-xl); font-size: var(--text-sm); line-height: 1.5; }
 .chat-msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-msg.assistant { align-self: flex-start; background: var(--surface-warm); color: var(--fg); border-bottom-left-radius: 4px; }
-/* bolla utente ZCode: superficie alzata + bordo, firma = coda 2px in alto a destra */
+/* bolla utente: superficie alzata + bordo, firma = coda 2px in alto a destra */
 .chat-msg.user {
   align-self: flex-end; background: var(--user-bubble); color: var(--fg);
   border: 1px solid var(--border); border-top-right-radius: 2px;
@@ -620,7 +618,7 @@
 .chat-md p + p, .chat-md ul { margin-top: var(--space-2); }
 .chat-md ul { padding-left: 18px; }
 .chat-md li { margin: 3px 0; }
-.chat-md a { text-decoration: underline; text-underline-offset: 2px; color: var(--accent); }
+.chat-md a { text-decoration: underline; text-underline-offset: 2px; color: var(--accent-secondary); }
 
 /* typing dots (blink scaglionato) */
 .dots { display: inline-flex; gap: 4px; align-items: center; margin-right: var(--space-2); }
@@ -666,56 +664,3 @@
   .utility { gap: var(--space-2); }
   .search { max-width: none; }
 }
-
-/* ── look Verba (fallback selezionabile): differenze di superficie ── */
-[data-design="verba"] .sidebar { border-right-color: var(--border-soft); }
-[data-design="verba"] .sidebar-stats { border-radius: var(--radius-md); box-shadow: var(--elev-raised); }
-[data-design="verba"] .hero { box-shadow: var(--elev-raised); }
-[data-design="verba"] .hero .eyebrow { color: var(--accent); }
-[data-design="verba"] .panel h3 .sign { color: var(--accent); }
-[data-design="verba"] .mcard { border-radius: var(--radius-sm); box-shadow: var(--elev-raised); transition: border-color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard); }
-[data-design="verba"] .mcard .poster { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-[data-design="verba"] .mcard:focus-visible { border-color: var(--accent); box-shadow: var(--accent) 0 0 0 1px, var(--focus-ring); }
-[data-design="verba"] .wizard-card { box-shadow: var(--elev-raised); }
-[data-design="verba"] .chat-panel { border-radius: var(--radius-md); box-shadow: var(--elev-raised); }
-[data-design="verba"] .chat-msg.user {
-  background: var(--accent); color: var(--accent-on); border: none;
-  border-radius: var(--radius-md); border-bottom-right-radius: 4px;
-}
-[data-design="verba"] .chat-card:hover { border-color: var(--accent); background: var(--surface); }
-[data-design="verba"] .top-results { border-radius: var(--radius-sm); }
-[data-design="verba"] .top-results .chat-card:hover { background: var(--surface-warm); }
-[data-design="verba"] .search input,
-[data-design="verba"] .login-form input,
-[data-design="verba"] .action-row input,
-[data-design="verba"] .set-form input,
-[data-design="verba"] .set-form select,
-[data-design="verba"] .set-form textarea { border-radius: var(--radius-sm); border-color: var(--border-soft); }
-[data-design="verba"] .chat-input input { border-radius: var(--radius-md); border-color: var(--border-soft); }
-[data-design="verba"] .search input:hover,
-[data-design="verba"] .car-btn:hover,
-[data-design="verba"] .scenario:hover { border-color: var(--border-hover); }
-[data-design="verba"] .pill[aria-pressed="true"],
-[data-design="verba"] .genre-chip[aria-pressed="true"] {
-  background: color-mix(in oklab, var(--accent), transparent 88%);
-  color: var(--accent); font-weight: 500;
-}
-[data-design="verba"] .scenario[aria-pressed="true"] {
-  background: transparent; border-color: var(--accent);
-  box-shadow: var(--accent) 0 0 0 1px; color: var(--accent); font-weight: 500;
-}
-[data-design="verba"] #toast { background: var(--fg); color: var(--bg); border-color: transparent; }
-[data-design="verba"] .score-tag,
-[data-design="verba"] .car-btn,
-[data-design="verba"] .wizard-steps .dot,
-[data-design="verba"] .hw-chip,
-[data-design="verba"] .model-card,
-[data-design="verba"] .joblog,
-[data-design="verba"] .bottombar { border-color: var(--border-soft); }
-[data-design="verba"] .avoid-row { border-radius: var(--radius-sm); }
-[data-design="verba"] .avoid-row img,
-[data-design="verba"] .avoid-row .cover-fallback,
-[data-design="verba"] .dlg img,
-[data-design="verba"] .dlg .cover-fallback,
-[data-design="verba"] .hero-art,
-[data-design="verba"] .hero .hero-fallback { border-radius: var(--radius-sm); border-color: var(--border-soft); }

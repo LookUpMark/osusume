@@ -109,20 +109,17 @@ async function start(): Promise<void> {
     Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }, { role: "viewMenu" }, { role: "windowMenu" }]),
   );
 
-  // chrome macOS alla ZCode (misurato: docs/design/ZCODE-THEME.md §7) — titlebar
-  // nascosta con traffic lights a (22,23), vibrancy under-window che segue lo
-  // stato focus, sfondo trasparente perché la vibrancy si veda. Win/Linux: come
-  // prima (titlebar standard, fondo opaco).
+  // chrome macOS — titlebar nascosta con traffic lights a (22,23). Dalla
+  // v1.6.0 niente vibrancy: il brand marcantonio-lopez è tutto opaco (canone
+  // "no glassmorphism"), canvas = paper #ffffff su tutte le piattaforme.
   const chrome =
     process.platform === "darwin"
       ? {
-          backgroundColor: "#00000000",
+          backgroundColor: "#ffffff",
           titleBarStyle: "hidden" as const,
           trafficLightPosition: { x: 22, y: 23 },
-          vibrancy: "under-window" as const,
-          visualEffectState: "active" as const,
         }
-      : { backgroundColor: "#f8f8f8" };
+      : { backgroundColor: "#ffffff" };
 
   const win = new BrowserWindow({
     width: 1280,
@@ -131,9 +128,9 @@ async function start(): Promise<void> {
     minHeight: 640,
     show: false,
     webPreferences: {
-      // il preload marca html[data-chrome='vibrancy']: le superfici translucide
-      // e il drag region della sidebar si attivano solo nel desktop — nel web
-      // il fallback è il fondo opaco
+      // il preload marca html[data-chrome='desktop']: inset traffic lights e
+      // drag region della sidebar si attivano solo nel desktop — nel web non
+      // servono (titlebar standard)
       preload: join(root, "dist-electron", "preload.cjs"),
     },
     ...chrome,
