@@ -75,11 +75,7 @@ export function App() {
     if (saved === "dark" || saved === "light") return saved;
     return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
-  // design ZCode (default) / Verba: persistito come il tema, letto al bootstrap
-  const [design, setDesign] = useState<"zcode" | "verba">(() =>
-    localStorage.getItem("osusume-design") === "verba" ? "verba" : "zcode",
-  );
-  // toast invertito fg/bg (pattern Verba) per feedback transienti
+  // toast invertito fg/bg per feedback transienti
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number>(undefined);
   const notify = (msg: string) => {
@@ -229,11 +225,6 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-
-  useEffect(() => {
-    document.documentElement.dataset.design = design;
-    localStorage.setItem("osusume-design", design);
-  }, [design]);
 
   const refreshHealth = () => {
     fetchHealth()
@@ -529,7 +520,7 @@ export function App() {
             ) : (
               <div className="state-box welcome" data-od-id="home-empty">
                 <svg className="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4.4 8Q12 5.4 19.6 8" />
+                  <path className="mark-accent" d="M4.4 8Q12 5.4 19.6 8" />
                   <path d="M12 6.6V9.6" />
                   <path d="M6.3 9.6h11.4" />
                   <path d="M7.7 9.6V19M16.3 9.6V19" />
@@ -699,14 +690,6 @@ export function App() {
               <div className="seg" role="group" aria-label={tr(lang, "setTitleLang")}>
                 <button type="button" aria-pressed={lang === "en"} onClick={() => setLang("en")}>EN</button>
                 <button type="button" aria-pressed={lang === "it"} onClick={() => setLang("it")}>IT</button>
-              </div>
-            </div>
-
-            <div className="set-row">
-              <span>{tr(lang, "setDesignLabel")}</span>
-              <div className="seg" role="group" aria-label={tr(lang, "setDesignLabel")}>
-                <button type="button" aria-pressed={design === "zcode"} onClick={() => setDesign("zcode")}>{tr(lang, "setDesignZcode")}</button>
-                <button type="button" aria-pressed={design === "verba"} onClick={() => setDesign("verba")}>{tr(lang, "setDesignVerba")}</button>
               </div>
             </div>
 

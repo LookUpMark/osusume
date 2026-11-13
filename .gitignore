@@ -21,3 +21,4 @@ __tmp__/
 scripts/cf/data/
 scripts/cf/osusume-cf-*.bin
 data/
+.zcode/

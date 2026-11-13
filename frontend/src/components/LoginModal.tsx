@@ -39,9 +39,13 @@ export function LoginModal(props: {
     <div className="dlg-scrim login-scrim" data-od-id="login-modal">
       <div className="login" role="dialog" aria-modal="true" aria-labelledby="login-title">
         <div className="wizard-brand" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <rect x="4" y="5" width="16" height="14" rx="2" />
-            <path d="M4 9h16M8 5v4M16 5v4" />
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            {/* torii gate — line-art brand, kasagi = unico dettaglio sage */}
+            <path className="mark-accent" d="M4.4 8Q12 5.4 19.6 8" />
+            <path d="M12 6.6V9.6" />
+            <path d="M6.3 9.6h11.4" />
+            <path d="M7.7 9.6V19M16.3 9.6V19" />
+            <path d="M5.9 14.2h12.2" />
           </svg>
         </div>
         <h1 id="login-title">{tr(lang, "loginTitle")}</h1>
