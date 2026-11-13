@@ -75,8 +75,9 @@ export function Sidebar(props: {
       <div className="brand">
         <span className="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-            {/* torii gate — the Osusume mark */}
-            <path d="M4.4 8Q12 5.4 19.6 8" />
+            {/* torii gate — the Osusume mark, line-art come il logo OD
+                (stroke ink via CSS, kasagi = unico dettaglio sage) */}
+            <path className="mark-accent" d="M4.4 8Q12 5.4 19.6 8" />
             <path d="M12 6.6V9.6" />
             <path d="M6.3 9.6h11.4" />
             <path d="M7.7 9.6V19M16.3 9.6V19" />

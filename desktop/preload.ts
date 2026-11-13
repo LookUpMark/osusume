@@ -1,9 +1,9 @@
-// Marca il documento come "chrome vibrancy": il main lo carica come BrowserWindow
-// preload (solo desktop), così in styles.css le superfici translucide e il drag
-// region della sidebar si attivano SOLO sotto html[data-chrome='vibrancy'].
-// Nel browser il preload non esiste: il fallback è il fondo opaco equivalente.
+// Marca il documento come "chrome desktop": il main lo carica come BrowserWindow
+// preload (solo desktop), così in styles.css l'inset dei traffic lights e il
+// drag region della sidebar si attivano SOLO sotto html[data-chrome='desktop'].
+// Nel browser il preload non esiste: la finestra ha la titlebar standard.
 const mark = () => {
-  document.documentElement.dataset.chrome = "vibrancy";
+  document.documentElement.dataset.chrome = "desktop";
 };
 
 if (document.readyState === "loading") {

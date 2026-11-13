@@ -133,7 +133,7 @@ export function SetupWizard(props: {
 
       <div className="wizard-brand" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4.4 8Q12 5.4 19.6 8" />
+          <path className="mark-accent" d="M4.4 8Q12 5.4 19.6 8" />
           <path d="M12 6.6V9.6" />
           <path d="M6.3 9.6h11.4" />
           <path d="M7.7 9.6V19M16.3 9.6V19" />
