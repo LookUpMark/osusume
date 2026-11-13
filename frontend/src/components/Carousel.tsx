@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 /** Horizontal snap carousel with edge-aware arrows (hidden at both ends). */
 export function Carousel(props: { label: string; prev: string; next: string; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const prevBtn = useRef<HTMLButtonElement>(null);
   const nextBtn = useRef<HTMLButtonElement>(null);
@@ -12,6 +13,8 @@ export function Carousel(props: { label: string; prev: string; next: string; chi
     const max = t.scrollWidth - t.clientWidth;
     prevBtn.current.disabled = t.scrollLeft < 8;
     nextBtn.current.disabled = t.scrollLeft > max - 8;
+    // overflow flag: fade (e frecce, via disabled) visibili solo se serve scorrere
+    if (box.current) box.current.dataset.overflow = String(t.scrollWidth > t.clientWidth + 8);
   };
 
   // niente props.children nelle dipendenze: è un array nuovo a ogni render del
@@ -22,9 +25,14 @@ export function Carousel(props: { label: string; prev: string; next: string; chi
     const t = track.current;
     t?.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    // il mount avviene spesso dentro una vista [hidden] (scrollWidth 0 → flag
+    // stale): al primo intersecare del viewport si rimisura
+    const io = new IntersectionObserver(() => update());
+    if (box.current) io.observe(box.current);
     return () => {
       t?.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      io.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -32,7 +40,7 @@ export function Carousel(props: { label: string; prev: string; next: string; chi
   const step = () => ((track.current?.querySelector<HTMLElement>(".mcard")?.offsetWidth ?? 180) + 16) * 2;
 
   return (
-    <div className="carousel" data-od-id="picks-carousel">
+    <div className="carousel" data-od-id="picks-carousel" ref={box}>
       <button
         ref={prevBtn}
         type="button"
