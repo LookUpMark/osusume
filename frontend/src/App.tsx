@@ -69,11 +69,11 @@ export function App() {
   const [setup, setSetup] = useState<SetupStatus | null | "error">(null);
   const [llmOn, setLlmOn] = useState<boolean | null>(null);
   const [model, setModel] = useState<string | null>(null);
-  // tema: preferenza persistente, default dal sistema, light di fabbrica
+  // tema: preferenza persistente; il light è il default di brand (nessun
+  // fallback prefers-color-scheme)
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("osusume-theme");
-    if (saved === "dark" || saved === "light") return saved;
-    return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return saved === "dark" || saved === "light" ? saved : "light";
   });
   // toast invertito fg/bg per feedback transienti
   const [toast, setToast] = useState<string | null>(null);
@@ -579,7 +579,7 @@ export function App() {
                       </button>
                     )}
                     <span className="spacer" />
-                    <span className="count-lbl mono">{tr(lang, "resultsLbl", { n: recos.length })}</span>
+                    <span className="count-lbl mono">{tr(lang, recos.length === 1 ? "resultsLblOne" : "resultsLbl", { n: recos.length })}</span>
                   </div>
 
                   {recos.length > 0 ? (
@@ -593,7 +593,7 @@ export function App() {
                       <p className="big">{tr(lang, "emptyBig")}</p>
                       <p>{tr(lang, "emptySub")}</p>
                       {filtersActive && (
-                        <button className="more" type="button" onClick={resetFilters}>{tr(lang, "resetFilters")}</button>
+                        <button className="btn btn-secondary" type="button" onClick={resetFilters}>{tr(lang, "resetFilters")}</button>
                       )}
                     </div>
                   )}
@@ -719,7 +719,7 @@ export function App() {
                   </button>
                 ) : (
                   <button type="button" className="foot-link underline set-check" disabled={updChecking} onClick={checkUpdates}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={updChecking ? "spin" : undefined}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" className={updChecking ? "icon spin" : "icon"}>
                       <path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" />
                     </svg>
                     {updChecking ? tr(lang, "checking") : tr(lang, "checkUpdates")}

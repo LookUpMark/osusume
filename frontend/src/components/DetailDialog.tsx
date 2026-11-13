@@ -100,7 +100,7 @@ export function DetailDialog(props: {
           {m.coverImage ? (
             <img src={m.coverImage} alt={tr(lang, "coverOf", { t: m.title })} />
           ) : (
-            <div className="cover-fallback" style={{ background: m.coverColor ?? "var(--surface-2)" }} aria-hidden="true">
+            <div className="cover-fallback" style={{ background: m.coverColor ?? "var(--surface-warm)" }} aria-hidden="true">
               {m.title[0] ?? "?"}
             </div>
           )}

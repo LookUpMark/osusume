@@ -12,7 +12,7 @@ export function AvoidList(props: { items: WhyNot[]; lang: Lang }) {
           {a.media.coverImage ? (
             <img src={a.media.coverImage} alt={tr(lang, "coverOf", { t: a.media.title })} loading="lazy" />
           ) : (
-            <span className="cover-fallback" style={{ background: a.media.coverColor ?? "var(--surface-2)" }} aria-hidden="true">
+            <span className="cover-fallback" style={{ background: a.media.coverColor ?? "var(--surface-warm)" }} aria-hidden="true">
               {a.media.title[0] ?? "?"}
             </span>
           )}
