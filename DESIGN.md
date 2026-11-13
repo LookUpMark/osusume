@@ -11,7 +11,7 @@ Storia: v1.4.x = "Verba" (warm minimal-editoriale Claude/Anthropic) · v1.5.x = 
 3. **Selezione = tinta accent.** `--selected-bg` è l'accent-tint del canone (`#fdecea` light / `#2a110b` dark) con testo `--selected-fg` accent-strong; hover resta neutro. È la firma del brand (sostituisce la "selezione neutra" del tema ZCode).
 4. **Superfici piatte, ombre leggerissime.** Card = fondo + bordo 1px, nessuna ombra; le ombre (molto leggere) sono riservate agli overlay (dropdown, dialog, toast). Niente gradienti dominanti, niente glassmorphism.
 5. **Inter self-hosted.** `@font-face` OFL in tokens.css (`public/fonts/`, 400/600/700, `font-display: swap`), fallback system-ui; mono per numeri tabulari e meta.
-6. **Un asse: light/dark.** `data-theme` su `<html>` (persistito in `osusume-theme`, default da `prefers-color-scheme`). Dark **progettato a parte** (carta calda `#131311`, coral `#ff6b4f`), non inversione. Niente asse design.
+6. **Un asse: light/dark.** `data-theme` su `<html>` (persistito in `osusume-theme`; **light di fabbrica** — la preferenza salvata vale sempre, il default non segue il sistema). Dark **progettato a parte** (carta calda `#131311`, coral `#ff6b4f`), non inversione. Niente asse design.
 
 ## Palette (light + dark, hex canonici)
 
@@ -22,10 +22,10 @@ Storia: v1.4.x = "Verba" (warm minimal-editoriale Claude/Anthropic) · v1.5.x = 
 | `--surface-warm` | `#ececec` | `#22221e` | bottoni secondary, tag, track barre, bubble assistant |
 | `--input-bg` / `--mark-bg` | `#ffffff` | `#1f1f1b` | campi input e tile marchio = raised |
 | `--fg` / `--fg-2` | `#000000` / `#3d3d3d` | `#f5f5f0` / `#c4c2b9` | testo primario / secondario (v. deviazione 1) |
-| `--muted` / `--meta` | `#8c8c8c` / `#8c8c8c99` | `#a3a3a3` / `#a3a3a380` | etichette, small, placeholder |
+| `--muted` / `--meta` | `#8c8c8c` / `#8c8c8c99` | `#a3a3a3` / `#a3a3a3d9` | etichette, small, placeholder |
 | `--border` / `--border-soft` / `--border-hover` | `#dbdbdb` / `#e8e8e8` / `#c6c6c6` | `#303030` / `#2a2a27` / `#3f3f38` | hairline canonica / alleggerita / rinforzata |
 | `--hover-bg` | `#0000000a` | `#ffffff0f` | hover neutro |
-| `--selected-bg` / `--selected-fg` | `#fdecea` / `#d43511` | `#2a110b` / `#ff6b4f` | selezione = tinta accent (canone) |
+| `--selected-bg` / `--selected-fg` | `#fdecea` / `#ad1f05` | `#2a110b` / `#ff6b4f` | selezione = tinta accent, testo accent-strong (AA) |
 | `--user-bubble` | `#0000000d` | `#ffffff14` | bolla utente (coda 2px in alto a destra) |
 | `--accent` / `--accent-on` | `#d43511` / `#ffffff` | `#ff6b4f` / `#14140f` | accent (uso parsimone) |
 | `--accent-hover` / `--accent-active` | `#e05b36` / `#ad1f05` | mix white 12% / black 8% | scala primaria 10-step |
